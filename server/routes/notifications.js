@@ -72,7 +72,7 @@ router.post('/read-all', authenticateToken, async (req, res) => {
 router.post('/register-device', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.id;
-        const { expoPushToken, fcmToken, deviceType, deviceName } = req.body;
+        const { expoPushToken, fcmToken, deviceType, deviceName, locale } = req.body;
 
         if (!expoPushToken && !fcmToken) {
             return res.status(400).json({ error: 'expoPushToken or fcmToken is required' });
@@ -82,7 +82,8 @@ router.post('/register-device', authenticateToken, async (req, res) => {
             userId,
             { expoPushToken, fcmToken },
             deviceType || 'web',
-            deviceName
+            deviceName,
+            locale
         );
 
         res.json({ success: true, device });

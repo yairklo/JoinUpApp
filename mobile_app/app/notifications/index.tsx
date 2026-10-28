@@ -217,7 +217,12 @@ export default function NotificationsScreen() {
                     headerRight: () => (
                         <View className="flex-row items-center">
                             {unreadCount > 0 ? (
-                                <TouchableOpacity onPress={markAllAsRead} className="mr-4">
+                                <TouchableOpacity
+                                    onPress={markAllAsRead}
+                                    className="me-4 min-h-[44px] justify-center"
+                                    hitSlop={8}
+                                    accessibilityRole="button"
+                                >
                                     <Text className="text-brand font-bold">{t('notifications.readAll')}</Text>
                                 </TouchableOpacity>
                             ) : null}

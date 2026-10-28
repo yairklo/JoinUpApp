@@ -1,4 +1,4 @@
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Switch, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, Switch, ActivityIndicator, Modal, Platform } from 'react-native';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
@@ -17,6 +17,7 @@ import CustomPointMarker from '@/components/map/CustomPointMarker';
 import { DEFAULT_MAP_REGION, MapBounds, MapCoordinate, MapMarkerItem, MapRegion, regionToBounds } from '@/components/map/types';
 import { getFieldSportTags } from '@/utils/mapSport';
 import * as Location from 'expo-location';
+import { regionFromCoordinate, resolveInitialMapRegion } from '@/utils/mapRegion';
 import SuggestFieldModal from '@/components/SuggestFieldModal';
 import FriendsOnlyLinkPolicyPicker from '@/components/FriendsOnlyLinkPolicyPicker';
 import type { FriendsOnlyLinkPolicy } from '@/types/game';
@@ -36,10 +37,6 @@ function filterFieldsInBounds(fields: Field[], bounds: MapBounds): Field[] {
             f.lng! >= bounds.minLng &&
             f.lng! <= bounds.maxLng
     );
-}
-
-function regionFromCoordinate(coordinate: MapCoordinate, delta = 0.1): MapRegion {
-    return { ...coordinate, latitudeDelta: delta, longitudeDelta: delta };
 }
 
 function getInitialGameTime() {
@@ -183,37 +180,108 @@ export default function NewGameScreen() {
 
     const handleMapBoundsChange = useCallback((bounds: MapBounds) => {
         if (!showMapModal) return;
+        // A bounds change well after opening that we didn't cause is the user panning/zooming:
+        // from then on a late GPS fix must not yank the map away.
+        const now = Date.now();
+        if (now - mapOpenedAtRef.current > 1500 && now - mapProgrammaticMoveAtRef.current > 1500) {
+            mapUserInteractedRef.current = true;
+        }
         fetchMapFields(bounds);
     }, [showMapModal, fetchMapFields]);
 
-    const openMapModal = async () => {
+    // Re-opening right after a dismissal (esp. iOS, mid slide-down) can be dropped by the native
+    // Modal; track the dismissal and run a queued open once it has finished.
+    const mapOpenRef = useRef(false);
+    const mapDismissingRef = useRef(false);
+    const pendingMapOpenRef = useRef(false);
+    const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const mapLocationSeqRef = useRef(0);
+    const mapUserInteractedRef = useRef(false);
+    const mapOpenedAtRef = useRef(0);
+    const mapProgrammaticMoveAtRef = useRef(0);
+    const openMapModalRef = useRef<() => void>(() => {});
+
+    const resolveUserLocationInBackground = useCallback(async (seq: number) => {
+        const stillWanted = () => seq === mapLocationSeqRef.current && mapOpenRef.current && !mapUserInteractedRef.current;
+        let animated = false;
+        const apply = (coords: MapCoordinate) => {
+            if (seq !== mapLocationSeqRef.current) return;
+            setUserLocation(coords);
+            // The map ref is null until the Modal content mounts: only count the move once it happened.
+            if (!animated && stillWanted() && mapRef.current) {
+                animated = true;
+                mapProgrammaticMoveAtRef.current = Date.now();
+                mapRef.current.animateToCoordinate(coords, 0.1);
+            }
+        };
+        try {
+            let perm = await Location.getForegroundPermissionsAsync();
+            if (perm.status === 'undetermined') perm = await Location.requestForegroundPermissionsAsync();
+            if (perm.status !== 'granted' || !stillWanted()) return;
+
+            const last = await Location.getLastKnownPositionAsync({ maxAge: 5 * 60_000 });
+            if (last) apply({ latitude: last.coords.latitude, longitude: last.coords.longitude });
+
+            const current = await Promise.race([
+                Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+                new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000)),
+            ]);
+            if (current) apply({ latitude: current.coords.latitude, longitude: current.coords.longitude });
+        } catch (error) {
+            console.warn('Location lookup failed', error);
+        }
+    }, []);
+
+    const openMapModal = useCallback(() => {
+        if (mapOpenRef.current) return;
+        if (mapDismissingRef.current) {
+            pendingMapOpenRef.current = true;
+            return;
+        }
+        mapOpenRef.current = true;
+        mapUserInteractedRef.current = false;
+        mapOpenedAtRef.current = Date.now();
         setMapSelectedField(selectedField);
 
-        let region: MapRegion = selectedField?.lat != null && selectedField?.lng != null
-            ? regionFromCoordinate({ latitude: selectedField.lat, longitude: selectedField.lng })
-            : userLocation
-                ? regionFromCoordinate(userLocation)
-                : DEFAULT_MAP_REGION;
-
-        try {
-            const { status } = await Location.requestForegroundPermissionsAsync();
-            if (status === 'granted') {
-                const location = await Location.getCurrentPositionAsync({});
-                const coords = {
-                    latitude: location.coords.latitude,
-                    longitude: location.coords.longitude,
-                };
-                setUserLocation(coords);
-                region = regionFromCoordinate(coords);
-            }
-        } catch (error) {
-            console.error('Location permission error', error);
-        }
-
+        const region = resolveInitialMapRegion(selectedField, userLocation, DEFAULT_MAP_REGION);
         setMapInitialRegion(region);
         seedMapFieldsForRegion(region, fields);
         setShowMapModal(true);
-    };
+
+        // The map is already up; refine the position in the background only when there is no chosen field.
+        if (selectedField?.lat == null || selectedField?.lng == null) {
+            mapLocationSeqRef.current += 1;
+            resolveUserLocationInBackground(mapLocationSeqRef.current);
+        }
+    }, [selectedField, userLocation, fields, seedMapFieldsForRegion, resolveUserLocationInBackground]);
+
+    openMapModalRef.current = openMapModal;
+
+    const finishMapDismiss = useCallback(() => {
+        if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+        dismissTimerRef.current = null;
+        mapDismissingRef.current = false;
+        if (pendingMapOpenRef.current) {
+            pendingMapOpenRef.current = false;
+            openMapModalRef.current(); // latest render's closure, not the one from when the map was closed
+        }
+    }, []);
+
+    const closeMapModal = useCallback(() => {
+        if (!mapOpenRef.current) return;
+        mapOpenRef.current = false;
+        mapLocationSeqRef.current += 1; // drop any in-flight location result
+        mapDismissingRef.current = true;
+        setShowMapModal(false);
+        // iOS reports the end of the slide-down via Modal onDismiss; the timer is the Android path
+        // and a safety net if onDismiss never fires.
+        if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+        dismissTimerRef.current = setTimeout(finishMapDismiss, Platform.OS === 'ios' ? 900 : 350);
+    }, [finishMapDismiss]);
+
+    useEffect(() => () => {
+        if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+    }, []);
 
     useEffect(() => {
         if (!showMapModal) {
@@ -223,6 +291,7 @@ export default function NewGameScreen() {
     }, [showMapModal]);
 
     const handleSelectMapField = useCallback((field: Field) => {
+        mapUserInteractedRef.current = true;
         setMapSelectedField(field);
         setCustomPoint(null);
         setCustomFieldName('');
@@ -261,6 +330,7 @@ export default function NewGameScreen() {
     }, [mapSelectedField?.id, handleSelectMapField]);
 
     const handleMapPress = useCallback((coordinate: MapCoordinate) => {
+        mapUserInteractedRef.current = true;
         setCustomPoint(coordinate);
         setMapSelectedField(null);
     }, []);
@@ -296,14 +366,14 @@ export default function NewGameScreen() {
         setCustomPoint(null);
         setCustomFieldName('');
         if (mapSelectedField.city) setSelectedCity(mapSelectedField.city);
-        setShowMapModal(false);
-    }, [mapSelectedField]);
+        closeMapModal();
+    }, [mapSelectedField, closeMapModal]);
 
     const confirmCustomMapPoint = useCallback(() => {
         setSelectedField(null);
         setMapSelectedField(null);
-        setShowMapModal(false);
-    }, []);
+        closeMapModal();
+    }, [closeMapModal]);
 
     const mapBottomSheet = useMemo(() => {
         if (mapSelectedField) {
@@ -973,11 +1043,11 @@ export default function NewGameScreen() {
 
             </ScrollView>
 
-            <Modal visible={showMapModal} animationType="slide" onRequestClose={() => setShowMapModal(false)}>
+            <Modal visible={showMapModal} animationType="slide" onRequestClose={closeMapModal} onDismiss={finishMapDismiss}>
                 <View className="flex-1 bg-white">
                     <View className="flex-row justify-between items-center p-4 border-b border-gray-200 pt-10">
                         <Text className="text-lg font-bold">{t('newGame.selectLocationModalTitle', 'בחר מיקום')}</Text>
-                        <TouchableOpacity onPress={() => setShowMapModal(false)}>
+                        <TouchableOpacity onPress={closeMapModal} hitSlop={8}>
                             <Text className="text-brand font-bold">{t('newGame.close', 'סגור')}</Text>
                         </TouchableOpacity>
                     </View>

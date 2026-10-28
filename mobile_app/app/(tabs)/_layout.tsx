@@ -8,7 +8,7 @@ import { useMyAvatar } from '@/hooks/useMyAvatar';
 import { useNotificationCounters } from '@/context/NotificationCountersContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorMode } from '@/theme/ColorModeContext';
-import SafeImage from '@/components/SafeImage';
+import HeaderAvatarMenu from '@/components/HeaderAvatarMenu';
 import BrandLogo from '@/components/BrandLogo';
 
 const BRAND = '#059669';
@@ -65,15 +65,7 @@ export default function TabLayout() {
           <Ionicons name="notifications-outline" size={16} color={isDark ? '#f1f5f9' : '#0f172a'} />
         </TouchableOpacity>
       </Link>
-      <Link href="/user/profile" asChild>
-        <TouchableOpacity testID="header-profile" className="w-8 h-8 bg-brand-mist dark:bg-cyber-card rounded-xl items-center justify-center border border-brand-pale dark:border-cyber-border overflow-hidden">
-          {hasAvatar ? (
-            <SafeImage source={{ uri: avatarUrl }} style={{ width: '100%', height: '100%' }} />
-          ) : (
-            <Ionicons name="person-outline" size={16} color={isDark ? '#f1f5f9' : '#0f172a'} />
-          )}
-        </TouchableOpacity>
-      </Link>
+      <HeaderAvatarMenu avatarUrl={avatarUrl} hasAvatar={hasAvatar} isDark={isDark} />
     </View>
   ), [toggleColorMode, avatarUrl, hasAvatar, isDark]);
 

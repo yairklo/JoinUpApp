@@ -3,6 +3,7 @@
 // stale one after a leader hand-over) a no-op anyway.
 const { filterViewableUserIds } = require('../utils/tournamentGate');
 const { formatJerusalemTime } = require('../shared/timezone');
+const notifCopy = require('../utils/notificationCopy');
 
 const LEAD_MS = 60 * 60 * 1000;
 const SENTINEL = 'reminderSentAt';
@@ -54,12 +55,18 @@ async function runReminderSweep({ prisma, notificationService, io = null, now = 
     // out if the switch opens before kickoff (claiming first would lose it for good).
     if (members.length && !userIds.length) continue;
     if (!(await claimReminder(prisma, m.id, now))) continue;
+    const c = notifCopy.tournamentStartingSoon({
+      homeName: m.homeTeam.name,
+      awayName: m.awayTeam.name,
+      time: formatJerusalemTime(m.scheduledAt),
+      tournamentTitle: m.tournament.title,
+    });
     await notificationService.sendNotificationToMany(
       userIds,
       'TOURNAMENT_STARTING_SOON',
-      'המשחק בטורניר מתחיל בקרוב',
-      `${m.homeTeam.name} נגד ${m.awayTeam.name} מתחיל ב-${formatJerusalemTime(m.scheduledAt)} (${m.tournament.title})`,
-      { tournamentId: m.tournament.id, matchId: m.id, link: `/tournaments/${m.tournament.id}`, type: 'TOURNAMENT_STARTING_SOON' },
+      c.title,
+      c.body,
+      { tournamentId: m.tournament.id, matchId: m.id, link: `/tournaments/${m.tournament.id}`, type: 'TOURNAMENT_STARTING_SOON', ...notifCopy.enData(c) },
       io,
     );
     reminded += 1;

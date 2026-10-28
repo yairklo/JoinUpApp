@@ -14,7 +14,8 @@ const {
   isConfirmedParticipant,
 } = require('../utils/ratings');
 const { safeUpsertUserFromAuth } = require('../utils/userSync');
-const { notifyUserAddedToGame, notifyUserRemovedFromGame, formatGameWhen, resolveLocation } = require('../utils/addedToGameNotification');
+const { notifyUserAddedToGame, notifyUserRemovedFromGame } = require('../utils/addedToGameNotification');
+const notifCopy = require('../utils/notificationCopy');
 const { sanitizeFreeText } = require('../utils/sanitize');
 const { prismaFieldCityFilter } = require('../utils/cityAliases');
 const { cityMatchKeys } = require('../utils/notificationPrefs');
@@ -527,12 +528,13 @@ async function offerSpotToNextWaitlistUser(gameId, io) {
     });
 
     try {
+      const c = notifCopy.gameWaitlistOffer();
       notificationService.sendNotification(
         firstWaitlist.userId,
         'GAME_WAITLIST_OFFER',
-        'התפנה מקום במשחק!',
-        'התפנה מקום במשחק! לחץ כאן כדי לאשר את הצטרפותך',
-        { gameId, userId: firstWaitlist.userId, link: `/game/${gameId}` },
+        c.title,
+        c.body,
+        { gameId, userId: firstWaitlist.userId, link: `/game/${gameId}`, ...notifCopy.enData(c) },
         io
       ).catch(err => console.error('[NOTIFICATIONS] Failed to send waitlist offer notification', gameId, err));
     } catch (err) {
@@ -549,14 +551,17 @@ async function offerSpotToNextWaitlistUser(gameId, io) {
 
 function notifyOrganizerOfInstantJoin(game, joiningUser, io) {
   if (game.organizerId === joiningUser.id) return;
-  notificationName(prisma, joiningUser, 'משתמש').then((name) => notificationService.sendNotification(
-    game.organizerId,
-    'GAME_JOIN_REQUEST',
-    'מישהו הצטרף למשחק שלך',
-    `${name} הצטרף/ה למשחק שלך`,
-    { gameId: game.id, userId: joiningUser.id, actorId: joiningUser.id, link: `/game/${game.id}` },
-    io
-  )).catch(err => console.error('[NOTIFICATIONS] Failed to notify organizer of join', game.id, err));
+  notificationName(prisma, joiningUser, null).then((name) => {
+    const c = notifCopy.gameJoinedOrganizer({ name });
+    return notificationService.sendNotification(
+      game.organizerId,
+      'GAME_JOIN_REQUEST',
+      c.title,
+      c.body,
+      { gameId: game.id, userId: joiningUser.id, actorId: joiningUser.id, link: `/game/${game.id}`, ...notifCopy.enData(c) },
+      io
+    );
+  }).catch(err => console.error('[NOTIFICATIONS] Failed to notify organizer of join', game.id, err));
   notifyFriendsOfJoin(game, joiningUser, io)
     .catch(err => console.error('[NOTIFICATIONS] Failed to notify friends of join', game.id, err));
 }
@@ -568,11 +573,6 @@ function getFriendIds(userId) {
 /** Visible to non-friends of the organizer right now (mirrors buildVisibilityWhere). */
 function isPubliclyVisible(game) {
   return !game.isFriendsOnly || (!!game.friendsOnlyUntil && new Date(game.friendsOnlyUntil) <= new Date());
-}
-
-function describeGameForNotification(game) {
-  const when = formatGameWhen(game.start, 'he-IL');
-  return [resolveLocation(game), [when.date, when.time].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
 }
 
 /**
@@ -608,13 +608,14 @@ async function notifyFriendsOfJoin(game, joiningUser, io) {
   if (friendIds.length === 0) return;
 
   const full = game.field ? game : await prisma.game.findUnique({ where: { id: game.id }, include: { field: true } });
-  const name = await notificationName(prisma, joiningUser, 'חבר/ה');
+  const name = await notificationName(prisma, joiningUser, null);
+  const c = notifCopy.friendJoinedGame({ name, game: full || game });
   await notificationService.sendNotificationToMany(
     friendIds,
     'FRIEND_JOINED_GAME',
-    `${name} הצטרף/ה למשחק`,
-    describeGameForNotification(full || game) || (game.title || 'משחק'),
-    { gameId: game.id, actorId: joiningUser.id, sport: game.sport, link: `/game/${game.id}` },
+    c.title,
+    c.body,
+    { gameId: game.id, actorId: joiningUser.id, sport: game.sport, link: `/game/${game.id}`, ...notifCopy.enData(c) },
     io
   );
 }
@@ -663,17 +664,17 @@ async function notifyNetworkOfNewGame(game, creatorUser, io, { excludeIds = [], 
     notificationName(prisma, creatorUser, null),
   ]);
   const exclude = new Set([creatorUser.id, ...excludeIds]);
-  const details = describeGameForNotification(game);
   const baseData = { gameId: game.id, actorId: creatorUser.id, sport: game.sport, link: `/game/${game.id}` };
 
   const friendRecipients = friendIds.filter(id => !exclude.has(id));
   if (friendRecipients.length) {
+    const c = notifCopy.friendNewGame({ name: resolvedName, game });
     await notificationService.sendNotificationToMany(
       friendRecipients,
       'FRIEND_NEW_GAME',
-      `${resolvedName || 'חבר/ה'} פתח/ה משחק חדש`,
-      details || (game.title || 'משחק חדש'),
-      baseData,
+      c.title,
+      c.body,
+      { ...baseData, ...notifCopy.enData(c) },
       io
     );
   }
@@ -683,37 +684,44 @@ async function notifyNetworkOfNewGame(game, creatorUser, io, { excludeIds = [], 
   if (!includeCity || !game.field?.city || !isPubliclyVisible(game)) return;
   const cityRecipients = await findCityGameRecipients(game, [...exclude, ...friendIds]);
   if (cityRecipients.length) {
+    const c = notifCopy.newGameInCity({ name: resolvedName, game });
     await notificationService.sendNotificationToMany(
       cityRecipients,
       'NEW_GAME_IN_CITY',
-      `משחק חדש ב${game.field.city}`,
-      `${resolvedName || 'מישהו'} פתח/ה משחק חדש ב${game.field.name || 'מגרש חדש'}`,
-      { ...baseData, city: game.field.city },
+      c.title,
+      c.body,
+      { ...baseData, city: game.field.city, ...notifCopy.enData(c) },
       io
     );
   }
 }
 function notifyOrganizerOfPendingRequest(game, requestingUser, io) {
-  notificationName(prisma, requestingUser, 'משתמש').then((name) => notificationService.sendNotification(
-    game.organizerId,
-    'GAME_JOIN_REQUEST',
-    'בקשת הצטרפות חדשה',
-    `${name} ביקש/ה להצטרף למשחק שלך וממתין/ה לאישורך`,
-    { gameId: game.id, userId: requestingUser.id, actorId: requestingUser.id, link: `/game/${game.id}` },
-    io
-  )).catch(err => console.error('[NOTIFICATIONS] Failed to notify organizer of pending request', game.id, err));
+  notificationName(prisma, requestingUser, null).then((name) => {
+    const c = notifCopy.gameJoinRequestOrganizer({ name });
+    return notificationService.sendNotification(
+      game.organizerId,
+      'GAME_JOIN_REQUEST',
+      c.title,
+      c.body,
+      { gameId: game.id, userId: requestingUser.id, actorId: requestingUser.id, link: `/game/${game.id}`, ...notifCopy.enData(c) },
+      io
+    );
+  }).catch(err => console.error('[NOTIFICATIONS] Failed to notify organizer of pending request', game.id, err));
 }
 
 function notifyOrganizerOfWaitlistJoin(game, joiningUser, io) {
   if (game.organizerId === joiningUser.id) return;
-  notificationName(prisma, joiningUser, 'משתמש').then((name) => notificationService.sendNotification(
-    game.organizerId,
-    'GAME_JOIN_REQUEST',
-    'מישהו נוסף לרשימת ההמתנה',
-    `${name} הצטרף/ה לרשימת ההמתנה של המשחק שלך`,
-    { gameId: game.id, userId: joiningUser.id, actorId: joiningUser.id, link: `/game/${game.id}`, waitlisted: true },
-    io
-  )).catch(err => console.error('[NOTIFICATIONS] Failed to notify organizer of waitlist join', game.id, err));
+  notificationName(prisma, joiningUser, null).then((name) => {
+    const c = notifCopy.gameWaitlistJoinOrganizer({ name });
+    return notificationService.sendNotification(
+      game.organizerId,
+      'GAME_JOIN_REQUEST',
+      c.title,
+      c.body,
+      { gameId: game.id, userId: joiningUser.id, actorId: joiningUser.id, link: `/game/${game.id}`, waitlisted: true, ...notifCopy.enData(c) },
+      io
+    );
+  }).catch(err => console.error('[NOTIFICATIONS] Failed to notify organizer of waitlist join', game.id, err));
 }
 
 async function broadcastGameUpdate(io, gameId, preFetchedGame) {
@@ -754,18 +762,13 @@ async function broadcastGameUpdate(io, gameId, preFetchedGame) {
 }
 
 function notifyRequesterOfDecision(game, requesterId, approved, io, { enteredLottery = false } = {}) {
-  let body = 'בקשתך להצטרף למשחק נדחתה על ידי המארגן';
-  if (approved) {
-    body = enteredLottery
-      ? 'בקשתך אושרה ונרשמת להגרלה על המקומות במשחק'
-      : 'בקשתך להצטרף למשחק אושרה על ידי המארגן';
-  }
+  const c = notifCopy.gameJoinDecision({ approved, enteredLottery });
   notificationService.sendNotification(
     requesterId,
     approved ? 'GAME_JOIN_APPROVED' : 'GAME_JOIN_REJECTED',
-    approved ? 'הבקשה שלך אושרה' : 'הבקשה שלך נדחתה',
-    body,
-    { gameId: game.id, link: `/game/${game.id}` },
+    c.title,
+    c.body,
+    { gameId: game.id, link: `/game/${game.id}`, ...notifCopy.enData(c) },
     io
   ).catch(err => console.error('[NOTIFICATIONS] Failed to notify requester of decision', game.id, err));
 }
@@ -1232,15 +1235,13 @@ async function createGame(payload, creatorUser, io) {
 
     // Notify series subscribers that a new game has been created
     if (firstGame && subscriberIds && subscriberIds.length) {
-      const regText = firstGame.registrationOpensAt
-        ? `ההרשמה תיפתח ב-${new Date(firstGame.registrationOpensAt).toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}`
-        : 'ההרשמה פתוחה כעת';
+      const c = notifCopy.newSeriesGame({ game: firstGame });
       notificationService.sendNotificationToMany(
         subscriberIds.filter(id => id !== creatorUser.id),
         'NEW_SERIES_GAME',
-        `משחק חדש לקבוצה שלך נוצר!`,
-        `${firstGame.title || 'משחק'} נוצר עבור הקבוצה שלך. ${regText}. לחץ כאן כדי להירשם!`,
-        { gameId: firstGame.id, seriesId: firstGame.seriesId || series?.id, actorId: creatorUser.id, link: `/game/${firstGame.id}` },
+        c.title,
+        c.body,
+        { gameId: firstGame.id, seriesId: firstGame.seriesId || series?.id, actorId: creatorUser.id, link: `/game/${firstGame.id}`, ...notifCopy.enData(c) },
         io
       ).catch(err => console.error('[NOTIFICATIONS] Failed to notify series subscribers', firstGame.id, err));
     }
@@ -1688,15 +1689,13 @@ async function convertGameToSeries(gameId, copyParticipants, creatorUserId, isAd
   if (subscriberIds && subscriberIds.length) {
     const recipients = subscriberIds.filter(id => id !== creatorUserId);
     for (const g of createdGames) {
-      const regText = g.registrationOpensAt
-        ? `ההרשמה תיפתח ב-${new Date(g.registrationOpensAt).toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}`
-        : 'ההרשמה פתוחה כעת';
+      const c = notifCopy.newSeriesGame({ game: g });
       notificationService.sendNotificationToMany(
         recipients,
         'NEW_SERIES_GAME',
-        `משחק חדש לקבוצה שלך נוצר!`,
-        `${g.title || 'משחק'} נוצר עבור הקבוצה שלך. ${regText}. לחץ כאן כדי להירשם!`,
-        { gameId: g.id, seriesId: series.id, actorId: creatorUserId, link: `/game/${g.id}` },
+        c.title,
+        c.body,
+        { gameId: g.id, seriesId: series.id, actorId: creatorUserId, link: `/game/${g.id}`, ...notifCopy.enData(c) },
         io
       ).catch(err => console.error('[NOTIFICATIONS] Failed to notify series subscribers', g.id, err));
     }
@@ -2065,6 +2064,7 @@ async function cancelGame(gameId, userId, isAdmin, io) {
   gameScheduler.resyncGame(updated);
 
   const when = `${formatJerusalemDate(updated.start).split('-').reverse().join('/')} ${formatJerusalemTime(updated.start)}`;
+  const cancelCopy = notifCopy.gameCancelled({ gameTitle: updated.title, when });
   const notified = new Set();
   for (const p of game.participants || []) {
     if (p.userId === userId || notified.has(p.userId)) continue;
@@ -2073,9 +2073,9 @@ async function cancelGame(gameId, userId, isAdmin, io) {
     notificationService.sendNotification(
       p.userId,
       'GAME_CANCELLED',
-      'המשחק בוטל',
-      `${updated.title || 'המשחק'} (${when}) בוטל על ידי המארגן`,
-      { gameId, actorId: userId, link: `/game/${gameId}` },
+      cancelCopy.title,
+      cancelCopy.body,
+      { gameId, actorId: userId, link: `/game/${gameId}`, ...notifCopy.enData(cancelCopy) },
       io
     ).catch((err) => console.error('[NOTIFICATION] Failed to send game cancelled notification:', err));
   }

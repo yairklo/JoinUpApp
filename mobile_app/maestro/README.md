@@ -28,7 +28,7 @@ Reports: `maestro/.reports/` (JUnit + debug output). CI: `.github/workflows/mobi
 
 ## testID registry
 * Auth: `sign-in-email|password|submit|to-sign-up`, `sign-up-email|password|terms-checkbox|terms-box|submit|code|verify`, `age-gate-birthdate|terms-checkbox|terms-checkbox-box|continue`
-* Nav: `tab-fields|search|home|chats|friends`, `header-profile`, `profile-sign-out`, `home-date-<i>` (0 = today)
+* Nav: `tab-fields|search|home|chats|friends`, `header-profile` (opens the avatar menu), `header-menu-profile|settings`, `profile-sign-out`, `home-date-<i>` (0 = today)
 * Games: `home-create-game`, `new-game-title|date|time|field-<i>|submit`, `game-card-<id>`, `game-join-button`, `game-open-chat`
 * Chat: `chat-input`, `chat-send`, `chat-message-ok` (outgoing bubble after the server ack)
 

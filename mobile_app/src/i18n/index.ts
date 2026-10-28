@@ -136,6 +136,9 @@ export const initI18n = async () => {
 export const changeLanguage = async (lang: 'en' | 'he') => {
   if (switching) return;
   await safeSetLang(lang);
+  // Tell the server which language this device's pushes should use. Lazy import avoids an
+  // i18n <-> api client cycle; bounded by its own timeout, so it never delays the switch/reload.
+  const pushSync = import('@/services/pushLocale').then((m) => m.syncPushLocale(lang, 1200)).catch(() => {});
 
   const isRTL = lang === 'he';
   if (I18nManager.isRTL === isRTL) {
@@ -147,6 +150,7 @@ export const changeLanguage = async (lang: 'en' | 'he') => {
   I18nManager.forceRTL(isRTL);
   // Keep the old text until the reload so we never render new text with the old direction.
   setSwitching(true);
+  await pushSync; // already time-boxed; give the request a chance to leave before the reload
   if (await reloadApp()) return;
 
   // Reload unavailable (e.g. updates disabled): apply text now, direction on next launch.
