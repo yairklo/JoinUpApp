@@ -74,6 +74,20 @@ describe('redactNotificationFields', () => {
     expect(out.body).not.toMatch(/@/);
   });
 
+  test('uses Someone (not משתמש) in the English fields when the actor has no public name', async () => {
+    const prisma = { user: { findUnique: jest.fn(async () => ({ name: null })) } };
+    const out = await redactNotificationFields(
+      prisma,
+      'בקשת הצטרפות חדשה',
+      'qa@mailinator.com ביקש/ה להצטרף למשחק שלך',
+      { actorId: 'user_1', titleEn: 'New join request', bodyEn: 'qa@mailinator.com asked to join your game' },
+    );
+    expect(out.body.startsWith('משתמש ')).toBe(true);
+    expect(out.data.bodyEn).toBe('Someone asked to join your game');
+    expect(out.data.bodyEn).not.toMatch(/[֐-׿]/);
+    expect(out.data.titleEn).toBe('New join request');
+  });
+
   test('does not query when nothing looks like an email', async () => {
     const prisma = { user: { findUnique: jest.fn() } };
     const out = await redactNotificationFields(prisma, 'מישהו הצטרף', 'נועה הצטרף/ה למשחק שלך', { actorId: 'user_1' });

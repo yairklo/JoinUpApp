@@ -84,11 +84,14 @@ async function redactNotificationFields(prisma, title, body, data = {}) {
   const actor = {
     id: next.actorId || next.requesterId || next.adderId || next.senderId || null,
   };
-  const name = await notificationName(prisma, actor.id ? actor : null, 'משתמש');
+  const resolved = await notificationName(prisma, actor.id ? actor : null, null);
+  const name = resolved || 'משתמש';
+  // The English copy must not get the Hebrew fallback word.
+  const nameEn = resolved || 'Someone';
   const scrubbed = {};
   for (const [key, value] of Object.entries(next)) {
     if (key === 'email') continue;
-    scrubbed[key] = replaceEmails(value, name);
+    scrubbed[key] = replaceEmails(value, key === 'titleEn' || key === 'bodyEn' ? nameEn : name);
   }
   return {
     title: replaceEmails(title, name),
