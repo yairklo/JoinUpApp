@@ -1,3 +1,4 @@
 {
-  "git": { "deploymentEnabled": { "*": false, "main": true, "Dev": true } }
+  "git": { "deploymentEnabled": { "*": false, "main": true, "Dev": true } },
+  "ignoreCommand": "sh scripts/vercel-ignore.sh"
 }

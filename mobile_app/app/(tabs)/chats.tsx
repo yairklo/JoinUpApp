@@ -28,21 +28,23 @@ const ChatAvatar = ({ uri }: { uri: string }) => {
 };
 
 // Time-of-day for today's messages, short date otherwise (presentation of the same timestamp)
-const formatChatTime = (createdAt: string | number | Date) => {
+const formatChatTime = (createdAt: string | number | Date, language?: string) => {
+    const locale = language?.startsWith('en') ? 'en-GB' : 'he-IL';
     const d = new Date(createdAt);
     const now = new Date();
     return d.toDateString() === now.toDateString()
-        ? d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
-        : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        ? d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+        : d.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
 };
 
 // Extracted + memoized chat item — only re-renders when its own data changes
-const ChatItem = React.memo(({ item, userId, isTyping, youLabel, noMessagesLabel, onPress }: {
+const ChatItem = React.memo(({ item, userId, isTyping, youLabel, noMessagesLabel, language, onPress }: {
     item: ChatPreview;
     userId?: string;
     isTyping?: string;
     youLabel: string;
     noMessagesLabel: string;
+    language?: string;
     onPress: () => void;
 }) => (
     <TouchableOpacity
@@ -62,7 +64,7 @@ const ChatItem = React.memo(({ item, userId, isTyping, youLabel, noMessagesLabel
                 </Text>
                 {item.lastMessage && (
                     <Text className={`ms-2 text-xs ${item.unreadCount > 0 ? 'text-brand font-semibold' : 'text-gray-400'}`}>
-                        {formatChatTime(item.lastMessage.createdAt)}
+                        {formatChatTime(item.lastMessage.createdAt, language)}
                     </Text>
                 )}
             </View>
@@ -95,7 +97,7 @@ const ChatItem = React.memo(({ item, userId, isTyping, youLabel, noMessagesLabel
 );
 
 export default function ChatsScreen() {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { user, isLoaded } = useUser();
     const router = useRouter();
 
@@ -140,6 +142,7 @@ export default function ChatsScreen() {
             userId={user?.id}
             isTyping={typingStatus?.[item.id]}
             youLabel={youLabel}
+            language={i18n.language}
             noMessagesLabel={noMessagesLabel}
             onPress={() => {
                 // Same route as Game Details: chat room id === game id for group/game chats
@@ -152,7 +155,7 @@ export default function ChatsScreen() {
                 });
             }}
         />
-    ), [user?.id, typingStatus, youLabel, noMessagesLabel, router]);
+    ), [user?.id, typingStatus, youLabel, noMessagesLabel, i18n.language, router]);
 
     // KEY FIX: extraData must change whenever chats reorder, get new messages, or typing changes.
     // Without this, FlatList sees the same array reference and skips re-rendering rows.
