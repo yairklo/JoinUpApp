@@ -10,6 +10,19 @@ function formatGameWhen(start, locale) {
   const d = start instanceof Date ? start : new Date(start);
   if (Number.isNaN(d.getTime())) return { date: '', time: '' };
 
+  if (String(locale || '').toLowerCase().startsWith('en')) {
+    // Unambiguous day-first text ("Thu, 5 Nov"): numeric dates read as US-style to Israelis ("11/05" = 11 May).
+    const parts = Object.fromEntries(
+      new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Jerusalem', weekday: 'short', day: 'numeric', month: 'short',
+      }).formatToParts(d).map((p) => [p.type, p.value]),
+    );
+    const time = d.toLocaleTimeString('en-GB', {
+      timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    });
+    return { date: `${parts.weekday}, ${parts.day} ${parts.month}`, time };
+  }
+
   const date = d.toLocaleDateString(locale, {
     timeZone: 'Asia/Jerusalem',
     day: '2-digit',

@@ -86,9 +86,18 @@ describe('notification copy builders', () => {
   test('English dates are day-first and midnight renders as 00:xx, not 24:xx', () => {
     const g = { start: '2026-11-05T22:05:00.000Z', field: { name: 'Park' } }; // 00:05 on 6 Nov in Israel
     const en = copy.describeGame(g, 'en-GB');
-    expect(en).toContain('06/11/2026');
+    expect(en).toContain('Fri, 6 Nov');
     expect(en).toContain('00:05');
     expect(en).not.toContain('24:');
+  });
+
+  test('English dates are unambiguous day-first text in Jerusalem time', () => {
+    // 5 Nov 2026 16:00Z = 18:00 in Israel (UTC+2 in November); US-style would print 11/05/2026.
+    const en = copy.formatGameWhen('2026-11-05T16:00:00.000Z', 'en-GB');
+    expect(en).toEqual({ date: 'Thu, 5 Nov', time: '18:00' });
+    expect(copy.formatGameWhen('2026-11-05T16:00:00.000Z', 'en-US')).toEqual(en);
+    expect(copy.formatGameWhen('2026-11-05T16:00:00.000Z', 'he-IL').date).toMatch(/05[./]11[./]2026/);
+    expect(copy.formatGameWhen('not a date', 'en-GB')).toEqual({ date: '', time: '' });
   });
 
   test('English copy carrying an email is redacted together with the Hebrew copy', async () => {
