@@ -86,7 +86,7 @@ export default function MySeriesRail() {
                     );
                 })}
                 <TouchableOpacity
-                    onPress={() => router.push('/game/new')}
+                    onPress={() => router.push('/game/new?mode=group')}
                     accessibilityRole="button"
                     accessibilityLabel={t('series.createGroup', 'צור קבוצה')}
                     className="items-center"

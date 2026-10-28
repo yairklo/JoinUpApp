@@ -51,7 +51,7 @@ export default function NewGameScreen() {
     const { getToken } = useAuth();
     const { user } = useUser();
     const router = useRouter();
-    const params = useLocalSearchParams<{ fieldId?: string; seriesId?: string }>();
+    const params = useLocalSearchParams<{ fieldId?: string; seriesId?: string; mode?: string }>();
     const prefilledFieldId = params.fieldId;
     const prefilledSeriesId = params.seriesId;
     const insets = useSafeAreaInsets();
@@ -70,7 +70,7 @@ export default function NewGameScreen() {
     // Form State
     const [sport, setSport] = useState('SOCCER');
     // 'group' = create the first game, then land on it with the existing create-group sheet open.
-    const [createMode, setCreateMode] = useState<'single' | 'group'>('single');
+    const [createMode, setCreateMode] = useState<'single' | 'group'>(params.mode === 'group' ? 'group' : 'single');
     const [title, setTitle] = useState('');
     const [duration, setDuration] = useState('1');
     const [teamSize, setTeamSize] = useState('');
