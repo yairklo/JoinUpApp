@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { getInstallationId } from '@/services/installationId';
 import { notificationsApi } from '@/services/api/notifications';
 
 /**
@@ -27,7 +28,7 @@ export async function syncPushLocale(lang: string, timeoutMs = 2500): Promise<vo
     const run = (async () => {
       const token = await current.getToken();
       if (!token) return;
-      await notificationsApi.registerDevice(current.expoPushToken, Platform.OS, token, pushLocaleFor(lang));
+      await notificationsApi.registerDevice(current.expoPushToken, Platform.OS, token, pushLocaleFor(lang), await getInstallationId());
     })();
     await Promise.race([run, new Promise<void>((resolve) => setTimeout(resolve, timeoutMs))]);
   } catch {

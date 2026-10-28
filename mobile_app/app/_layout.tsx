@@ -22,13 +22,14 @@ import { ThemeProvider, DarkTheme, DefaultTheme } from "@react-navigation/native
 import { ClerkProvider, ClerkLoaded, useAuth, getClerkInstance } from "@clerk/clerk-expo";
 import { tokenStorage } from "@/services/api/client.adapter";
 import { ChatProvider } from "@/context/ChatContext";
-import { NotificationProvider } from "@/context/NotificationContext";
+import { NotificationProvider, useNotifications } from "@/context/NotificationContext";
 import { NotificationCountersProvider } from "@/context/NotificationCountersContext";
 import { GameUpdateProvider } from "@/context/GameUpdateContext";
 import { I18nextProvider, useTranslation } from 'react-i18next';
 import i18n, { initI18n, isLanguageSwitching, subscribeLanguageSwitching } from "@/i18n";
 import { SocketManager } from "@/services/socketManager";
 import AgeGate from "@/components/AgeGate";
+import { usePushNavigation } from "@/hooks/usePushNavigation";
 import { ColorModeProvider, useColorMode } from "@/theme/ColorModeContext";
 import "../global.css"; // NativeWind
 
@@ -141,6 +142,7 @@ function RootLayoutInner() {
                           system theme, so a phone in dark mode drew white icons over the light app. */}
                       <StatusBar style={colorMode === 'dark' ? 'light' : 'dark'} />
                       <Stack screenOptions={{ headerShown: false }} />
+                      <PushNavigationHandler />
                       <AgeGate />
                       {switchingLang && (
                         <View
@@ -160,6 +162,13 @@ function RootLayoutInner() {
       </ClerkProvider>
     </I18nextProvider>
   );
+}
+
+/** Mounted after the navigator so taps on push notifications can navigate (incl. cold start). */
+function PushNavigationHandler() {
+  const { refreshNotifications } = useNotifications();
+  usePushNavigation(refreshNotifications);
+  return null;
 }
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
