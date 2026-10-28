@@ -5,6 +5,7 @@ import { TouchableOpacity, Text, View } from 'react-native';
 import i18n, { changeLanguage } from '@/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { useMyAvatar } from '@/hooks/useMyAvatar';
+import { useNotifications } from '@/context/NotificationContext';
 import { useNotificationCounters } from '@/context/NotificationCountersContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorMode } from '@/theme/ColorModeContext';
@@ -40,6 +41,7 @@ export default function TabLayout() {
   const { colorMode, toggleColorMode } = useColorMode();
   const { imageUrl: avatarUrl, hasImage: hasAvatar } = useMyAvatar();
   const { friendRequests, unreadMessages } = useNotificationCounters();
+  const { unreadCount: unreadNotifications } = useNotifications();
   const insets = useSafeAreaInsets();
   const isDark = colorMode === 'dark';
 
@@ -65,11 +67,20 @@ export default function TabLayout() {
       <Link href="/notifications" asChild>
         <TouchableOpacity hitSlop={6} className="w-8 h-8 bg-brand-mist dark:bg-cyber-card rounded-xl items-center justify-center border border-brand-pale dark:border-cyber-border">
           <Ionicons name="notifications-outline" size={16} color={isDark ? '#f1f5f9' : '#0f172a'} />
+          {unreadNotifications > 0 && (
+            <View
+              testID="header-notifications-badge"
+              accessibilityLabel={t('notifications.unreadBadge', 'התראות שלא נקראו')}
+              className="absolute -top-1.5 -end-1.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 items-center justify-center border border-white dark:border-cyber-bg"
+            >
+              <Text className="text-white text-[9px] font-bold">{unreadNotifications > 9 ? '9+' : unreadNotifications}</Text>
+            </View>
+          )}
         </TouchableOpacity>
       </Link>
       <HeaderAvatarMenu avatarUrl={avatarUrl} hasAvatar={hasAvatar} isDark={isDark} />
     </View>
-  ), [toggleColorMode, avatarUrl, hasAvatar, isDark]);
+  ), [toggleColorMode, avatarUrl, hasAvatar, isDark, unreadNotifications, t]);
 
   return (
     <Tabs

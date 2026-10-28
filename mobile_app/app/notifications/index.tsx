@@ -17,6 +17,7 @@ import {
     QUICK_OFF_EXCLUDED_CATEGORIES,
 } from '@joinup/shared/notificationPrefs';
 import { appAlert } from '@/i18n/appAlert';
+import { resolveNotificationRoute } from '@/utils/notificationRoute';
 
 export default function NotificationsScreen() {
     const router = useRouter();
@@ -119,28 +120,7 @@ export default function NotificationsScreen() {
             markAsRead(notification.id);
         }
 
-        const chatId = notification.data?.chatId;
-        const gameId = notification.data?.gameId;
-        const link = notification.data?.link;
-
-        let target: string | undefined;
-        if (chatId) {
-            target = `/chat/${chatId}`;
-        } else if (gameId) {
-            target = `/game/${gameId}`;
-        } else if (notification.type === 'FRIEND_REQUEST') {
-            target = '/friends';
-        } else if (notification.type === 'FRIEND_ACCEPTED' && notification.data?.userId) {
-            target = `/user/${notification.data.userId}`;
-        } else if (link) {
-            // Older notifications stored /profile/:id, which has no route in the app (it is /user/:id).
-            const legacyProfile = link.match(/^\/profile\/([^/?#]+)$/);
-            target = legacyProfile && legacyProfile[1] !== 'settings'
-                ? `/user/${legacyProfile[1]}`
-                : link.startsWith('/game/') || link.startsWith('/chat/')
-                    ? link
-                    : link.replace(/^\/games\//, '/game/');
-        }
+        const target = resolveNotificationRoute({ type: notification.type, data: notification.data as Record<string, unknown> });
 
         if (target) {
             try {

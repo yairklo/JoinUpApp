@@ -460,6 +460,7 @@
     "accountMenu": "Account menu"
   },
   "notifications": {
+    "unreadBadge": "Unread notifications",
     "types": {
       "GAME_WAITLIST_OFFER": {"title": "A spot opened up!", "body": "A spot opened up in the game! Tap to confirm your place"},
       "GAME_CANCELLED": {"title": "Game cancelled"},

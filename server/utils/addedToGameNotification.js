@@ -17,7 +17,7 @@ function buildAddedToGameCopy({ adderName, game }) {
   const nameEn = (adderName && String(adderName).trim()) || 'a game manager';
   const location = resolveLocation(game);
   const heWhen = formatGameWhen(game?.start, 'he-IL');
-  const enWhen = formatGameWhen(game?.start, 'en-US');
+  const enWhen = formatGameWhen(game?.start, 'en-GB');
 
   const detailsHe = [heWhen.date, heWhen.time, location].filter(Boolean).join(' · ');
   const detailsEn = [enWhen.date, enWhen.time, location].filter(Boolean).join(' · ');

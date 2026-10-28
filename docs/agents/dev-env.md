@@ -29,7 +29,7 @@ On the Coolify dev API resource, tournament creation is restricted by default. T
 ## Vercel Ignored Build Step
 
 Vercel is configured with an **Ignored Build Step** on the web project:
-- Vercel diffs `next_app/` against `VERCEL_GIT_PREVIOUS_SHA` (or the merge-base with `main` when unset) and skips the build if nothing under `next_app/` changed.
+- `next_app/vercel.json` `ignoreCommand` runs `next_app/scripts/vercel-ignore.sh`: it diffs `next_app/` + `shared/` against `VERCEL_GIT_PREVIOUS_SHA` and skips only when git confirms no change. A missing previous SHA or any git error means **build** (never skip on error); there is no `git fetch`.
 - Do not expect a Vercel build if a commit only modifies `server/`, `mobile_app/`, or `docs/`.
 - If a web build is expected, verify in the Vercel dashboard that the deployment reaches **READY** status. (Note: `npm run lint` passing locally is NOT a substitute for `npm run build` or Vercel readiness).
 
