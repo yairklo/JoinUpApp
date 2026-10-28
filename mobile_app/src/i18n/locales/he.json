@@ -460,6 +460,7 @@
     "accountMenu": "תפריט חשבון"
   },
   "notifications": {
+    "unreadBadge": "התראות שלא נקראו",
     "types": {
       "GAME_WAITLIST_OFFER": {"title": "התפנה מקום במשחק!", "body": "התפנה מקום במשחק! לחץ כאן כדי לאשר את הצטרפותך"},
       "GAME_CANCELLED": {"title": "המשחק בוטל"},

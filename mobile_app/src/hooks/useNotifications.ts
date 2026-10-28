@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Platform, AppState, AppStateStatus } from 'react-native';
+import { Platform, AppState } from 'react-native';
 import { useAuth } from '@clerk/clerk-expo';
 import { SocketManager } from '@/services/socketManager';
 import { notificationsApi, Notification as NotificationType } from '@/services/api';
@@ -12,6 +12,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import i18n from '@/i18n';
+import { getInstallationId } from '@/services/installationId';
 import { pushLocaleFor, rememberPushRegistration } from '@/services/pushLocale';
 
 let pushRegistrationErrorLogged = false;
@@ -43,19 +44,36 @@ export function useNotifications() {
   const initialFetchDoneRef = useRef(false);
 
   const permissionGrantedRef = useRef<boolean | null>(null);
-  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const getTokenRef = useRef(getToken);
+  const fetchNotificationsRef = useRef<(() => Promise<void>) | null>(null);
+  const notificationsRef = useRef<NotificationType[]>([]);
 
   useEffect(() => {
     getTokenRef.current = getToken;
   }, [getToken]);
 
+  // Socket events are missed while backgrounded and a push may land before the socket reconnects:
+  // re-sync the feed + unread count on foreground and whenever a push is received.
   useEffect(() => {
-    const sub = AppState.addEventListener('change', (next) => {
-      appStateRef.current = next;
+    if (!userId) return;
+    const refresh = () => { fetchNotificationsRef.current?.(); };
+    const appSub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') refresh();
     });
-    return () => sub.remove();
-  }, []);
+    const pushSub = Notifications.addNotificationReceivedListener(refresh);
+    return () => {
+      appSub.remove();
+      pushSub.remove();
+    };
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) {
+      Notifications.setBadgeCountAsync(0).catch(() => {});
+      return;
+    }
+    Notifications.setBadgeCountAsync(unreadCount).catch(() => {});
+  }, [unreadCount, userId]);
 
   useEffect(() => {
     const registerForPushNotifications = async () => {
@@ -88,7 +106,7 @@ export function useNotifications() {
         const clerkToken = await getTokenRef.current();
         if (clerkToken) {
           rememberPushRegistration(expoPushToken, () => getTokenRef.current());
-          await notificationsApi.registerDevice(expoPushToken, Platform.OS, clerkToken, pushLocaleFor(i18n.language));
+          await notificationsApi.registerDevice(expoPushToken, Platform.OS, clerkToken, pushLocaleFor(i18n.language), await getInstallationId());
           console.log('[NOTIFICATIONS] Registered device token with backend successfully');
         }
       } catch (error) {
@@ -124,6 +142,9 @@ export function useNotifications() {
     }
   }, [userId]);
 
+  fetchNotificationsRef.current = () => fetchNotifications();
+  notificationsRef.current = notifications;
+
   // Initial fetch once when auth is ready — stable deps (no getToken / fetchNotifications churn)
   useEffect(() => {
     if (!isLoaded || !userId) {
@@ -145,37 +166,24 @@ export function useNotifications() {
     setupPersonalRoom();
     const unsubscribeConnect = SocketManager.on('connect', setupPersonalRoom);
 
-    const unsubscribeNotification = SocketManager.on('notification', async (data: Record<string, unknown>) => {
+    // In-app feed only. The device banner comes from the server's Expo push; scheduling a local
+    // notification here as well showed every foreground event twice.
+    const unsubscribeNotification = SocketManager.on('notification', (data: Record<string, unknown>) => {
       // Chat messages never belong in the general notifications feed
       if (isChatNotification(data as Parameters<typeof isChatNotification>[0])) {
         return;
       }
 
-      const isForeground = appStateRef.current === 'active';
       const normalized = normalizeNotification(data as Parameters<typeof normalizeNotification>[0]);
 
+      // A push-triggered refetch can land before the socket event: don't count the same row twice.
+      const alreadyKnown = notificationsRef.current.some((n) => n.id === normalized.id);
       setNotifications((prev) => {
         if (prev.some((n) => n.id === normalized.id)) return prev;
         return [normalized, ...prev];
       });
-      if (!normalized.read) {
+      if (!normalized.read && !alreadyKnown) {
         setUnreadCount((prev) => prev + 1);
-      }
-
-      if (isForeground && permissionGrantedRef.current) {
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: normalized.title,
-            body: normalized.body,
-            data: {
-              id: normalized.id,
-              link: normalized.data?.link,
-              gameId: normalized.data?.gameId,
-              type: normalized.type,
-            },
-          },
-          trigger: null,
-        });
       }
     });
 
@@ -191,10 +199,11 @@ export function useNotifications() {
 
   const markAsRead = async (id: string) => {
     try {
+      const wasUnread = notificationsRef.current.some((n) => n.id === id && !n.read);
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, read: true } : n))
       );
-      setUnreadCount((prev) => Math.max(0, prev - 1));
+      if (wasUnread) setUnreadCount((prev) => Math.max(0, prev - 1));
 
       if (!isPersistedNotificationId(id)) return;
 
@@ -214,6 +223,7 @@ export function useNotifications() {
       const token = await getTokenRef.current();
       if (!token) return;
       await notificationsApi.markAllAsRead(token);
+      await fetchNotifications();
     } catch (error) {
       console.error('[NOTIFICATIONS] Failed to mark all as read:', error);
     }

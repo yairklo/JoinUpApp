@@ -88,9 +88,9 @@ export const notificationsApi = {
         });
     },
 
-    registerDevice: (expoPushToken: string, deviceType: string, token: string, locale?: 'en' | 'he') => {
+    registerDevice: (expoPushToken: string, deviceType: string, token: string, locale?: 'en' | 'he', deviceName?: string) => {
         return apiClient('/api/notifications/register-device', {
-            data: { expoPushToken, deviceType, ...(locale ? { locale } : {}) },
+            data: { expoPushToken, deviceType, ...(locale ? { locale } : {}), ...(deviceName ? { deviceName } : {}) },
             token
         });
     }

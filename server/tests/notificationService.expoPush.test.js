@@ -92,3 +92,27 @@ describe('NotificationService.registerDevice locale', () => {
     }
   });
 });
+
+describe('NotificationService.registerDevice dedupe', () => {
+  const makeSvc = () => {
+    const upsert = jest.fn(async ({ create }) => ({ id: 'd1', ...create }));
+    const deleteMany = jest.fn(async () => ({ count: 1 }));
+    return { upsert, deleteMany, svc: new NotificationService({ userDevice: { upsert, deleteMany } }, null) };
+  };
+
+  test('removes older rows of the same install when the Expo token rotates', async () => {
+    const { svc, deleteMany } = makeSvc();
+    await svc.registerDevice('u1', { expoPushToken: 'ExponentPushToken[new]' }, 'ios', 'install-1234-abcd');
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: { deviceName: 'install-1234-abcd', expoPushToken: { not: 'ExponentPushToken[new]' } }
+    });
+  });
+
+  test('does nothing without an install id or for FCM registrations', async () => {
+    const { svc, deleteMany } = makeSvc();
+    await svc.registerDevice('u1', { expoPushToken: 'ExponentPushToken[a]' }, 'ios', null);
+    await svc.registerDevice('u1', { expoPushToken: 'ExponentPushToken[a]' }, 'ios', 'short');
+    await svc.registerDevice('u1', { fcmToken: 'tok' }, 'web', 'install-1234-abcd');
+    expect(deleteMany).not.toHaveBeenCalled();
+  });
+});

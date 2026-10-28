@@ -439,6 +439,16 @@ class NotificationService {
                 }
             });
 
+            // Expo tokens rotate (reinstall, OS restore). The app sends a stable per-install id as
+            // deviceName; any other row carrying it is the same physical device's older token and would
+            // deliver every push a second time (or to the previous account on a shared phone).
+            if (expoPushToken && typeof deviceName === 'string' && deviceName.length >= 8 && deviceName.length <= 100) {
+                const { count } = (await this.prisma.userDevice.deleteMany({
+                    where: { deviceName, expoPushToken: { not: expoPushToken } }
+                })) || {};
+                if (count) Logger.info('NotificationService', `Removed ${count} superseded device row(s) for install ${deviceName.substring(0, 8)}...`);
+            }
+
             Logger.info('NotificationService', `Registered device ${device.id} for user ${userId}`);
             return device;
         } catch (error) {
