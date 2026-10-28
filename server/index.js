@@ -846,11 +846,13 @@ io.on('connection', async (socket) => {
         if (blockers.size) recipientIds = recipientIds.filter(id => !blockers.has(String(id)));
 
         const messagePreview = text.length > 80 ? `${text.slice(0, 77)}...` : text;
-        const pushTitle = await notificationName(
+        const senderLabel = await notificationName(
           prisma,
           { id: finalUserId, name: senderUser?.name || senderName },
-          'הודעה חדשה',
+          null,
         );
+        const pushTitle = senderLabel || 'הודעה חדשה';
+        const pushTitleEn = senderLabel || 'New message';
 
         recipientIds.forEach(recipientId => {
 
@@ -876,7 +878,7 @@ io.on('connection', async (socket) => {
             'NEW_MESSAGE',
             pushTitle,
             messagePreview,
-            { chatId: roomId, senderId: finalUserId, actorId: finalUserId, link: `/chat/${roomId}` }
+            { chatId: roomId, senderId: finalUserId, actorId: finalUserId, link: `/chat/${roomId}`, titleEn: pushTitleEn, bodyEn: messagePreview }
           ).catch(err => console.error('[NOTIFICATIONS] Failed to send offline message push:', err));
         });
       } catch (err) {

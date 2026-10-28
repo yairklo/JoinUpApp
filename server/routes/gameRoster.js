@@ -25,6 +25,7 @@ const { isGameInsider, isGuestWindowClosed } = require('../utils/membersGuests')
 const { lockGameRow } = require('../utils/gameRowLock');
 
 const gameScheduler = require('../services/gameScheduler');
+const notifCopy = require('../utils/notificationCopy');
 
 const router = express.Router();
 
@@ -429,12 +430,13 @@ router.post('/:id/waitlist-bypass/:userId', authenticateToken, rejectIfCancelled
     // Notify user they were bypassed
     try {
       const game = await prisma.game.findUnique({ where: { id: gameId } });
+      const c = notifCopy.gameRemovedPeer({ gameTitle: game?.title, bypassed: true });
       notificationService.sendNotification(
         targetUserId,
         'GAME_REMOVED_PEER',
-        'בוטל מועד ההצטרפות שלך',
-        `מנהל המשחק ביטל את הצעת ההצטרפות שלך למשחק: ${game?.title || 'משחק כדורגל'}`,
-        { gameId, actorId: req.user.id },
+        c.title,
+        c.body,
+        { gameId, actorId: req.user.id, ...notifCopy.enData(c) },
         req.io
       ).catch(err => console.error('[NOTIFICATIONS] Failed to notify bypassed user', gameId, err));
     } catch (e) {}
@@ -776,12 +778,13 @@ router.delete('/:id/participants/:userId', authenticateToken, rejectIfCancelled,
 
     // Send a notification to the removed user
     try {
+      const c = notifCopy.gameRemovedPeer({ gameTitle: game.title });
       notificationService.sendNotification(
         targetUserId,
         'GAME_REMOVED_PEER',
-        'הוסרת מהמשחק',
-        `מנהל המשחק הסיר אותך מהמשחק: ${game.title || 'משחק כדורגל'}`,
-        { gameId, actorId: req.user.id },
+        c.title,
+        c.body,
+        { gameId, actorId: req.user.id, ...notifCopy.enData(c) },
         req.io
       ).catch(err => console.error('[NOTIFICATIONS] Failed to notify user of removal', gameId, err));
     } catch (err) {

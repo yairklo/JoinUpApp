@@ -4,6 +4,7 @@
 const { prisma } = require('../lib/prisma');
 const { NotificationService } = require('./notificationService');
 const { publicDisplayName } = require('../utils/publicName');
+const notifCopy = require('../utils/notificationCopy');
 const { filterViewableUserIds } = require('../utils/tournamentGate');
 const { formatJerusalemDate, formatJerusalemTime } = require('../shared/timezone');
 
@@ -33,36 +34,29 @@ async function acceptedUserIds(db, teamIds) {
 const notifyTeamInvite = safe('invite', async ({ tournament, team, inviterId, inviteeId, io }) => {
   if (!(await filterViewableUserIds([inviteeId])).length) return null;
   const inviter = await prisma.user.findUnique({ where: { id: inviterId }, select: { name: true } });
-  const who = publicDisplayName(inviter && inviter.name);
+  const who = publicDisplayName(inviter && inviter.name, null);
+  const c = notifCopy.tournamentTeamInvite({ name: who, teamName: team.name, tournamentTitle: tournament.title });
   return notificationService.sendNotification(
     inviteeId,
     'TOURNAMENT_TEAM_INVITE',
-    'הוזמנת לקבוצה בטורניר',
-    `${who} הזמין/ה אותך להצטרף לקבוצה "${team.name}" בטורניר ${tournament.title}`,
-    { tournamentId: tournament.id, teamId: team.id, actorId: inviterId, link: link(tournament.id), type: 'TOURNAMENT_TEAM_INVITE' },
+    c.title,
+    c.body,
+    { tournamentId: tournament.id, teamId: team.id, actorId: inviterId, link: link(tournament.id), type: 'TOURNAMENT_TEAM_INVITE', ...notifCopy.enData(c) },
     io,
   );
 });
 
-const DECISION_COPY = {
-  APPROVED: (team, t) => ['הקבוצה אושרה', `הקבוצה "${team.name}" אושרה להשתתף בטורניר ${t.title}`],
-  REJECTED: (team, t) => ['הקבוצה נדחתה', `הקבוצה "${team.name}" לא התקבלה לטורניר ${t.title}`],
-  WAITLISTED: (team, t) => ['הקבוצה ברשימת המתנה', `הקבוצה "${team.name}" נמצאת ברשימת המתנה בטורניר ${t.title}`],
-  PENDING: (team, t) => ['נפתח מקום לקבוצה שלך', `נפתח מקום לקבוצה "${team.name}" בטורניר ${t.title} והיא ממתינה לאישור`],
-};
-
 /** The captain learns the organizer's decision (or a waitlist promotion: pass the new status). */
 const notifyTeamDecision = safe('decision', async ({ tournament, team, status, io }) => {
-  const copy = DECISION_COPY[status];
-  if (!copy) return null;
+  const c = notifCopy.tournamentTeamDecision({ status, teamName: team.name, tournamentTitle: tournament.title });
+  if (!c) return null;
   if (!(await filterViewableUserIds([team.captainId])).length) return null;
-  const [title, body] = copy(team, tournament);
   return notificationService.sendNotification(
     team.captainId,
     'TOURNAMENT_TEAM_DECISION',
-    title,
-    body,
-    { tournamentId: tournament.id, teamId: team.id, status, link: link(tournament.id), type: 'TOURNAMENT_TEAM_DECISION' },
+    c.title,
+    c.body,
+    { tournamentId: tournament.id, teamId: team.id, status, link: link(tournament.id), type: 'TOURNAMENT_TEAM_DECISION', ...notifCopy.enData(c) },
     io,
   );
 });
@@ -106,14 +100,19 @@ const notifyMatchesScheduled = safe('scheduled', async ({ tournament, matchIds, 
   for (const [userId, list] of byUser) {
     const unique = [...new Map(list.map((m) => [m.id, m])).values()];
     const single = unique.length === 1 ? unique[0] : null;
+    const c = notifCopy.tournamentMatchScheduled({
+      single,
+      count: unique.length,
+      whenText: single ? when(single.scheduledAt) : '',
+      firstWhen: when(unique[0].scheduledAt),
+      tournamentTitle: tournament.title,
+    });
     await notificationService.sendNotification(
       userId,
       'TOURNAMENT_MATCH_SCHEDULED',
-      single ? 'נקבע משחק בטורניר' : 'נקבעו משחקים בטורניר',
-      single
-        ? `${single.homeTeam.name} נגד ${single.awayTeam.name} - ${when(single.scheduledAt)} (${tournament.title})`
-        : `נקבעו ${unique.length} משחקים לקבוצה שלך בטורניר ${tournament.title}. המשחק הראשון: ${when(unique[0].scheduledAt)}`,
-      { tournamentId: tournament.id, matchId: single ? single.id : undefined, link: link(tournament.id), type: 'TOURNAMENT_MATCH_SCHEDULED' },
+      c.title,
+      c.body,
+      { tournamentId: tournament.id, matchId: single ? single.id : undefined, link: link(tournament.id), type: 'TOURNAMENT_MATCH_SCHEDULED', ...notifCopy.enData(c) },
       io,
     ).catch((e) => console.error('[tournament-notify] scheduled recipient failed:', e && e.message));
     sent += 1;

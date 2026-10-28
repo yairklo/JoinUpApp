@@ -4,40 +4,7 @@
  */
 const { prisma } = require('../lib/prisma');
 const { notificationName } = require('./publicName');
-
-function formatGameWhen(start, locale) {
-  const d = start instanceof Date ? start : new Date(start);
-  if (Number.isNaN(d.getTime())) return { date: '', time: '' };
-
-  const date = d.toLocaleDateString(locale, {
-    timeZone: 'Asia/Jerusalem',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-  const time = d.toLocaleTimeString(locale, {
-    timeZone: 'Asia/Jerusalem',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-  return { date, time };
-}
-
-function resolveLocation(game) {
-  if (!game) return '';
-  const field = game.field || {};
-  const parts = [
-    field.name,
-    field.location || field.city,
-    game.customLocation,
-  ].filter((p) => typeof p === 'string' && p.trim());
-  // Prefer "name · location" when both exist; otherwise first non-empty.
-  if (field.name && (field.location || field.city)) {
-    return `${field.name} · ${field.location || field.city}`;
-  }
-  return parts[0] || '';
-}
+const { formatGameWhen, resolveLocation } = require('./notificationCopy');
 
 /**
  * @param {object} opts

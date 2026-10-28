@@ -454,12 +454,29 @@
     "blockFailed": "Blocking failed. Please try again.",
     "thisUser": "This user"
   },
+  "header": {
+    "menuProfile": "Profile",
+    "menuSettings": "Settings",
+    "accountMenu": "Account menu"
+  },
   "notifications": {
+    "types": {
+      "GAME_WAITLIST_OFFER": {"title": "A spot opened up!", "body": "A spot opened up in the game! Tap to confirm your place"},
+      "GAME_CANCELLED": {"title": "Game cancelled"},
+      "GAME_JOIN_APPROVED": {"title": "Your request was approved"},
+      "GAME_JOIN_REJECTED": {"title": "Your request was declined"},
+      "GAME_REMINDER": {"title": "Game coming up!"},
+      "FRIEND_REQUEST": {"title": "New friend request"},
+      "FRIEND_ACCEPTED": {"title": "Friend request accepted"},
+      "NEW_SERIES_GAME": {"title": "A new game was created for your group!"},
+      "TOURNAMENT_STARTING_SOON": {"title": "Your tournament match starts soon"},
+      "TOURNAMENT_TEAM_INVITE": {"title": "You were invited to a tournament team"}
+    },
     "title": "Notifications",
-    "readAll": "Read All",
+    "readAll": "Mark all as read",
     "empty": "No notifications yet",
     "emptyDesc": "We'll notify you when games are scheduled or friends message you.",
-    "newMessageTitle": "New Message",
+    "newMessageTitle": "New message",
     "newGameInCityTitle": "New game in {{city}}",
     "newGameInCityBody": "{{name}} created a new game at {{fieldName}}",
     "joinRequestTitle": "Someone joined your game",

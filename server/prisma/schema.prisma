@@ -787,6 +787,8 @@ model UserDevice {
   lastUsed      DateTime @default(now())
   createdAt     DateTime @default(now())
   expoPushToken String?  @unique
+  /// 'en' | 'he'. Null = Hebrew (legacy rows / clients that never reported a language).
+  locale        String?
   user          User     @relation("UserDevices", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])

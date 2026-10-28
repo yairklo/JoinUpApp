@@ -4,6 +4,8 @@ name: profile screens
 - runFlow: subflows/session.yaml
 - tapOn:
     id: header-profile
+- tapOn:
+    id: header-menu-profile
 - extendedWaitUntil:
     visible: 'adult-a.*example.com'
     timeout: 30000

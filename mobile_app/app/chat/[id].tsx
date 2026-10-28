@@ -235,7 +235,7 @@ export default function ChatScreen() {
             
             {/* Custom Header */}
             <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100 shadow-sm z-10">
-                <TouchableOpacity onPress={() => router.back()} className="ml-4 p-2 -mr-2 rounded-full active:bg-gray-100" accessibilityRole="button" accessibilityLabel={t('chat.back', 'חזרה')}>
+                <TouchableOpacity onPress={() => router.back()} className="ms-4 p-2 -me-2 rounded-full active:bg-gray-100" accessibilityRole="button" accessibilityLabel={t('chat.back', 'חזרה')}>
                     <Ionicons name="arrow-back" size={26} color="#111827" />
                 </TouchableOpacity>
 
@@ -246,17 +246,17 @@ export default function ChatScreen() {
                     activeOpacity={0.7}
                 >
                     {otherUserId && avatarByUserId[otherUserId] ? (
-                        <SafeImage source={{ uri: avatarByUserId[otherUserId]! }} style={{ width: 44, height: 44, borderRadius: 22, marginLeft: 12 }} />
+                        <SafeImage source={{ uri: avatarByUserId[otherUserId]! }} style={{ width: 44, height: 44, borderRadius: 22, marginStart: 12 }} />
                     ) : (
-                        <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#E5E7EB', marginLeft: 12, alignItems: 'center', justifyContent: 'center' }}>
+                        <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#E5E7EB', marginStart: 12, alignItems: 'center', justifyContent: 'center' }}>
                             <Ionicons name={isPrivate ? "person" : "chatbubbles"} size={24} color="#9CA3AF" />
                         </View>
                     )}
                     <View className="justify-center flex-1">
-                        <Text className="font-black text-gray-900 text-xl text-left" numberOfLines={1}>{effectiveChatName}</Text>
+                        <Text className="font-black text-gray-900 text-xl" numberOfLines={1}>{effectiveChatName}</Text>
                         {isOtherUserOnline && (
                             <View className="flex-row items-center mt-1">
-                                <View className="w-2 h-2 rounded-full bg-green-500 ml-1.5" />
+                                <View className="w-2 h-2 rounded-full bg-green-500 ms-1.5" />
                                 <Text className="text-xs text-gray-500 font-bold uppercase">{t('chat.onlineNow', 'מחובר כעת')}</Text>
                             </View>
                         )}
@@ -320,7 +320,7 @@ export default function ChatScreen() {
                 {editingMessage && (
                     <View className="flex-row items-center bg-brand-mist p-3 border-t border-brand-pale">
                         <Ionicons name="pencil" size={16} color="#059669" />
-                        <Text className="flex-1 mr-2 text-brand text-left text-xs font-bold">{t('chat.editingMessage', 'עורך הודעה')}</Text>
+                        <Text className="flex-1 me-2 text-brand text-xs font-bold">{t('chat.editingMessage', 'עורך הודעה')}</Text>
                         <TouchableOpacity onPress={() => { setEditingMessage(null); setInputValue(""); }} accessibilityRole="button" accessibilityLabel={t('chat.cancelEdit', 'ביטול עריכה')}>
                             <Ionicons name="close-circle" size={20} color="#059669" />
                         </TouchableOpacity>
@@ -328,7 +328,7 @@ export default function ChatScreen() {
                 )}
 
                 <View className="p-4 border-t border-gray-100 flex-row items-end bg-white">
-                    <View className="flex-1 bg-gray-50 rounded-3xl px-4 py-2 ml-3 flex-row items-end min-h-[44px] border border-gray-100 shadow-sm shadow-gray-100">
+                    <View className="flex-1 bg-gray-50 rounded-3xl px-4 py-2 ms-3 flex-row items-end min-h-[44px] border border-gray-100 shadow-sm shadow-gray-100">
                         <TextInput
                             testID="chat-input"
                             value={inputValue}
@@ -339,11 +339,11 @@ export default function ChatScreen() {
                             }}
                             placeholder={t('chat.typeMessage', 'תכתוב משהו נחמד...')}
                             placeholderTextColor="#9ca3af"
-                            className="flex-1 text-gray-900 text-base max-h-32 text-left"
+                            className="flex-1 text-gray-900 text-base max-h-32"
                             multiline
                             textAlignVertical="bottom"
                         />
-                        <TouchableOpacity className="mr-2 mb-1 p-1" accessibilityRole="button" accessibilityLabel={t('chat.emojiPicker', 'הוסף אימוג׳י')}>
+                        <TouchableOpacity className="me-2 mb-1 p-1" accessibilityRole="button" accessibilityLabel={t('chat.emojiPicker', 'הוסף אימוג׳י')}>
                             <Ionicons name="happy-outline" size={24} color="#9ca3af" />
                         </TouchableOpacity>
                     </View>
@@ -369,7 +369,7 @@ export default function ChatScreen() {
                             name={editingMessage ? "checkmark" : "send"}
                             size={20}
                             color="white"
-                            style={!editingMessage ? { marginLeft: 2 } : {}}
+                            style={!editingMessage ? { marginStart: 2 } : {}}
                         />
                     </TouchableOpacity>
                 </View>

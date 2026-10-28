@@ -74,6 +74,21 @@ export function resolveNotificationCopy(raw: RawNotification): { title: string; 
     };
   }
 
+  // Old rows stored before the server shipped English copy: for types whose text needs no dynamic
+  // data, use the client's own translation instead of the stored Hebrew.
+  if (isEn && !titleEn && raw.type && !isChat) {
+    const titleKey = `notifications.types.${raw.type}.title`;
+    if (i18n.exists(titleKey)) {
+      const bodyKey = `notifications.types.${raw.type}.body`;
+      return {
+        title: scrub(i18n.t(titleKey)),
+        body: scrub(i18n.exists(bodyKey)
+          ? i18n.t(bodyKey)
+          : String(raw.body || raw.message || raw.text || fallbackBody).trim()),
+      };
+    }
+  }
+
   return {
     title: scrub(raw.title?.trim() || fallbackTitle),
     body: scrub(String(raw.body || raw.message || raw.text || fallbackBody).trim()),

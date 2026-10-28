@@ -133,7 +133,7 @@ export default function SettingsScreen() {
                         onPress={() => router.push('/settings/notifications' as any)}
                     >
                         <View className="flex-row items-center flex-1">
-                            <View className="w-8 h-8 rounded-full bg-brand-pale items-center justify-center mr-3">
+                            <View className="w-8 h-8 rounded-full bg-brand-pale items-center justify-center me-3">
                                 <FontAwesome name="bell" size={14} color="#059669" />
                             </View>
                             <View className="flex-1">
@@ -148,7 +148,7 @@ export default function SettingsScreen() {
                         onPress={() => router.push('/profile/settings' as any)}
                     >
                         <View className="flex-row items-center flex-1">
-                            <View className="w-8 h-8 rounded-full bg-brand-pale items-center justify-center mr-3">
+                            <View className="w-8 h-8 rounded-full bg-brand-pale items-center justify-center me-3">
                                 <FontAwesome name="lock" size={15} color="#059669" />
                             </View>
                             <Text className="text-base text-gray-800 font-medium flex-1">{t('privacy.settings', 'הגדרות פרטיות')}</Text>
