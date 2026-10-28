@@ -132,6 +132,7 @@ export function useNotifications() {
       const normalized = (data.notifications || [])
         .map((n, i) => normalizeNotification(n, i))
         .filter((n) => !isChatNotification(n));
+      notificationsRef.current = normalized;
       setNotifications(normalized);
       setUnreadCount(data.unreadCount || 0);
       initialFetchDoneRef.current = true;
@@ -143,7 +144,6 @@ export function useNotifications() {
   }, [userId]);
 
   fetchNotificationsRef.current = () => fetchNotifications();
-  notificationsRef.current = notifications;
 
   // Initial fetch once when auth is ready — stable deps (no getToken / fetchNotifications churn)
   useEffect(() => {
@@ -178,6 +178,7 @@ export function useNotifications() {
 
       // A push-triggered refetch can land before the socket event: don't count the same row twice.
       const alreadyKnown = notificationsRef.current.some((n) => n.id === normalized.id);
+      if (!alreadyKnown) notificationsRef.current = [normalized, ...notificationsRef.current];
       setNotifications((prev) => {
         if (prev.some((n) => n.id === normalized.id)) return prev;
         return [normalized, ...prev];
@@ -200,6 +201,7 @@ export function useNotifications() {
   const markAsRead = async (id: string) => {
     try {
       const wasUnread = notificationsRef.current.some((n) => n.id === id && !n.read);
+      notificationsRef.current = notificationsRef.current.map((n) => (n.id === id ? { ...n, read: true } : n));
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, read: true } : n))
       );

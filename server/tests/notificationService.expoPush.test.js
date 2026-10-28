@@ -102,17 +102,18 @@ describe('NotificationService.registerDevice dedupe', () => {
 
   test('removes older rows of the same install when the Expo token rotates', async () => {
     const { svc, deleteMany } = makeSvc();
-    await svc.registerDevice('u1', { expoPushToken: 'ExponentPushToken[new]' }, 'ios', 'install-1234-abcd');
+    await svc.registerDevice('u1', { expoPushToken: 'ExponentPushToken[new]' }, 'ios', 'app-1234-abcd');
     expect(deleteMany).toHaveBeenCalledWith({
-      where: { deviceName: 'install-1234-abcd', expoPushToken: { not: 'ExponentPushToken[new]' } }
+      where: { deviceName: 'app-1234-abcd', expoPushToken: { not: 'ExponentPushToken[new]' } }
     });
   });
 
   test('does nothing without an install id or for FCM registrations', async () => {
     const { svc, deleteMany } = makeSvc();
     await svc.registerDevice('u1', { expoPushToken: 'ExponentPushToken[a]' }, 'ios', null);
-    await svc.registerDevice('u1', { expoPushToken: 'ExponentPushToken[a]' }, 'ios', 'short');
-    await svc.registerDevice('u1', { fcmToken: 'tok' }, 'web', 'install-1234-abcd');
+    await svc.registerDevice('u1', { expoPushToken: 'ExponentPushToken[a]' }, 'ios', 'app-short');
+    await svc.registerDevice('u1', { expoPushToken: 'ExponentPushToken[a]' }, 'ios', 'Pixel 7 Pro long name');
+    await svc.registerDevice('u1', { fcmToken: 'tok' }, 'web', 'app-1234-abcd');
     expect(deleteMany).not.toHaveBeenCalled();
   });
 });

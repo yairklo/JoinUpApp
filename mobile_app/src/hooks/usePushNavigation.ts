@@ -16,40 +16,42 @@ import { isPersistedNotificationId } from '@/utils/notificationDisplay';
  * Navigation waits for Clerk to load, a signed-in session, the router to be mounted and the auth
  * redirects to settle; each response is handled once.
  */
+// Module scope: survives a remount of the handler, so the same tap is never navigated twice.
+let lastHandledKey: string | null = null;
+
 export function usePushNavigation(onHandled?: () => void) {
   const response = Notifications.useLastNotificationResponse();
   const { isLoaded, isSignedIn, getToken } = useAuth();
   const router = useRouter();
   const segments = useSegments();
   const navState = useRootNavigationState();
-  const handledRef = useRef<string | null>(null);
 
-  const ready = isLoaded && isSignedIn && !!navState?.key && segments[0] !== 'sign-in' && segments[0] !== 'sign-up';
+  const ready = isLoaded && isSignedIn && !!navState?.key && segments.length > 0 && segments[0] !== 'sign-in' && segments[0] !== 'sign-up';
 
   useEffect(() => {
     if (!response || !ready) return;
     if (response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) return;
 
     const key = `${response.notification.request.identifier}:${response.notification.date}`;
-    if (handledRef.current === key) return;
-    handledRef.current = key;
+    if (lastHandledKey === key) return;
+    lastHandledKey = key;
 
     const data = (response.notification.request.content.data || {}) as Record<string, unknown>;
     const target = resolveNotificationRoute({ type: data.type as string | undefined, data }) ?? NOTIFICATIONS_FALLBACK_ROUTE;
     router.push(target as never);
 
     const notificationId = typeof data.notificationId === 'string' ? data.notificationId : '';
-    if (notificationId && isPersistedNotificationId(notificationId)) {
-      (async () => {
-        try {
-          const token = await getToken();
-          if (token) await notificationsApi.markAsRead(notificationId, token);
-        } catch {
-          // best effort — the feed refresh below reflects whatever the server has
+    (async () => {
+      try {
+        const token = await getToken();
+        if (token && notificationId && isPersistedNotificationId(notificationId)) {
+          await notificationsApi.markAsRead(notificationId, token);
         }
-        onHandled?.();
-      })();
-    }
+      } catch {
+        // best effort — the feed refresh below reflects whatever the server has
+      }
+      onHandled?.();
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- router/getToken identity must not re-run handling
   }, [response, ready]);
 }

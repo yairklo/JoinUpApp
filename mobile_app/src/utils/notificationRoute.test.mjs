@@ -32,6 +32,12 @@ test('link normalization', () => {
   assert.equal(normalizeNotificationLink('/'), null);
 });
 
+test('roomId, actorId and decision type', () => {
+  assert.equal(r({ data: { roomId: 'r1' } }), '/chat/r1');
+  assert.equal(r({ type: 'FRIEND_ACCEPTED', data: { actorId: 'a1' } }), '/user/a1');
+  assert.equal(r({ type: 'TOURNAMENT_TEAM_DECISION', data: { tournamentId: 't2' } }), '/tournaments/t2');
+});
+
 test('unknown payload returns null', () => {
   assert.equal(r({ type: 'GENERIC', data: {} }), null);
   assert.equal(r({}), null);
