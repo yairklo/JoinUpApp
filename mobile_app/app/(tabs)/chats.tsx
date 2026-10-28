@@ -1,4 +1,5 @@
-import { View, Text, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, RefreshControl, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useState, useCallback, useMemo } from 'react';
 import { useUser } from '@clerk/clerk-expo';
@@ -12,18 +13,27 @@ import LoadingMotif from '@/components/loading/LoadingMotif';
 const ChatAvatar = ({ uri }: { uri: string }) => {
     const [failedUri, setFailedUri] = useState<string | null>(null);
     if (failedUri === uri) {
-        return <View className="bg-gray-200 dark:bg-cyber-card" style={{ width: 48, height: 48, borderRadius: 24 }} />;
+        return <View className="bg-gray-200 dark:bg-cyber-card" style={{ width: 52, height: 52, borderRadius: 26 }} />;
     }
     return (
         <Image
             source={{ uri }}
-            style={{ width: 48, height: 48, borderRadius: 24 }}
+            style={{ width: 52, height: 52, borderRadius: 26 }}
             cachePolicy="memory-disk"
             contentFit="cover"
             transition={150}
             onError={() => setFailedUri(uri)}
         />
     );
+};
+
+// Time-of-day for today's messages, short date otherwise (presentation of the same timestamp)
+const formatChatTime = (createdAt: string | number | Date) => {
+    const d = new Date(createdAt);
+    const now = new Date();
+    return d.toDateString() === now.toDateString()
+        ? d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+        : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 };
 
 // Extracted + memoized chat item — only re-renders when its own data changes
@@ -36,24 +46,29 @@ const ChatItem = React.memo(({ item, userId, isTyping, youLabel, noMessagesLabel
     onPress: () => void;
 }) => (
     <TouchableOpacity
-        className="flex-row items-center p-4 bg-white border-b border-gray-100"
+        className="flex-row items-stretch px-4 min-h-[72px] bg-white dark:bg-cyber-card"
         onPress={onPress}
     >
-        <ChatAvatar uri={item.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.name || '?')}`} />
-        <View className="flex-1 mr-4 justify-center">
-            <View className="flex-row justify-between mb-1">
-                <Text className="text-gray-900 font-bold text-base text-left" numberOfLines={1}>
+        <View className="justify-center py-3">
+            <ChatAvatar uri={item.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.name || '?')}`} />
+        </View>
+        <View className="flex-1 ms-3 py-3 justify-center border-b border-gray-100 dark:border-white/10" style={{ borderBottomWidth: StyleSheet.hairlineWidth }}>
+            <View className="flex-row items-baseline mb-1">
+                <Text
+                    className={`flex-1 shrink text-base text-gray-900 dark:text-white ${item.unreadCount > 0 ? 'font-bold' : 'font-semibold'}`}
+                    numberOfLines={1}
+                >
                     {item.name}
                 </Text>
                 {item.lastMessage && (
-                    <Text className="text-gray-400 text-xs">
-                        {new Date(item.lastMessage.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    <Text className={`ms-2 text-xs ${item.unreadCount > 0 ? 'text-brand font-semibold' : 'text-gray-400'}`}>
+                        {formatChatTime(item.lastMessage.createdAt)}
                     </Text>
                 )}
             </View>
             <View className="flex-row justify-between items-center">
                 <Text
-                    className={`text-sm flex-1 ml-2 text-left ${isTyping ? 'text-brand italic' : item.unreadCount > 0 ? 'text-gray-900 font-semibold' : 'text-gray-500'}`}
+                    className={`text-sm flex-1 ${isTyping ? 'text-brand italic' : item.unreadCount > 0 ? 'text-gray-900 dark:text-white font-semibold' : 'text-gray-500 dark:text-gray-400'}`}
                     numberOfLines={1}
                 >
                     {isTyping
@@ -63,8 +78,8 @@ const ChatItem = React.memo(({ item, userId, isTyping, youLabel, noMessagesLabel
                             : noMessagesLabel)}
                 </Text>
                 {item.unreadCount > 0 && (
-                    <View className="bg-brand rounded-full px-2 py-0.5 ml-2">
-                        <Text className="text-white text-xs font-bold">{item.unreadCount}</Text>
+                    <View className="bg-brand rounded-full min-w-[20px] h-5 px-1.5 ms-2 items-center justify-center">
+                        <Text className="text-white text-xs font-bold">{item.unreadCount > 99 ? '99+' : item.unreadCount}</Text>
                     </View>
                 )}
             </View>
@@ -158,9 +173,9 @@ export default function ChatsScreen() {
     const formatBadge = (count: number) => (count > 99 ? '99+' : String(count));
 
     return (
-        <View className="flex-1 bg-gray-50">
+        <View className="flex-1 bg-gray-50 dark:bg-cyber-bg">
             {/* Custom Tabs */}
-            <View className="flex-row bg-white border-b border-gray-200">
+            <View className="flex-row bg-white dark:bg-cyber-card border-b border-gray-200 dark:border-white/10">
                 <TouchableOpacity
                     className={`flex-1 py-4 items-center border-b-2 ${tabValue === 0 ? 'border-brand' : 'border-transparent'}`}
                     onPress={() => setTabValue(0)}
@@ -170,7 +185,7 @@ export default function ChatsScreen() {
                             {t('chats.players')}
                         </Text>
                         {playersUnread > 0 && (
-                            <View className="bg-red-500 rounded-full min-w-[18px] h-[18px] px-1 ml-1.5 items-center justify-center">
+                            <View className="bg-brand rounded-full min-w-[18px] h-[18px] px-1 ms-1.5 items-center justify-center">
                                 <Text className="text-white text-[10px] font-bold">{formatBadge(playersUnread)}</Text>
                             </View>
                         )}
@@ -185,7 +200,7 @@ export default function ChatsScreen() {
                             {t('chats.games')}
                         </Text>
                         {gamesUnread > 0 && (
-                            <View className="bg-red-500 rounded-full min-w-[18px] h-[18px] px-1 ml-1.5 items-center justify-center">
+                            <View className="bg-brand rounded-full min-w-[18px] h-[18px] px-1 ms-1.5 items-center justify-center">
                                 <Text className="text-white text-[10px] font-bold">{formatBadge(gamesUnread)}</Text>
                             </View>
                         )}
@@ -206,8 +221,9 @@ export default function ChatsScreen() {
                 windowSize={10}
                 initialNumToRender={12}
                 ListEmptyComponent={
-                    <View className="items-center justify-center py-20">
-                        <Text className="text-gray-400 text-lg">
+                    <View className="items-center justify-center py-20 px-6">
+                        <Ionicons name={tabValue === 0 ? 'chatbubbles-outline' : 'people-outline'} size={40} color="#9ca3af" />
+                        <Text className="text-gray-400 text-base text-center mt-3">
                             {tabValue === 0 ? t('chats.noActiveChats') : t('chats.noGamesRegistered')}
                         </Text>
                     </View>

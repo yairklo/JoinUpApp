@@ -666,14 +666,14 @@ export default function NewGameScreen() {
                 {/* Sport Selection */}
                 <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
                     <Text className="text-lg font-bold mb-2 text-gray-800">{t('newGame.sport')}</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row" contentContainerStyle={{ paddingHorizontal: 4 }}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row" contentContainerStyle={{ paddingHorizontal: 4, gap: 8 }}>
                         {Object.keys(SPORT_MAPPING).map(s => {
                             const isSelected = sport === s;
                             return (
                                 <TouchableOpacity
                                     key={s}
                                     onPress={() => setSport(s)}
-                                    className={`px-4 py-2 rounded-full mr-2 border ${isSelected ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
+                                    className={`px-4 py-2 rounded-full border ${isSelected ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
                                 >
                                     <Text className={`${isSelected ? 'text-white' : 'text-gray-700'} font-medium`}>
                                         {t('sports.' + s.toLowerCase(), SPORT_MAPPING[s])}
@@ -692,7 +692,7 @@ export default function NewGameScreen() {
                         value={title}
                         onChangeText={setTitle}
                         placeholder={t('newGame.titlePlaceholder', 'לדוגמה: כדורגל שישי!')}
-                        className="bg-gray-100 p-3 rounded-lg text-left"
+                        className="bg-gray-100 p-3 rounded-xl"
                     />
                 </View>
 
@@ -700,8 +700,8 @@ export default function NewGameScreen() {
                 <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
                     <View className="flex-row justify-between items-center mb-2">
                         <Text className="text-lg font-bold text-gray-800">{t('newGame.location', 'מיקום')}</Text>
-                        <TouchableOpacity onPress={openMapModal} className="flex-row items-center bg-brand-mist px-3 py-1 rounded-full border border-brand-pale">
-                            <FontAwesome name="map-marker" size={14} color="#059669" style={{ marginRight: 6 }} />
+                        <TouchableOpacity onPress={openMapModal} className="flex-row items-center gap-1.5 bg-brand-mist px-3 min-h-[44px] rounded-full border border-brand-pale" hitSlop={{ top: 4, bottom: 4 }}>
+                            <FontAwesome name="map-marker" size={14} color="#059669" />
                             <Text className="text-brand-dark font-bold text-xs">{t('newGame.selectOnMap', 'בחר במפה')}</Text>
                         </TouchableOpacity>
                     </View>
@@ -722,47 +722,47 @@ export default function NewGameScreen() {
                     )}
 
                     {/* City Selector */}
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3" contentContainerStyle={{ paddingHorizontal: 4 }}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3" contentContainerStyle={{ paddingHorizontal: 4, gap: 8 }}>
                         {cities.map(city => (
                             <TouchableOpacity
                                 key={city}
                                 onPress={() => { setSelectedCity(city); setSelectedField(null); }}
-                                className={`mr-2 px-4 py-2 rounded-full border ${selectedCity === city ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
+                                className={`px-4 py-2 rounded-full border ${selectedCity === city ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
                             >
                                 <Text className={selectedCity === city ? 'text-white' : 'text-gray-700'}>{city}</Text>
                             </TouchableOpacity>
                         ))}
                     </ScrollView>
 
-                    <View className="flex-row items-center mb-2">
-                        <Text className="text-sm text-gray-500">{t('newGame.selectFieldPrompt', 'בחר מגרש:')}</Text>
-                        {fieldsLoading && <ActivityIndicator size="small" className="ml-2" />}
+                    <View className="flex-row items-center gap-2 mb-2">
+                        <Text className="text-sm font-semibold text-gray-600">{t('newGame.selectFieldPrompt', 'בחר מגרש:')}</Text>
+                        {fieldsLoading && <ActivityIndicator size="small" />}
                     </View>
                     {selectedField && (
-                        <View testID="new-game-selected-field" className="flex-row items-center bg-brand-mist border border-brand rounded-xl p-3 mb-3">
-                            <View className="flex-1 mr-3">
+                        <View testID="new-game-selected-field" className="flex-row items-center bg-brand-mist border border-brand rounded-xl p-3 gap-3 mb-3">
+                            <View className="flex-1 gap-0.5">
                                 <Text className="text-xs text-gray-500">{t('newGame.selectedField', 'המגרש שנבחר')}</Text>
-                                <Text className="font-bold text-brand-dark" numberOfLines={1}>{selectedField.name}</Text>
+                                <Text className="text-base font-bold text-brand-dark" numberOfLines={1}>{selectedField.name}</Text>
                                 {!!selectedField.location && (
-                                    <Text className="text-xs text-gray-500" numberOfLines={1}>{selectedField.location}</Text>
+                                    <Text className="text-sm text-gray-500" numberOfLines={1}>{selectedField.location}</Text>
                                 )}
                             </View>
-                            <TouchableOpacity testID="new-game-change-field" onPress={openMapModal} className="px-3 py-1 rounded-full bg-white border border-brand-pale">
+                            <TouchableOpacity testID="new-game-change-field" onPress={openMapModal} className="px-4 min-h-[44px] items-center justify-center rounded-full bg-white border border-brand-pale">
                                 <Text className="text-brand-dark font-bold text-xs">{t('newGame.changeField', 'שינוי')}</Text>
                             </TouchableOpacity>
                         </View>
                     )}
                     {/* key remounts the list on selection change: a fresh horizontal ScrollView opens at its logical start on iOS and Android RTL, and the selection is ordered first. */}
-                    <ScrollView key={selectedField?.id ?? 'none'} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 4 }}>
+                    <ScrollView key={selectedField?.id ?? 'none'} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 4, gap: 12 }}>
                         {orderedFields.map((field, index) => (
                             <TouchableOpacity
                                 key={field.id}
                                 testID={`new-game-field-${index}`}
                                 onPress={() => setSelectedField(field)}
-                                className={`mr-3 p-3 rounded-xl border w-40 ${selectedField?.id === field.id ? 'bg-brand-mist border-brand' : 'bg-white border-gray-200'}`}
+                                className={`p-3 rounded-xl border w-40 ${selectedField?.id === field.id ? 'bg-brand-mist border-brand' : 'bg-white border-gray-200'}`}
                             >
                                 <Text className={`font-bold ${selectedField?.id === field.id ? 'text-brand-dark' : 'text-gray-800'}`} numberOfLines={1}>{field.name}</Text>
-                                <Text className="text-xs text-gray-500" numberOfLines={1}>{field.location}</Text>
+                                <Text className="text-sm text-gray-500" numberOfLines={1}>{field.location}</Text>
                             </TouchableOpacity>
                         ))}
                     </ScrollView>
@@ -1045,10 +1045,10 @@ export default function NewGameScreen() {
 
             <Modal visible={showMapModal} animationType="slide" onRequestClose={closeMapModal} onDismiss={finishMapDismiss}>
                 <View className="flex-1 bg-white">
-                    <View className="flex-row justify-between items-center p-4 border-b border-gray-200 pt-10">
+                    <View className="flex-row justify-between items-center px-4 pb-3 border-b border-gray-200" style={{ paddingTop: insets.top + 12 }}>
                         <Text className="text-lg font-bold">{t('newGame.selectLocationModalTitle', 'בחר מיקום')}</Text>
-                        <TouchableOpacity onPress={closeMapModal} hitSlop={8}>
-                            <Text className="text-brand font-bold">{t('newGame.close', 'סגור')}</Text>
+                        <TouchableOpacity onPress={closeMapModal} className="min-h-[44px] min-w-[44px] items-end justify-center" hitSlop={8}>
+                            <Text className="text-brand font-bold text-base">{t('newGame.close', 'סגור')}</Text>
                         </TouchableOpacity>
                     </View>
 
@@ -1064,12 +1064,12 @@ export default function NewGameScreen() {
                                 onSubmitEditing={searchAddressOnMap}
                                 returnKeyType="search"
                                 placeholder={t('newGame.searchAddress', 'חפש כתובת…')}
-                                className="flex-1 p-3 text-right"
+                                className="flex-1 p-3"
                             />
                             {addressSearching ? (
                                 <ActivityIndicator size="small" />
                             ) : addressQuery.trim().length >= 2 ? (
-                                <TouchableOpacity onPress={searchAddressOnMap} className="py-2 pl-2">
+                                <TouchableOpacity onPress={searchAddressOnMap} className="py-3 ps-2">
                                     <Text className="text-brand-dark font-bold">{t('newGame.searchAddressGo', 'חפש')}</Text>
                                 </TouchableOpacity>
                             ) : null}
