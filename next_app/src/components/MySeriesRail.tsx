@@ -77,7 +77,7 @@ export default function MySeriesRail() {
                 ))}
                 <Box
                     component={Link}
-                    href="/series/new"
+                    href="/games/new?mode=group"
                     aria-label="צור קבוצה"
                     sx={{ display: "flex", flexDirection: "column", alignItems: "center", width: SIZE + 16, flexShrink: 0, textDecoration: "none", color: "primary.main" }}
                 >
