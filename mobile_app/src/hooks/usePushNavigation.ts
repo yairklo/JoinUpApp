@@ -38,7 +38,8 @@ export function usePushNavigation(onHandled?: () => void) {
 
   useEffect(() => {
     if (!response || !ready) return;
-    const identifier = response.notification.request.identifier;
+    // id + date: a server that reuses a request identifier must still get each tap handled.
+    const identifier = `${response.notification.request.identifier}:${response.notification.date}`;
     if (!shouldHandlePushTap({
       actionIdentifier: response.actionIdentifier,
       defaultActionIdentifier: Notifications.DEFAULT_ACTION_IDENTIFIER,
