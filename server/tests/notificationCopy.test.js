@@ -82,4 +82,20 @@ describe('notification copy builders', () => {
     const c = copy.gameCancelled({ gameTitle: 'משחק שישי', when: '06/11/2026 19:00' });
     expect(c.body).toBe('משחק שישי (06/11/2026 19:00) בוטל על ידי המארגן');
   });
+
+  test('English dates are day-first and midnight renders as 00:xx, not 24:xx', () => {
+    const g = { start: '2026-11-05T22:05:00.000Z', field: { name: 'Park' } }; // 00:05 on 6 Nov in Israel
+    const en = copy.describeGame(g, 'en-GB');
+    expect(en).toContain('06/11/2026');
+    expect(en).toContain('00:05');
+    expect(en).not.toContain('24:');
+  });
+
+  test('English copy carrying an email is redacted together with the Hebrew copy', async () => {
+    const { redactNotificationFields } = jest.requireActual('../utils/publicName');
+    const c = copy.friendRequest({ name: 'dana@example.com' });
+    const out = await redactNotificationFields({}, c.title, c.body, copy.enData(c));
+    expect(out.body).not.toContain('@');
+    expect(out.data.bodyEn).not.toContain('@');
+  });
 });

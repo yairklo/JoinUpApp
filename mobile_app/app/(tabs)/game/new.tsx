@@ -180,6 +180,12 @@ export default function NewGameScreen() {
 
     const handleMapBoundsChange = useCallback((bounds: MapBounds) => {
         if (!showMapModal) return;
+        // A bounds change well after opening that we didn't cause is the user panning/zooming:
+        // from then on a late GPS fix must not yank the map away.
+        const now = Date.now();
+        if (now - mapOpenedAtRef.current > 1500 && now - mapProgrammaticMoveAtRef.current > 1500) {
+            mapUserInteractedRef.current = true;
+        }
         fetchMapFields(bounds);
     }, [showMapModal, fetchMapFields]);
 
@@ -191,6 +197,9 @@ export default function NewGameScreen() {
     const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const mapLocationSeqRef = useRef(0);
     const mapUserInteractedRef = useRef(false);
+    const mapOpenedAtRef = useRef(0);
+    const mapProgrammaticMoveAtRef = useRef(0);
+    const openMapModalRef = useRef<() => void>(() => {});
 
     const resolveUserLocationInBackground = useCallback(async (seq: number) => {
         const stillWanted = () => seq === mapLocationSeqRef.current && mapOpenRef.current && !mapUserInteractedRef.current;
@@ -198,9 +207,11 @@ export default function NewGameScreen() {
         const apply = (coords: MapCoordinate) => {
             if (seq !== mapLocationSeqRef.current) return;
             setUserLocation(coords);
-            if (!animated && stillWanted()) {
+            // The map ref is null until the Modal content mounts: only count the move once it happened.
+            if (!animated && stillWanted() && mapRef.current) {
                 animated = true;
-                mapRef.current?.animateToCoordinate(coords, 0.1);
+                mapProgrammaticMoveAtRef.current = Date.now();
+                mapRef.current.animateToCoordinate(coords, 0.1);
             }
         };
         try {
@@ -229,6 +240,7 @@ export default function NewGameScreen() {
         }
         mapOpenRef.current = true;
         mapUserInteractedRef.current = false;
+        mapOpenedAtRef.current = Date.now();
         setMapSelectedField(selectedField);
 
         const region = resolveInitialMapRegion(selectedField, userLocation, DEFAULT_MAP_REGION);
@@ -243,15 +255,17 @@ export default function NewGameScreen() {
         }
     }, [selectedField, userLocation, fields, seedMapFieldsForRegion, resolveUserLocationInBackground]);
 
+    openMapModalRef.current = openMapModal;
+
     const finishMapDismiss = useCallback(() => {
         if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
         dismissTimerRef.current = null;
         mapDismissingRef.current = false;
         if (pendingMapOpenRef.current) {
             pendingMapOpenRef.current = false;
-            openMapModal();
+            openMapModalRef.current(); // latest render's closure, not the one from when the map was closed
         }
-    }, [openMapModal]);
+    }, []);
 
     const closeMapModal = useCallback(() => {
         if (!mapOpenRef.current) return;

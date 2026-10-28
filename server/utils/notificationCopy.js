@@ -20,7 +20,7 @@ function formatGameWhen(start, locale) {
     timeZone: 'Asia/Jerusalem',
     hour: '2-digit',
     minute: '2-digit',
-    hour12: false,
+    hourCycle: 'h23',
   });
   return { date, time };
 }
@@ -114,13 +114,13 @@ function describeGame(game, locale = 'he-IL') {
 function friendJoinedGame({ name, game }) {
   const n = nm(name, 'חבר/ה', 'A friend');
   return out(`${n.he} הצטרף/ה למשחק`, describeGame(game) || game.title || 'משחק',
-    `${n.en} joined a game`, describeGame(game, 'en-US') || game.title || 'Game');
+    `${n.en} joined a game`, describeGame(game, 'en-GB') || game.title || 'Game');
 }
 
 function friendNewGame({ name, game }) {
   const n = nm(name, 'חבר/ה', 'A friend');
   return out(`${n.he} פתח/ה משחק חדש`, describeGame(game) || game.title || 'משחק חדש',
-    `${n.en} created a new game`, describeGame(game, 'en-US') || game.title || 'New game');
+    `${n.en} created a new game`, describeGame(game, 'en-GB') || game.title || 'New game');
 }
 
 function newGameInCity({ name, game }) {
@@ -137,7 +137,7 @@ function registrationText(registrationOpensAt) {
   const fmt = (locale) => d.toLocaleString(locale, {
     timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit',
   });
-  return { he: `ההרשמה תיפתח ב-${fmt('he-IL')}`, en: `Registration opens ${fmt('en-US')}` };
+  return { he: `ההרשמה תיפתח ב-${fmt('he-IL')}`, en: `Registration opens ${fmt('en-GB')}` };
 }
 
 function newSeriesGame({ game }) {
