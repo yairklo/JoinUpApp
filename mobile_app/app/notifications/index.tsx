@@ -163,33 +163,33 @@ export default function NotificationsScreen() {
 
         return (
             <TouchableOpacity
-                className={`flex-row p-3 border-b border-gray-100 ${!item.read ? 'bg-brand-mist' : 'bg-white'}`}
+                className={`flex-row items-start gap-3 px-4 py-3 min-h-[64px] border-b border-gray-100 dark:border-white/10 ${!item.read ? 'bg-brand-mist dark:bg-cyber-card' : 'bg-white dark:bg-cyber-bg'}`}
                 onPress={() => handleNotificationPress(item)}
                 onLongPress={() => showOptionsRef.current(item)}
                 delayLongPress={350}
             >
-                <View className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${!item.read ? 'bg-brand-pale' : 'bg-gray-100'}`}>
+                <View className={`w-10 h-10 rounded-full items-center justify-center ${!item.read ? 'bg-brand-pale' : 'bg-gray-100'}`}>
                     <FontAwesome
                         name={item.type === 'NEW_MESSAGE' ? 'comment' : 'bell'}
-                        size={16}
-                        color={!item.read ? '#1e40af' : '#9ca3af'}
+                        size={18}
+                        color={!item.read ? '#047857' : '#9ca3af'}
                     />
                 </View>
                 <View className="flex-1">
-                    <View className="flex-row justify-between mb-1">
-                        <Text className={`text-base flex-1 mr-2 ${!item.read ? 'font-bold text-gray-900' : 'text-gray-700'}`}>
+                    <View className="flex-row items-baseline gap-2 mb-1">
+                        <Text className={`text-base flex-1 ${!item.read ? 'font-bold text-gray-900 dark:text-white' : 'font-medium text-gray-700 dark:text-gray-300'}`}>
                             {title}
                         </Text>
                         {dateLabel ? (
-                            <Text className="text-xs text-gray-400 mt-1">{dateLabel}</Text>
+                            <Text className="text-xs text-gray-400">{dateLabel}</Text>
                         ) : null}
                     </View>
-                    <Text className="text-gray-600 text-sm leading-5" numberOfLines={2}>
+                    <Text className="text-gray-600 dark:text-gray-400 text-sm leading-5" numberOfLines={2}>
                         {body}
                     </Text>
                     {item.data?.userId && (
                         <TouchableOpacity
-                            className="mt-2 bg-brand-mist py-1.5 px-3 rounded self-start border border-brand-pale"
+                            className="mt-2 bg-brand-mist min-h-[44px] justify-center px-3 rounded-lg self-start border border-brand-pale"
                             onPress={(e) => {
                                 e.stopPropagation();
                                 if (item.data?.userId) handleDirectMessage(item.data.userId);
@@ -200,8 +200,8 @@ export default function NotificationsScreen() {
                     )}
                 </View>
                 {!item.read && (
-                    <View className="justify-center pl-2">
-                        <View className="w-2 h-2 rounded-full bg-brand" />
+                    <View className="self-center">
+                        <View className="w-2.5 h-2.5 rounded-full bg-brand" />
                     </View>
                 )}
             </TouchableOpacity>
@@ -229,6 +229,8 @@ export default function NotificationsScreen() {
                             <TouchableOpacity
                                 onPress={() => router.push('/settings/notifications' as any)}
                                 accessibilityLabel={t('notificationSettings.allSettings')}
+                                className="min-h-[44px] min-w-[44px] items-center justify-center"
+                                hitSlop={8}
                             >
                                 <FontAwesome name="cog" size={20} color="#4b5563" />
                             </TouchableOpacity>
@@ -236,15 +238,15 @@ export default function NotificationsScreen() {
                     )
                 }}
             />
-            <View className="flex-1 bg-white">
+            <View className="flex-1 bg-white dark:bg-cyber-bg">
                 {showCityPrompt && (
                     <View className="m-3 p-3 rounded-xl bg-brand-mist border border-brand-pale">
                         <Text className="text-gray-800 font-bold mb-2">{t('notificationSettings.cityPromptTitle')}</Text>
-                        <View className="flex-row">
-                            <TouchableOpacity onPress={() => answerCityPrompt(true)} className="bg-brand px-4 py-2 rounded-lg mr-2">
+                        <View className="flex-row gap-2">
+                            <TouchableOpacity onPress={() => answerCityPrompt(true)} className="bg-brand px-4 min-h-[44px] justify-center rounded-lg">
                                 <Text className="text-white font-bold">{t('notificationSettings.cityPromptYes')}</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity onPress={() => answerCityPrompt(false)} className="px-4 py-2 rounded-lg">
+                            <TouchableOpacity onPress={() => answerCityPrompt(false)} className="px-4 min-h-[44px] justify-center rounded-lg">
                                 <Text className="text-gray-600 font-bold">{t('notificationSettings.cityPromptNo')}</Text>
                             </TouchableOpacity>
                         </View>
