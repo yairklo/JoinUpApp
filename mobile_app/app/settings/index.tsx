@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, I18nManager } from 'react-native';
 import React, { useCallback, useState } from 'react';
 import { useRouter, Stack, useFocusEffect } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
@@ -21,6 +21,9 @@ function buildInfoLabel(): string {
     parts.push(Updates.isEmbeddedLaunch || !Updates.updateId ? 'embedded' : Updates.updateId.slice(0, 8));
     return parts.join(' · ');
 }
+
+// Chevrons point toward the reading direction end; mirror them in RTL
+const chevronStyle = I18nManager.isRTL ? { transform: [{ scaleX: -1 }] } : undefined;
 
 export default function SettingsScreen() {
     const { t } = useTranslation();
@@ -141,7 +144,7 @@ export default function SettingsScreen() {
                                 {!!notifSummary && <Text className="text-sm text-gray-500">{notifSummary}</Text>}
                             </View>
                         </View>
-                        <FontAwesome name="angle-right" size={16} color="#9ca3af" />
+                        <FontAwesome name="angle-right" size={16} color="#9ca3af" style={chevronStyle} />
                     </TouchableOpacity>
                     <TouchableOpacity
                         className="p-4 flex-row justify-between items-center"
@@ -153,7 +156,7 @@ export default function SettingsScreen() {
                             </View>
                             <Text className="text-base text-gray-800 font-medium flex-1">{t('privacy.settings', 'הגדרות פרטיות')}</Text>
                         </View>
-                        <FontAwesome name="angle-right" size={16} color="#9ca3af" />
+                        <FontAwesome name="angle-right" size={16} color="#9ca3af" style={chevronStyle} />
                     </TouchableOpacity>
                 </View>
 
@@ -164,21 +167,21 @@ export default function SettingsScreen() {
                         onPress={() => router.push('/legal/privacy' as any)}
                     >
                         <Text className="text-base text-gray-800">{t('settings.privacyPolicy', 'Privacy Policy')}</Text>
-                        <FontAwesome name="angle-right" size={16} color="#9ca3af" />
+                        <FontAwesome name="angle-right" size={16} color="#9ca3af" style={chevronStyle} />
                     </TouchableOpacity>
                     <TouchableOpacity
                         className="p-4 border-b border-gray-100 flex-row items-center justify-between"
                         onPress={() => router.push('/legal/terms' as any)}
                     >
                         <Text className="text-base text-gray-800">{t('settings.termsOfService', 'Terms of Service')}</Text>
-                        <FontAwesome name="angle-right" size={16} color="#9ca3af" />
+                        <FontAwesome name="angle-right" size={16} color="#9ca3af" style={chevronStyle} />
                     </TouchableOpacity>
                     <TouchableOpacity
                         className="p-4 border-b border-gray-100 flex-row items-center justify-between"
                         onPress={() => router.push('/settings/blocked' as any)}
                     >
                         <Text className="text-base text-gray-800">{t('settings.blockedUsers', 'משתמשים חסומים')}</Text>
-                        <FontAwesome name="angle-right" size={16} color="#9ca3af" />
+                        <FontAwesome name="angle-right" size={16} color="#9ca3af" style={chevronStyle} />
                     </TouchableOpacity>
                     <View className="p-4 flex-row items-center justify-between bg-gray-50">
                         <Text className="text-sm text-gray-500">{t('settings.version', 'Version')}</Text>
