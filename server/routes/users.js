@@ -61,6 +61,7 @@ const { isBlockedEitherWay, getBlockedEitherWayIds, getBlockedByMe } = require('
 const { revokePresenceSubscriptions } = require('../utils/presenceAuth');
 const { disconnectUserSockets } = require('../utils/socketChatRooms');
 const crypto = require('crypto');
+const notifCopy = require('../utils/notificationCopy');
 
 // After a decline the same requester must wait before asking the same person again, so a declined
 // request cannot be re-sent (and re-notified) over and over. The person who declined can always ask.
@@ -1106,19 +1107,21 @@ async function ensureFriendRequestNotification(req, fr) {
   const requesterLabel = await notificationName(
     prisma,
     requester || { id: requesterId, name: req.user.name },
-    'משתמש'
+    null
   );
+  const c = notifCopy.friendRequest({ name: requesterLabel });
   await notificationService.sendNotification(
     receiverId,
     'FRIEND_REQUEST',
-    'בקשת חברות חדשה',
-    `${requesterLabel} שלח/ה לך בקשת חברות`,
+    c.title,
+    c.body,
     {
       friendRequestId: fr.id,
       requesterId,
       actorId: requesterId,
-      requesterName: requesterLabel,
+      requesterName: requesterLabel || 'משתמש',
       link: '/friends',
+      ...notifCopy.enData(c),
     },
     req.app.get('io')
   );
@@ -1311,17 +1314,19 @@ router.post('/requests/:id/accept', authenticateToken, async (req, res) => {
 
     // Send notification to requester
     const accepter = await prisma.user.findUnique({ where: { id: req.user.id } });
-    const accepterLabel = await notificationName(prisma, accepter || { id: req.user.id, name: req.user.name }, 'משתמש');
+    const accepterLabel = await notificationName(prisma, accepter || { id: req.user.id, name: req.user.name }, null);
+    const c = notifCopy.friendAccepted({ name: accepterLabel });
     await notificationService.sendNotification(
       reqRow.requesterId,
       'FRIEND_ACCEPTED',
-      'בקשת חברות אושרה',
-      `${accepterLabel} אישר/ה את בקשת החברות שלך`,
+      c.title,
+      c.body,
       {
         userId: req.user.id,
         actorId: req.user.id,
-        userName: accepterLabel,
-        link: `/user/${req.user.id}`
+        userName: accepterLabel || 'משתמש',
+        link: `/user/${req.user.id}`,
+        ...notifCopy.enData(c),
       },
       req.app.get('io')
     ).catch(err => console.error('[NOTIFICATION] Failed to send friend accepted notification:', err));

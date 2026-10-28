@@ -454,7 +454,24 @@
     "blockFailed": "החסימה נכשלה. נסו שוב.",
     "thisUser": "המשתמש"
   },
+  "header": {
+    "menuProfile": "פרופיל",
+    "menuSettings": "הגדרות",
+    "accountMenu": "תפריט חשבון"
+  },
   "notifications": {
+    "types": {
+      "GAME_WAITLIST_OFFER": {"title": "התפנה מקום במשחק!", "body": "התפנה מקום במשחק! לחץ כאן כדי לאשר את הצטרפותך"},
+      "GAME_CANCELLED": {"title": "המשחק בוטל"},
+      "GAME_JOIN_APPROVED": {"title": "הבקשה שלך אושרה"},
+      "GAME_JOIN_REJECTED": {"title": "הבקשה שלך נדחתה"},
+      "GAME_REMINDER": {"title": "משחק מתקרב!"},
+      "FRIEND_REQUEST": {"title": "בקשת חברות חדשה"},
+      "FRIEND_ACCEPTED": {"title": "בקשת חברות אושרה"},
+      "NEW_SERIES_GAME": {"title": "משחק חדש לקבוצה שלך נוצר!"},
+      "TOURNAMENT_STARTING_SOON": {"title": "המשחק בטורניר מתחיל בקרוב"},
+      "TOURNAMENT_TEAM_INVITE": {"title": "הוזמנת לקבוצה בטורניר"}
+    },
     "title": "התראות",
     "readAll": "סמן הכל כנקרא",
     "empty": "אין התראות עדיין",

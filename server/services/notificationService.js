@@ -94,6 +94,24 @@ function buildFcmMessage(token, type, title, body, data = {}) {
     };
 }
 
+/** Per-device push copy: English only for devices that reported 'en' and only when the caller supplied it. */
+function pickPushCopy(device, title, body, data = {}) {
+    if (device?.locale === 'en' && data?.titleEn) {
+        return { title: data.titleEn, body: data.bodyEn || body };
+    }
+    return { title, body };
+}
+
+/** 'en' | 'he' | null (null = not provided/invalid, leave stored value alone). */
+function normalizeLocale(raw) {
+    if (typeof raw !== 'string') return null;
+    const v = raw.trim().toLowerCase();
+    if (!v) return null;
+    if (v.startsWith('en')) return 'en';
+    if (v.startsWith('he') || v.startsWith('iw')) return 'he';
+    return null;
+}
+
 class NotificationService {
     constructor(prisma) {
         this.prisma = prisma || require('../lib/prisma').prisma;
@@ -311,15 +329,14 @@ class NotificationService {
 
         if (validDevices.length === 0) return;
 
-        // Always push the Hebrew title/body: the server stores no per-user language. data.titleEn/bodyEn
-        // still travel in `data`, so an app set to English shows English in-app and in the foreground.
+        // Copy is chosen per device: a device that reported locale 'en' gets data.titleEn/bodyEn when
+        // present; everything else (null/'he', or no English copy) gets the Hebrew title/body.
         const messages = validDevices.map(d => ({
             to: d.expoPushToken,
             sound: 'default',
             priority: 'high',
             channelId: 'default',
-            title,
-            body,
+            ...pickPushCopy(d, title, body, data),
             data: { ...data, type, notificationId: data.notificationId || '', link: data.link || '/' }
         }));
 
@@ -362,8 +379,9 @@ class NotificationService {
 
         for (const device of devices) {
             const token = device.fcmToken;
+            const copy = pickPushCopy(device, title, body, data);
             try {
-                await admin.messaging().send(buildFcmMessage(token, type, title, body, data));
+                await admin.messaging().send(buildFcmMessage(token, type, copy.title, copy.body, data));
 
                 Logger.info('NotificationService', `Push sent to token ${token.substring(0, 20)}...`);
             } catch (error) {
@@ -393,12 +411,13 @@ class NotificationService {
      * Register or update a device for a user. Accepts either an Expo push token (mobile)
      * or an FCM token (legacy/web); exactly one should be provided per call.
      */
-    async registerDevice(userId, { expoPushToken = null, fcmToken = null } = {}, deviceType = 'web', deviceName = null) {
+    async registerDevice(userId, { expoPushToken = null, fcmToken = null } = {}, deviceType = 'web', deviceName = null, locale = null) {
         if (!expoPushToken && !fcmToken) {
             throw new Error('Either expoPushToken or fcmToken is required');
         }
         try {
             const where = expoPushToken ? { expoPushToken } : { fcmToken };
+            const normalizedLocale = normalizeLocale(locale);
             const device = await this.prisma.userDevice.upsert({
                 where,
                 create: {
@@ -407,12 +426,15 @@ class NotificationService {
                     fcmToken,
                     deviceType,
                     deviceName,
+                    ...(normalizedLocale ? { locale: normalizedLocale } : {}),
                     lastUsed: new Date()
                 },
                 update: {
                     userId, // Update userId in case token was reassigned
                     deviceType,
                     deviceName,
+                    // Only touch locale when the client reported one (web/FCM clients don't).
+                    ...(normalizedLocale ? { locale: normalizedLocale } : {}),
                     lastUsed: new Date()
                 }
             });
@@ -593,4 +615,4 @@ class NotificationService {
     }
 }
 
-module.exports = { NotificationService, buildFcmMessage };
+module.exports = { NotificationService, buildFcmMessage, pickPushCopy, normalizeLocale };

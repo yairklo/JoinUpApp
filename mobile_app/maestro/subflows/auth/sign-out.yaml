@@ -6,6 +6,8 @@ appId: com.yairklo.joinupapp
     id: tab-home
 - tapOn:
     id: header-profile
+- tapOn:
+    id: header-menu-profile
 - scrollUntilVisible:
     element:
       id: profile-sign-out

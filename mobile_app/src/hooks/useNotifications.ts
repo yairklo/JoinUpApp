@@ -11,6 +11,8 @@ import {
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
+import i18n from '@/i18n';
+import { pushLocaleFor, rememberPushRegistration } from '@/services/pushLocale';
 
 let pushRegistrationErrorLogged = false;
 
@@ -85,7 +87,8 @@ export function useNotifications() {
         console.log('[NOTIFICATIONS] Got Expo push token:', expoPushToken);
         const clerkToken = await getTokenRef.current();
         if (clerkToken) {
-          await notificationsApi.registerDevice(expoPushToken, Platform.OS, clerkToken);
+          rememberPushRegistration(expoPushToken, () => getTokenRef.current());
+          await notificationsApi.registerDevice(expoPushToken, Platform.OS, clerkToken, pushLocaleFor(i18n.language));
           console.log('[NOTIFICATIONS] Registered device token with backend successfully');
         }
       } catch (error) {

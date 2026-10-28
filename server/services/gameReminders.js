@@ -171,11 +171,13 @@ async function remindPage({ games, prisma, notificationService, io, now, shouldC
       });
       if (claim.count !== 1) continue;
 
-      const { title, body } = buildReminderMessage({ now, start: game.start, fieldName: (game.field && game.field.name) || '' });
+      const fieldName = (game.field && game.field.name) || '';
+      const { title, body } = buildReminderMessage({ now, start: game.start, fieldName });
+      const en = buildReminderMessage({ now, start: game.start, fieldName, lang: 'en' });
       try {
         await notificationService.sendNotification(
           p.userId, 'GAME_REMINDER', title, body,
-          { gameId: game.id, link: `/games/${game.id}`, type: 'GAME_REMINDER' }, io,
+          { gameId: game.id, link: `/games/${game.id}`, type: 'GAME_REMINDER', titleEn: en.title, bodyEn: en.body }, io,
         );
         sent += 1;
       } catch (error) {

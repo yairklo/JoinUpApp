@@ -23,6 +23,7 @@ const {
 } = require('../utils/membersGuests');
 const { publicDisplayName } = require('../utils/publicName');
 const { getBlockedEitherWayIds } = require('../utils/blocks');
+const notifCopy = require('../utils/notificationCopy');
 
 const WELCOME_MESSAGE_MAX_LENGTH = 2000;
 const DESCRIPTION_MAX_LENGTH = 2000;
@@ -376,12 +377,13 @@ router.post('/:seriesId/subscribe', authenticateToken, async (req, res) => {
       }
       if (!existing) {
         await prisma.seriesJoinRequest.create({ data: { seriesId, userId } });
+        const c = notifCopy.seriesJoinRequest({ name: publicDisplayName(req.user.name, null), groupName: seriesDisplayName(series) });
         notificationService.sendNotification(
           series.organizerId,
           'GAME_JOIN_REQUEST',
-          'בקשת הצטרפות לקבוצה',
-          `${req.user.name || 'משתמש'} ביקש/ה להצטרף לקבוצה ${seriesDisplayName(series)}`,
-          { seriesId, userId, actorId: userId, link: `/series/${seriesId}` },
+          c.title,
+          c.body,
+          { seriesId, userId, actorId: userId, link: `/series/${seriesId}`, ...notifCopy.enData(c) },
           req.io
         ).catch(err => console.error('[NOTIFICATIONS] Failed to notify series join request', seriesId, err));
       }
@@ -829,12 +831,13 @@ router.post('/:seriesId/join-requests/:userId/approve', authenticateToken, async
       prisma.seriesJoinRequest.delete({ where: { id: request.id } }),
     ]);
 
+    const c = notifCopy.seriesJoinDecision({ approved: true, groupName: seriesDisplayName(series) });
     notificationService.sendNotification(
       userId,
       'GAME_JOIN_APPROVED',
-      'הבקשה שלך אושרה',
-      `הצטרפת לקבוצה ${seriesDisplayName(series)}`,
-      { seriesId, link: `/series/${seriesId}` },
+      c.title,
+      c.body,
+      { seriesId, link: `/series/${seriesId}`, ...notifCopy.enData(c) },
       req.io
     ).catch(err => console.error('[NOTIFICATIONS] Failed to notify series join approval', seriesId, err));
 
@@ -859,12 +862,13 @@ router.post('/:seriesId/join-requests/:userId/reject', authenticateToken, async 
     });
     if (updated.count === 0) return res.status(404).json({ error: 'No pending join request found for this user' });
 
+    const c = notifCopy.seriesJoinDecision({ approved: false, groupName: seriesDisplayName(series) });
     notificationService.sendNotification(
       userId,
       'GAME_JOIN_REJECTED',
-      'הבקשה שלך נדחתה',
-      `בקשתך להצטרף לקבוצה ${seriesDisplayName(series)} נדחתה`,
-      { seriesId, link: `/series/${seriesId}` },
+      c.title,
+      c.body,
+      { seriesId, link: `/series/${seriesId}`, ...notifCopy.enData(c) },
       req.io
     ).catch(err => console.error('[NOTIFICATIONS] Failed to notify series join rejection', seriesId, err));
 
@@ -910,14 +914,15 @@ router.post('/:seriesId/members', authenticateToken, async (req, res) => {
       }
     }
 
-    const adderName = publicDisplayName(req.user.name, 'משתמש');
+    const adderName = publicDisplayName(req.user.name, null);
+    const c = notifCopy.seriesMemberAdded({ name: adderName, groupName: seriesDisplayName(series) });
     for (const userId of newIds) {
       notificationService.sendNotification(
         userId,
         'GAME_INVITATION',
-        'צורפת לקבוצה',
-        `${adderName} צירף/ה אותך לקבוצה ${seriesDisplayName(series)}`,
-        { seriesId, link: `/series/${seriesId}` },
+        c.title,
+        c.body,
+        { seriesId, link: `/series/${seriesId}`, ...notifCopy.enData(c) },
         req.io
       ).catch(err => console.error('[NOTIFICATIONS] Failed to notify series member add', seriesId, err));
     }
