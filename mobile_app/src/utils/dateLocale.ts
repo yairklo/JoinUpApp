@@ -11,6 +11,10 @@ export function dateLocaleFor(language?: string | null): DateLocale {
 
 const HM: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
 
+export function formatDate(d: Date | string | number, language?: string | null): string {
+  return new Date(d).toLocaleDateString(dateLocaleFor(language));
+}
+
 export function formatTimeOfDay(d: Date | string | number, language?: string | null): string {
   return new Date(d).toLocaleTimeString(dateLocaleFor(language), HM);
 }
