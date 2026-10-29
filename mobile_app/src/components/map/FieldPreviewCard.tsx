@@ -7,6 +7,13 @@ import FavoriteButton from '@/components/FavoriteButton';
 import { getSportColorHex, getSportIconName } from '@/utils/mapSport';
 import { SPORT_MAPPING } from '@/utils/sports';
 import SafeImage from '@/components/SafeImage';
+import { useColorMode } from '@/theme/ColorModeContext';
+
+// Card colours per mode (same tokens as tailwind cyber-*/brand-*; this card is inline-styled, so no dark: classes).
+const PALETTE = {
+    light: { surface: '#ffffff', neutralBg: '#f3f4f6', text: '#111827', muted: '#6b7280', muted2: '#4b5563', brandBg: '#ecfdf5', brandBorder: '#a7f3d0', brandText: '#047857' },
+    dark: { surface: '#111a2c', neutralBg: '#1e293b', text: '#f1f5f9', muted: '#94a3b8', muted2: '#cbd5e1', brandBg: '#022c22', brandBorder: '#065f46', brandText: '#34d399' },
+} as const;
 
 export interface PreviewField {
     id: string;
@@ -47,6 +54,8 @@ export default function FieldPreviewCard({
     primaryAction,
 }: FieldPreviewCardProps) {
     const { t } = useTranslation();
+    const { colorMode } = useColorMode();
+    const p = PALETTE[colorMode === 'dark' ? 'dark' : 'light'];
 
     return (
         <View
@@ -65,7 +74,7 @@ export default function FieldPreviewCard({
                 onPress={onPress}
                 style={{
                     width: '100%',
-                    backgroundColor: '#ffffff',
+                    backgroundColor: p.surface,
                     borderRadius: 20,
                     padding: 14,
                     shadowColor: '#000',
@@ -87,7 +96,7 @@ export default function FieldPreviewCard({
                             marginBottom: 10,
                             paddingBottom: 8,
                             borderBottomWidth: 1,
-                            borderBottomColor: '#f3f4f6',
+                            borderBottomColor: p.neutralBg,
                         }}
                     >
                         <Text style={{ fontSize: 12, fontWeight: '700', color: '#059669' }}>
@@ -105,14 +114,14 @@ export default function FieldPreviewCard({
                                         paddingHorizontal: 10,
                                         paddingVertical: 3,
                                         borderRadius: 8,
-                                        backgroundColor: clusterIndex === idx ? '#059669' : '#f3f4f6',
+                                        backgroundColor: clusterIndex === idx ? '#059669' : p.neutralBg,
                                     }}
                                 >
                                     <Text
                                         style={{
                                             fontSize: 11,
                                             fontWeight: 'bold',
-                                            color: clusterIndex === idx ? '#ffffff' : '#6b7280',
+                                            color: clusterIndex === idx ? '#ffffff' : p.muted,
                                         }}
                                     >
                                         {idx + 1}
@@ -129,7 +138,7 @@ export default function FieldPreviewCard({
                         {field.image ? (
                             <SafeImage
                                 source={{ uri: field.image }}
-                                style={{ width: 60, height: 60, borderRadius: 14, backgroundColor: '#f3f4f6' }}
+                                style={{ width: 60, height: 60, borderRadius: 14, backgroundColor: p.neutralBg }}
                             />
                         ) : (
                             <View
@@ -157,7 +166,7 @@ export default function FieldPreviewCard({
                     {/* Info Column */}
                     <View style={{ flex: 1, marginHorizontal: 10 }}>
                         <Text
-                            style={{ fontSize: 16, fontWeight: 'bold', color: '#111827', textAlign: 'left' }}
+                            style={{ fontSize: 16, fontWeight: 'bold', color: p.text, textAlign: 'left' }}
                             numberOfLines={1}
                         >
                             {field.name}
@@ -165,7 +174,7 @@ export default function FieldPreviewCard({
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
                             <FontAwesome name="map-marker" size={12} color="#9ca3af" style={{ marginRight: 4 }} />
                             <Text
-                                style={{ fontSize: 13, color: '#6b7280', flex: 1, textAlign: 'left' }}
+                                style={{ fontSize: 13, color: p.muted, flex: 1, textAlign: 'left' }}
                                 numberOfLines={1}
                             >
                                 {field.location || field.city || t('field.israel', 'ישראל')}
@@ -175,25 +184,25 @@ export default function FieldPreviewCard({
                         {/* Badges */}
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5, gap: 5, flexWrap: 'wrap' }}>
                             {field.supportedSports?.[0] && (
-                                <View style={{ backgroundColor: '#ecfdf5', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: '#a7f3d0' }}>
-                                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#047857' }}>
+                                <View style={{ backgroundColor: p.brandBg, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: p.brandBorder }}>
+                                    <Text style={{ fontSize: 11, fontWeight: '700', color: p.brandText }}>
                                         {t('sports.' + field.supportedSports[0].toLowerCase(), SPORT_MAPPING[field.supportedSports[0]] || field.supportedSports[0])}
                                     </Text>
                                 </View>
                             )}
-                            <View style={{ backgroundColor: '#f3f4f6', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 }}>
-                                <Text style={{ fontSize: 11, fontWeight: '600', color: '#4b5563' }}>
+                            <View style={{ backgroundColor: p.neutralBg, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 }}>
+                                <Text style={{ fontSize: 11, fontWeight: '600', color: p.muted2 }}>
                                     {field.type === 'closed' ? t('field.closedField', 'מגרש מקורה') : t('field.openField', 'מגרש פתוח')}
                                 </Text>
                             </View>
                             {typeof field.price === 'number' && field.price > 0 ? (
-                                <View style={{ backgroundColor: '#f0fdf4', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 }}>
+                                <View style={{ backgroundColor: p.brandBg, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 }}>
                                     <Text style={{ fontSize: 11, fontWeight: '700', color: '#059669' }}>
                                         {t('field.pricePerHour', { price: field.price })}
                                     </Text>
                                 </View>
                             ) : (
-                                <View style={{ backgroundColor: '#f0fdf4', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 }}>
+                                <View style={{ backgroundColor: p.brandBg, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 }}>
                                     <Text style={{ fontSize: 11, fontWeight: '700', color: '#059669' }}>
                                         {t('field.freePrice', 'חינם')}
                                     </Text>
@@ -212,13 +221,13 @@ export default function FieldPreviewCard({
                             width: 30,
                             height: 30,
                             borderRadius: 15,
-                            backgroundColor: '#f3f4f6',
+                            backgroundColor: p.neutralBg,
                             alignItems: 'center',
                             justifyContent: 'center',
                             alignSelf: 'flex-start',
                         }}
                         accessibilityRole="button"
-                        accessibilityLabel="Close preview"
+                        accessibilityLabel={t('common.close', 'סגירה')}
                         hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
                     >
                         <FontAwesome name="times" size={13} color="#6b7280" />
@@ -251,7 +260,7 @@ export default function FieldPreviewCard({
                         marginTop: 10,
                         paddingTop: 8,
                         borderTopWidth: 1,
-                        borderTopColor: '#f3f4f6',
+                        borderTopColor: p.neutralBg,
                         flexDirection: 'row',
                         alignItems: 'center',
                         justifyContent: 'space-between',

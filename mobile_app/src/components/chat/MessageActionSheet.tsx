@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, Modal, Pressable, ActivityIndicator, ScrollView, I18nManager } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
+import { useColorMode } from "@/theme/ColorModeContext";
 import { ChatMessage } from "@/types/chat";
 import type { MessageReportReason } from "@/services/api/chats";
 
@@ -41,6 +42,8 @@ export default function MessageActionSheet({
     message, isMe, senderName, currentUserId, onClose, onReact, onReply, onEdit, onDelete, onReport, onBlock,
 }: MessageActionSheetProps) {
     const { t } = useTranslation();
+    const { colorMode } = useColorMode();
+    const isDark = colorMode === "dark";
     const [mode, setMode] = useState<"actions" | "report">("actions");
     const [submitting, setSubmitting] = useState(false);
 
@@ -96,7 +99,7 @@ export default function MessageActionSheet({
                         <>
                             {message.status !== "blocked" && (
                                 <View
-                                    className="flex-row bg-white rounded-full px-2 py-1.5 mb-3"
+                                    className="flex-row bg-white dark:bg-cyber-card rounded-full px-2 py-1.5 mb-3"
                                     style={{ shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 }}
                                 >
                                     {QUICK_REACTIONS.map((emoji) => {
@@ -108,7 +111,7 @@ export default function MessageActionSheet({
                                                 activeOpacity={0.6}
                                                 accessibilityRole="button"
                                                 accessibilityLabel={emoji}
-                                                style={{ width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: selected ? "#D1FAE5" : "transparent", marginHorizontal: 1 }}
+                                                style={{ width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: selected ? (isDark ? "#065f46" : "#D1FAE5") : "transparent", marginHorizontal: 1 }}
                                             >
                                                 <Text style={{ fontSize: 26 }}>{emoji}</Text>
                                             </TouchableOpacity>
@@ -119,19 +122,19 @@ export default function MessageActionSheet({
 
                             {/* The long-pressed message, lifted above the dimmed chat */}
                             <View
-                                className={`px-4 py-3 rounded-3xl mb-3 ${isMe ? "bg-brand rounded-tr-none" : "bg-white rounded-tl-none"}`}
+                                className={`px-4 py-3 rounded-3xl mb-3 ${isMe ? "bg-brand rounded-tr-none" : "bg-white dark:bg-cyber-card rounded-tl-none"}`}
                                 style={{ maxWidth: "85%" }}
                             >
                                 {!isMe && senderName ? (
-                                    <Text className="text-xs font-black text-brand mb-1 text-left">{senderName}</Text>
+                                    <Text className="text-xs font-black text-brand dark:text-brand-light mb-1 text-left">{senderName}</Text>
                                 ) : null}
                                 <ScrollView style={{ maxHeight: 180 }} bounces={false}>
-                                    <Text className={`text-base leading-5 text-left ${isMe ? "text-white" : "text-gray-900"}`}>{text}</Text>
+                                    <Text className={`text-base leading-5 text-left ${isMe ? "text-white" : "text-gray-900 dark:text-cyber-text"}`}>{text}</Text>
                                 </ScrollView>
                             </View>
 
                             <View
-                                className="bg-white rounded-2xl overflow-hidden"
+                                className="bg-white dark:bg-cyber-card rounded-2xl overflow-hidden"
                                 style={{ width: 240, shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 }}
                             >
                                 {actions.map((a, i) => (
@@ -141,9 +144,9 @@ export default function MessageActionSheet({
                                         accessibilityLabel={a.label}
                                         onPress={a.onPress}
                                         activeOpacity={0.6}
-                                        className={`flex-row items-center justify-between px-4 py-3.5 ${i > 0 ? "border-t border-gray-100" : ""}`}
+                                        className={`flex-row items-center justify-between px-4 py-3.5 ${i > 0 ? "border-t border-gray-100 dark:border-cyber-border" : ""}`}
                                     >
-                                        <Text className={`text-base text-left ${a.destructive ? "text-red-600 font-semibold" : "text-gray-900"}`}>{a.label}</Text>
+                                        <Text className={`text-base text-left ${a.destructive ? "text-red-600 dark:text-red-400 font-semibold" : "text-gray-900 dark:text-cyber-text"}`}>{a.label}</Text>
                                         <Ionicons name={a.icon} size={20} color={a.destructive ? "#DC2626" : "#374151"} />
                                     </TouchableOpacity>
                                 ))}
@@ -151,16 +154,16 @@ export default function MessageActionSheet({
                         </>
                     ) : (
                         <View
-                            className="bg-white rounded-2xl overflow-hidden self-stretch"
+                            className="bg-white dark:bg-cyber-card rounded-2xl overflow-hidden self-stretch"
                             style={{ shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 }}
                         >
                             <View className="flex-row items-center px-4 pt-4 pb-2">
                                 <TouchableOpacity onPress={() => setMode("actions")} disabled={submitting} className="p-1 mr-2" accessibilityRole="button" accessibilityLabel={t("chat.back", "חזרה")}>
-                                    <Ionicons name={I18nManager.isRTL ? "arrow-forward" : "arrow-back"} size={22} color="#374151" />
+                                    <Ionicons name={I18nManager.isRTL ? "arrow-forward" : "arrow-back"} size={22} color={isDark ? "#f1f5f9" : "#374151"} />
                                 </TouchableOpacity>
-                                <Text className="flex-1 text-lg font-black text-gray-900 text-left">{t("chat.reportTitle", "דיווח על הודעה")}</Text>
+                                <Text className="flex-1 text-lg font-black text-gray-900 dark:text-cyber-text text-left">{t("chat.reportTitle", "דיווח על הודעה")}</Text>
                             </View>
-                            <Text className="px-4 pb-3 text-sm text-gray-500 text-left">
+                            <Text className="px-4 pb-3 text-sm text-gray-500 dark:text-cyber-muted text-left">
                                 {t("chat.reportSubtitle", "מה הבעיה בהודעה? הדיווח יישלח לצוות הניהול, והשולח לא יידע מי דיווח.")}
                             </Text>
                             {REPORT_REASONS.map((r) => (
@@ -171,10 +174,10 @@ export default function MessageActionSheet({
                                     onPress={() => submitReport(r.value)}
                                     disabled={submitting}
                                     activeOpacity={0.6}
-                                    className="flex-row items-center px-4 py-3.5 border-t border-gray-100"
+                                    className="flex-row items-center px-4 py-3.5 border-t border-gray-100 dark:border-cyber-border"
                                 >
                                     <Ionicons name={r.icon} size={20} color="#DC2626" />
-                                    <Text className="flex-1 text-base text-gray-900 text-left mx-3">{t(r.key, r.fallback)}</Text>
+                                    <Text className="flex-1 text-base text-gray-900 dark:text-cyber-text text-left mx-3">{t(r.key, r.fallback)}</Text>
                                     <Ionicons name={I18nManager.isRTL ? "chevron-back" : "chevron-forward"} size={18} color="#9CA3AF" />
                                 </TouchableOpacity>
                             ))}
