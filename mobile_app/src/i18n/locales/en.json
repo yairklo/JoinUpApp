@@ -107,7 +107,8 @@
     "loadMore": "Load more games",
     "messagesBlocked": "This user only accepts messages from friends",
     "hideMatchStats": "Hide my match stats from others",
-    "hideMatchStatsHint": "Your results and stats won't be shown to others on your profile or game pages. You can still see them."
+    "hideMatchStatsHint": "Your results and stats won't be shown to others on your profile or game pages. You can still see them.",
+    "hideGroups": "Hide my groups on my profile"
   },
   "stats": {
     "title": "Stats",
