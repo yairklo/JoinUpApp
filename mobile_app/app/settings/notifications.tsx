@@ -28,6 +28,9 @@ import { notificationsApi } from '@/services/api/notifications';
 import { SPORT_MAPPING } from '@/utils/sports';
 import SafeImage from '@/components/SafeImage';
 import { appAlert } from '@/i18n/appAlert';
+import LoadingMotif from '@/components/loading/LoadingMotif';
+import { useColorMode } from '@/theme/ColorModeContext';
+import { formatTimeOfDay, formatDayMonthTime } from '@/utils/dateLocale';
 
 const SAVE_DEBOUNCE_MS = 400;
 const SPORTS = Object.keys(SPORT_MAPPING) as NotificationSport[];
@@ -60,7 +63,7 @@ function minutesToDate(minutes: number): Date {
 }
 
 function Card({ children }: { children: React.ReactNode }) {
-    return <View className="bg-white mx-4 rounded-xl mb-4 shadow-sm overflow-hidden">{children}</View>;
+    return <View className="bg-white dark:bg-cyber-card mx-4 rounded-xl mb-4 shadow-sm overflow-hidden">{children}</View>;
 }
 
 function Row({ icon, title, subtitle, right, onPress }: {
@@ -70,13 +73,13 @@ function Row({ icon, title, subtitle, right, onPress }: {
         <View className="p-4 flex-row items-center justify-between">
             <View className="flex-row items-center flex-1 mr-3">
                 {icon && (
-                    <View className="w-8 h-8 rounded-full bg-brand-pale items-center justify-center mr-3">
+                    <View className="w-8 h-8 rounded-full bg-brand-pale dark:bg-brand-ink items-center justify-center mr-3">
                         <FontAwesome name={icon} size={14} color="#059669" />
                     </View>
                 )}
                 <View className="flex-1">
-                    <Text className="text-base text-gray-800 font-medium">{title}</Text>
-                    {!!subtitle && <Text className="text-sm text-gray-500 mt-0.5">{subtitle}</Text>}
+                    <Text className="text-base text-gray-800 dark:text-cyber-text font-medium">{title}</Text>
+                    {!!subtitle && <Text className="text-sm text-gray-500 dark:text-cyber-muted mt-0.5">{subtitle}</Text>}
                 </View>
             </View>
             {right}
@@ -88,28 +91,30 @@ function Row({ icon, title, subtitle, right, onPress }: {
 function Stepper({ label, valueText, onMinus, onPlus, minusDisabled, plusDisabled }: {
     label: string; valueText: string; onMinus: () => void; onPlus: () => void; minusDisabled: boolean; plusDisabled: boolean;
 }) {
+    const { colorMode } = useColorMode();
+    const iconColor = colorMode === 'dark' ? '#f1f5f9' : '#374151';
     return (
         <View className="flex-1 items-center">
-            <Text className="text-xs text-gray-500 mb-1">{label}</Text>
+            <Text className="text-xs text-gray-500 dark:text-cyber-muted mb-1">{label}</Text>
             <View className="flex-row items-center">
                 <TouchableOpacity
                     onPress={onMinus}
                     disabled={minusDisabled}
                     accessibilityRole="button"
                     accessibilityLabel={`${label} -`}
-                    className={`w-9 h-9 rounded-full items-center justify-center bg-white border border-gray-200 ${minusDisabled ? 'opacity-40' : ''}`}
+                    className={`w-9 h-9 rounded-full items-center justify-center bg-white dark:bg-cyber-card border border-gray-200 dark:border-cyber-border ${minusDisabled ? 'opacity-40' : ''}`}
                 >
-                    <FontAwesome name="minus" size={12} color="#374151" />
+                    <FontAwesome name="minus" size={12} color={iconColor} />
                 </TouchableOpacity>
-                <Text className="w-12 text-center text-lg font-bold text-gray-800">{valueText}</Text>
+                <Text className="w-12 text-center text-lg font-bold text-gray-800 dark:text-cyber-text">{valueText}</Text>
                 <TouchableOpacity
                     onPress={onPlus}
                     disabled={plusDisabled}
                     accessibilityRole="button"
                     accessibilityLabel={`${label} +`}
-                    className={`w-9 h-9 rounded-full items-center justify-center bg-white border border-gray-200 ${plusDisabled ? 'opacity-40' : ''}`}
+                    className={`w-9 h-9 rounded-full items-center justify-center bg-white dark:bg-cyber-card border border-gray-200 dark:border-cyber-border ${plusDisabled ? 'opacity-40' : ''}`}
                 >
-                    <FontAwesome name="plus" size={12} color="#374151" />
+                    <FontAwesome name="plus" size={12} color={iconColor} />
                 </TouchableOpacity>
             </View>
         </View>
@@ -252,9 +257,9 @@ export default function NotificationSettingsScreen() {
 
     if (loadError) {
         return (
-            <View className="flex-1 items-center justify-center bg-gray-50 p-6">
+            <View className="flex-1 items-center justify-center bg-gray-50 dark:bg-cyber-bg p-6">
                 <Stack.Screen options={{ title: t('notificationSettings.title'), headerShown: true }} />
-                <Text className="text-gray-700 mb-4 text-center">{t('notificationSettings.loadFailed')}</Text>
+                <Text className="text-gray-700 dark:text-cyber-text mb-4 text-center">{t('notificationSettings.loadFailed')}</Text>
                 <TouchableOpacity onPress={load} className="bg-brand px-5 py-2.5 rounded-lg">
                     <Text className="text-white font-bold">{t('notificationSettings.retry')}</Text>
                 </TouchableOpacity>
@@ -264,16 +269,16 @@ export default function NotificationSettingsScreen() {
 
     if (!settings) {
         return (
-            <View className="flex-1 items-center justify-center bg-gray-50">
+            <View className="flex-1 items-center justify-center bg-gray-50 dark:bg-cyber-bg">
                 <Stack.Screen options={{ title: t('notificationSettings.title'), headerShown: true }} />
-                <ActivityIndicator />
+                <LoadingMotif id="brand-pulse" label={t('common.loading', 'טוען…')} />
             </View>
         );
     }
 
     const pushOn = settings.pushEnabled && osPermission === 'granted';
     const snoozedUntil = settings.snoozeUntil ? new Date(settings.snoozeUntil) : null;
-    const timeOf = (d: Date) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const timeOf = (d: Date) => formatTimeOfDay(d, i18n.language);
 
     const toggleSport = (sport: NotificationSport) => {
         const cur = settings.cityGamesSports;
@@ -289,14 +294,14 @@ export default function NotificationSettingsScreen() {
     };
 
     const muteUntilText = (m: NotificationMute) => (m.until
-        ? t('notificationSettings.mutedUntil', { time: new Date(m.until).toLocaleString([], { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) })
+        ? t('notificationSettings.mutedUntil', { time: formatDayMonthTime(m.until, i18n.language) })
         : t('notificationSettings.mutedForever'));
 
     return (
         <>
             <Stack.Screen options={{ title: t('notificationSettings.title'), headerShown: true }} />
-            <ScrollView className="flex-1 bg-gray-50" contentContainerStyle={{ paddingTop: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
-                <Text className="mx-4 mb-3 text-sm text-gray-500">{t('notificationSettings.autoSave')}</Text>
+            <ScrollView className="flex-1 bg-gray-50 dark:bg-cyber-bg" contentContainerStyle={{ paddingTop: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+                <Text className="mx-4 mb-3 text-sm text-gray-500 dark:text-cyber-muted">{t('notificationSettings.autoSave')}</Text>
 
                 {/* Master push + snooze */}
                 <Card>
@@ -309,14 +314,14 @@ export default function NotificationSettingsScreen() {
                         right={<Switch value={pushOn} onValueChange={togglePush} />}
                     />
                     {pushOn && (
-                        <View className="border-t border-gray-100">
+                        <View className="border-t border-gray-100 dark:border-cyber-border">
                             <Row
                                 icon="pause"
                                 title={t('notificationSettings.snooze')}
                                 subtitle={snoozedUntil ? t('notificationSettings.snoozedUntil', { time: timeOf(snoozedUntil) }) : t('notificationSettings.snoozeSubtitle')}
                                 right={busy ? <ActivityIndicator /> : (
-                                    <TouchableOpacity onPress={snoozedUntil ? () => snooze(null) : openSnoozeMenu} className="px-3 py-1.5 rounded-lg bg-gray-100">
-                                        <Text className="text-brand-dark font-bold">
+                                    <TouchableOpacity onPress={snoozedUntil ? () => snooze(null) : openSnoozeMenu} className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-cyber-border">
+                                        <Text className="text-brand-dark dark:text-brand-light font-bold">
                                             {snoozedUntil ? t('notificationSettings.resume') : t('notificationSettings.snoozeAction')}
                                         </Text>
                                     </TouchableOpacity>
@@ -327,31 +332,31 @@ export default function NotificationSettingsScreen() {
                 </Card>
 
                 {/* Categories */}
-                <Text className="mx-4 mb-1 text-base font-bold text-gray-800">{t('notificationSettings.whatTitle')}</Text>
-                <Text className="mx-4 mb-3 text-sm text-gray-500">{t('notificationSettings.whatSubtitle')}</Text>
+                <Text className="mx-4 mb-1 text-base font-bold text-gray-800 dark:text-cyber-text">{t('notificationSettings.whatTitle')}</Text>
+                <Text className="mx-4 mb-3 text-sm text-gray-500 dark:text-cyber-muted">{t('notificationSettings.whatSubtitle')}</Text>
                 {NOTIFICATION_CATEGORY_GROUPS.map(group => (
                     <Card key={group}>
                         <View className="px-4 pt-3 pb-1 flex-row justify-between items-center">
-                            <Text className="text-sm font-bold text-gray-500">{t(`notificationSettings.groups.${group}`)}</Text>
+                            <Text className="text-sm font-bold text-gray-500 dark:text-cyber-muted">{t(`notificationSettings.groups.${group}`)}</Text>
                             <View className="flex-row">
-                                <Text className="w-16 text-center text-xs text-gray-400">{t('notificationSettings.channelPush')}</Text>
-                                <Text className="w-16 text-center text-xs text-gray-400">{t('notificationSettings.channelInApp')}</Text>
+                                <Text className="w-16 text-center text-xs text-gray-400 dark:text-cyber-muted">{t('notificationSettings.channelPush')}</Text>
+                                <Text className="w-16 text-center text-xs text-gray-400 dark:text-cyber-muted">{t('notificationSettings.channelInApp')}</Text>
                             </View>
                         </View>
                         {NOTIFICATION_CATEGORIES.filter(c => c.group === group).map((cat, i) => (
-                            <View key={cat.key} className={i > 0 ? 'border-t border-gray-100' : ''}>
+                            <View key={cat.key} className={i > 0 ? 'border-t border-gray-100 dark:border-cyber-border' : ''}>
                                 <View className="px-4 py-3 flex-row items-center">
-                                    <View className="w-8 h-8 rounded-full bg-brand-pale items-center justify-center mr-3">
+                                    <View className="w-8 h-8 rounded-full bg-brand-pale dark:bg-brand-ink items-center justify-center mr-3">
                                         <FontAwesome name={CATEGORY_ICON[cat.key]} size={14} color="#059669" />
                                     </View>
                                     <View className="flex-1 mr-2">
-                                        <Text className="text-base text-gray-800 font-medium">{t(`notificationSettings.categories.${cat.key}.title`)}</Text>
-                                        <Text className="text-xs text-gray-500 mt-0.5">
+                                        <Text className="text-base text-gray-800 dark:text-cyber-text font-medium">{t(`notificationSettings.categories.${cat.key}.title`)}</Text>
+                                        <Text className="text-xs text-gray-500 dark:text-cyber-muted mt-0.5">
                                             {t(`notificationSettings.categories.${cat.key}.subtitle`)}
                                         </Text>
                                         {cat.key === 'cityGames' && (
                                             <TouchableOpacity onPress={() => setCityOpen(o => !o)} className="mt-1">
-                                                <Text className="text-brand-dark text-sm font-bold">
+                                                <Text className="text-brand-dark dark:text-brand-light text-sm font-bold">
                                                     {cityOpen ? t('notificationSettings.closeFilters') : t('notificationSettings.openFilters')}
                                                 </Text>
                                             </TouchableOpacity>
@@ -387,8 +392,8 @@ export default function NotificationSettingsScreen() {
                                         gameReminderLeadMinutes: Math.min(GAME_REMINDER_LEAD_MAX, Math.max(GAME_REMINDER_LEAD_MIN, m)),
                                     });
                                     return (
-                                        <View className={`mx-4 mb-4 p-3 rounded-lg bg-gray-50 ${leadDisabled ? 'opacity-50' : ''}`} pointerEvents={leadDisabled ? 'none' : 'auto'}>
-                                            <Text className="text-sm font-bold text-gray-700 mb-2">{t('notificationSettings.leadTitle')}</Text>
+                                        <View className={`mx-4 mb-4 p-3 rounded-lg bg-gray-50 dark:bg-cyber-bg ${leadDisabled ? 'opacity-50' : ''}`} pointerEvents={leadDisabled ? 'none' : 'auto'}>
+                                            <Text className="text-sm font-bold text-gray-700 dark:text-cyber-text mb-2">{t('notificationSettings.leadTitle')}</Text>
                                             <View className="flex-row flex-wrap">
                                                 {GAME_REMINDER_LEAD_PRESETS.map(p => (
                                                     <TouchableOpacity
@@ -396,18 +401,18 @@ export default function NotificationSettingsScreen() {
                                                         onPress={() => { setLeadCustomOpen(false); setLead(p); }}
                                                         accessibilityRole="button"
                                                         accessibilityState={{ selected: lead === p }}
-                                                        className={`px-3 py-1.5 rounded-full mr-2 mb-2 ${lead === p ? 'bg-brand-dark' : 'bg-white border border-gray-200'}`}
+                                                        className={`px-3 py-1.5 rounded-full mr-2 mb-2 ${lead === p ? 'bg-brand-dark' : 'bg-white dark:bg-cyber-card border border-gray-200 dark:border-cyber-border'}`}
                                                     >
-                                                        <Text className={lead === p ? 'text-white font-bold' : 'text-gray-700'}>{describeLeadMinutes(p, lang)}</Text>
+                                                        <Text className={lead === p ? 'text-white font-bold' : 'text-gray-700 dark:text-cyber-text'}>{describeLeadMinutes(p, lang)}</Text>
                                                     </TouchableOpacity>
                                                 ))}
                                                 <TouchableOpacity
                                                     onPress={() => setLeadCustomOpen(o => !o)}
                                                     accessibilityRole="button"
                                                     accessibilityState={{ selected: !isPreset }}
-                                                    className={`px-3 py-1.5 rounded-full mr-2 mb-2 ${!isPreset ? 'bg-brand-dark' : 'bg-white border border-gray-200'}`}
+                                                    className={`px-3 py-1.5 rounded-full mr-2 mb-2 ${!isPreset ? 'bg-brand-dark' : 'bg-white dark:bg-cyber-card border border-gray-200 dark:border-cyber-border'}`}
                                                 >
-                                                    <Text className={!isPreset ? 'text-white font-bold' : 'text-gray-700'}>{t('notificationSettings.leadCustom')}</Text>
+                                                    <Text className={!isPreset ? 'text-white font-bold' : 'text-gray-700 dark:text-cyber-text'}>{t('notificationSettings.leadCustom')}</Text>
                                                 </TouchableOpacity>
                                             </View>
                                             {showCustom && (
@@ -430,14 +435,14 @@ export default function NotificationSettingsScreen() {
                                                     />
                                                 </View>
                                             )}
-                                            <Text className="text-xs text-gray-500 mt-2">{t('notificationSettings.leadChosen', { words: describeLeadMinutes(lead, lang) })}</Text>
+                                            <Text className="text-xs text-gray-500 dark:text-cyber-muted mt-2">{t('notificationSettings.leadChosen', { words: describeLeadMinutes(lead, lang) })}</Text>
                                         </View>
                                     );
                                 })()}
 
                                 {cat.key === 'cityGames' && cityOpen && (
-                                    <View className="mx-4 mb-4 p-3 rounded-lg bg-gray-50">
-                                        <Text className="text-sm font-bold text-gray-700 mb-2">{t('notificationSettings.sports')}</Text>
+                                    <View className="mx-4 mb-4 p-3 rounded-lg bg-gray-50 dark:bg-cyber-bg">
+                                        <Text className="text-sm font-bold text-gray-700 dark:text-cyber-text mb-2">{t('notificationSettings.sports')}</Text>
                                         <View className="flex-row flex-wrap mb-3">
                                             {[null, ...SPORTS].map(sport => {
                                                 const selected = sport === null ? settings.cityGamesSports.length === 0 : settings.cityGamesSports.includes(sport);
@@ -445,9 +450,9 @@ export default function NotificationSettingsScreen() {
                                                     <TouchableOpacity
                                                         key={sport ?? 'all'}
                                                         onPress={() => (sport === null ? apply({ cityGamesSports: [] }) : toggleSport(sport))}
-                                                        className={`px-3 py-1.5 rounded-full mr-2 mb-2 border ${selected ? 'bg-brand-pale border-brand' : 'bg-white border-gray-200'}`}
+                                                        className={`px-3 py-1.5 rounded-full mr-2 mb-2 border ${selected ? 'bg-brand-pale dark:bg-brand-ink border-brand' : 'bg-white dark:bg-cyber-card border-gray-200 dark:border-cyber-border'}`}
                                                     >
-                                                        <Text className={`text-xs font-bold ${selected ? 'text-brand-dark' : 'text-gray-600'}`}>
+                                                        <Text className={`text-xs font-bold ${selected ? 'text-brand-dark dark:text-brand-light' : 'text-gray-600 dark:text-cyber-muted'}`}>
                                                             {sport === null ? t('notificationSettings.allSports') : SPORT_MAPPING[sport as keyof typeof SPORT_MAPPING]}
                                                         </Text>
                                                     </TouchableOpacity>
@@ -455,17 +460,17 @@ export default function NotificationSettingsScreen() {
                                             })}
                                         </View>
 
-                                        <Text className="text-sm font-bold text-gray-700 mb-1">{t('notificationSettings.cities')}</Text>
-                                        <Text className="text-xs text-gray-500 mb-2">{t('notificationSettings.citiesHint')}</Text>
+                                        <Text className="text-sm font-bold text-gray-700 dark:text-cyber-text mb-1">{t('notificationSettings.cities')}</Text>
+                                        <Text className="text-xs text-gray-500 dark:text-cyber-muted mb-2">{t('notificationSettings.citiesHint')}</Text>
                                         <View className="flex-row flex-wrap mb-2">
                                             {settings.cityGamesCities.map(city => (
                                                 <TouchableOpacity
                                                     key={city}
                                                     onPress={() => apply({ cityGamesCities: settings.cityGamesCities.filter(c => c !== city) })}
-                                                    className="px-3 py-1.5 rounded-full mr-2 mb-2 bg-brand-pale border border-brand flex-row items-center"
+                                                    className="px-3 py-1.5 rounded-full mr-2 mb-2 bg-brand-pale dark:bg-brand-ink border border-brand flex-row items-center"
                                                     accessibilityLabel={t('notificationSettings.removeCity', { city })}
                                                 >
-                                                    <Text className="text-xs font-bold text-brand-dark mr-1">{city}</Text>
+                                                    <Text className="text-xs font-bold text-brand-dark dark:text-brand-light mr-1">{city}</Text>
                                                     <FontAwesome name="times" size={10} color="#047857" />
                                                 </TouchableOpacity>
                                             ))}
@@ -478,7 +483,7 @@ export default function NotificationSettingsScreen() {
                                                     onSubmitEditing={addCity}
                                                     placeholder={t('notificationSettings.addCityPlaceholder')}
                                                     returnKeyType="done"
-                                                    className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-800"
+                                                    className="flex-1 bg-white dark:bg-cyber-card border border-gray-200 dark:border-cyber-border rounded-lg px-3 py-2 text-gray-800 dark:text-cyber-text"
                                                 />
                                                 <TouchableOpacity onPress={addCity} className="ml-2 px-3 py-2 rounded-lg bg-brand">
                                                     <Text className="text-white font-bold">{t('notificationSettings.add')}</Text>
@@ -487,7 +492,7 @@ export default function NotificationSettingsScreen() {
                                         )}
 
                                         {!settings.cityGamesPush && (
-                                            <Text className="text-xs text-gray-500">{t('notificationSettings.filtersApplyInApp')}</Text>
+                                            <Text className="text-xs text-gray-500 dark:text-cyber-muted">{t('notificationSettings.filtersApplyInApp')}</Text>
                                         )}
                                     </View>
                                 )}
@@ -515,9 +520,9 @@ export default function NotificationSettingsScreen() {
                     {settings.quietHoursEnabled && (
                         <View className="px-4 pb-4 flex-row">
                             {(['quietHoursStart', 'quietHoursEnd'] as const).map(key => (
-                                <TouchableOpacity key={key} onPress={() => setPicker(key)} className="flex-1 mr-2 p-3 rounded-lg bg-gray-50 border border-gray-200">
-                                    <Text className="text-xs text-gray-500">{t(`notificationSettings.${key === 'quietHoursStart' ? 'from' : 'to'}`)}</Text>
-                                    <Text className="text-lg font-bold text-gray-800">{minutesToHHMM(settings[key])}</Text>
+                                <TouchableOpacity key={key} onPress={() => setPicker(key)} className="flex-1 mr-2 p-3 rounded-lg bg-gray-50 dark:bg-cyber-bg border border-gray-200 dark:border-cyber-border">
+                                    <Text className="text-xs text-gray-500 dark:text-cyber-muted">{t(`notificationSettings.${key === 'quietHoursStart' ? 'from' : 'to'}`)}</Text>
+                                    <Text className="text-lg font-bold text-gray-800 dark:text-cyber-text">{minutesToHHMM(settings[key])}</Text>
                                 </TouchableOpacity>
                             ))}
                         </View>
@@ -543,31 +548,31 @@ export default function NotificationSettingsScreen() {
                 </Card>
 
                 {/* Mutes */}
-                <Text className="mx-4 mb-2 text-base font-bold text-gray-800">{t('notificationSettings.muted')}</Text>
+                <Text className="mx-4 mb-2 text-base font-bold text-gray-800 dark:text-cyber-text">{t('notificationSettings.muted')}</Text>
                 <Card>
                     {settings.mutes.length === 0 ? (
-                        <Text className="p-4 text-sm text-gray-500">{t('notificationSettings.noMutes')}</Text>
+                        <Text className="p-4 text-sm text-gray-500 dark:text-cyber-muted">{t('notificationSettings.noMutes')}</Text>
                     ) : settings.mutes.map((m, i) => (
-                        <View key={`${m.targetType}:${m.targetId}`} className={`p-4 flex-row items-center justify-between ${i > 0 ? 'border-t border-gray-100' : ''}`}>
+                        <View key={`${m.targetType}:${m.targetId}`} className={`p-4 flex-row items-center justify-between ${i > 0 ? 'border-t border-gray-100 dark:border-cyber-border' : ''}`}>
                             <View className="flex-row items-center flex-1 mr-3">
                                 {m.imageUrl ? (
-                                    <SafeImage source={{ uri: m.imageUrl }} className="w-9 h-9 rounded-full bg-gray-200 mr-3" />
+                                    <SafeImage source={{ uri: m.imageUrl }} className="w-9 h-9 rounded-full bg-gray-200 dark:bg-cyber-border mr-3" />
                                 ) : (
-                                    <View className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center mr-3">
+                                    <View className="w-9 h-9 rounded-full bg-gray-100 dark:bg-cyber-border items-center justify-center mr-3">
                                         <FontAwesome name={m.targetType === 'USER' ? 'user' : m.targetType === 'SERIES' ? 'users' : 'futbol-o'} size={14} color="#6b7280" />
                                     </View>
                                 )}
                                 <View className="flex-1">
-                                    <Text className="text-base text-gray-800 font-medium" numberOfLines={1}>
+                                    <Text className="text-base text-gray-800 dark:text-cyber-text font-medium" numberOfLines={1}>
                                         {m.label || t(`notificationSettings.muteType.${m.targetType}`)}
                                     </Text>
-                                    <Text className="text-xs text-gray-500">
+                                    <Text className="text-xs text-gray-500 dark:text-cyber-muted">
                                         {t(`notificationSettings.muteType.${m.targetType}`)} · {muteUntilText(m)}
                                     </Text>
                                 </View>
                             </View>
                             <TouchableOpacity onPress={() => unmute(m)} disabled={busy}>
-                                <Text className="text-brand-dark font-bold">{t('notificationSettings.unmute')}</Text>
+                                <Text className="text-brand-dark dark:text-brand-light font-bold">{t('notificationSettings.unmute')}</Text>
                             </TouchableOpacity>
                         </View>
                     ))}

@@ -23,7 +23,8 @@
     },
     "today": "היום",
     "tomorrow": "מחר",
-    "loadingAuth": "טוען..."
+    "loadingAuth": "טוען...",
+    "loading": "טוען…"
   },
   "tabs": {
     "home": "בית",
@@ -152,6 +153,8 @@
     "loadingChats": "טוען צ'אטים…"
   },
   "profile": {
+    "friendsOnly": "הפרופיל הזה פתוח לחברים בלבד",
+    "groups": "קבוצות",
     "unknownCity": "עיר לא ידועה",
     "personalDetails": "פרטים אישיים",
     "email": "אימייל",
@@ -570,6 +573,14 @@
     "commentDeleted": "התגובה נמחקה"
   },
   "series": {
+    "guestHoursInvalid": "שעות פתיחה לאורחים חייבות להיות מספר חיובי",
+    "guestsTitle": "לאורחים",
+    "guestPriceLine": "מחיר לאורחים",
+    "membersOnlyPriority": "עדיפות לחברי הקבוצה (הרשמה מוקדמת)",
+    "guestHours": "הרשמה לאורחים נפתחת (שעות לפני המשחק)",
+    "guestPrice": "מחיר לאורחים (₪, להצגה בלבד)",
+    "guestDescription": "תיאור לאורחים",
+    "guestWelcomeMessage": "הודעת פתיחה לאורחים (נשלחת בפרטי)",
     "badge": "קבוצה שבועית",
     "viewGroup": "לעמוד הקבוצה",
     "createGroup": "צור קבוצה",
@@ -703,6 +714,30 @@
     "friendBadge": "חבר/ה"
   },
   "editGame": {
+    "loadingEdit": "טוען עריכת משחק…",
+    "chooseFromList": "בחר מהרשימה",
+    "addNewField": "הוסף מגרש חדש",
+    "createNewField": "צור מגרש חדש",
+    "fieldNamePlaceholder": "שם המגרש",
+    "fieldLocationPlaceholder": "מיקום / כתובת",
+    "chooseField": "בחר מגרש:",
+    "welcomeAutoTitle": "הודעת פתיחה אוטומטית (נשלח בפרטי למצטרפים)",
+    "welcomePlaceholder": "לדוגמה: אהלן! לשלם בביט למספר 054-1234567",
+    "groupPriority": "עדיפות לחברי הקבוצה",
+    "guestHoursLabel": "הרשמה לאורחים נפתחת (שעות לפני המשחק)",
+    "guestPriceLabel": "מחיר לאורחים (₪, להצגה בלבד)",
+    "guestDescriptionLabel": "תיאור לאורחים",
+    "guestWelcomeLabel": "הודעת פתיחה לאורחים (נשלחת בפרטי)",
+    "manageRoster": "ניהול סגל השחקנים",
+    "addFriendsTitle": "צרף חברים למשחק",
+    "searchFriends": "חפש חברים...",
+    "noMoreFriends": "אין חברים נוספים לצירוף",
+    "addingFriends": "מצרף...",
+    "addToGame": "הוסף למשחק ({{count}})",
+    "registeredPlayers": "שחקנים רשומים ({{count}})",
+    "playerFallback": "שחקן",
+    "roleOrganizer": "מארגן",
+    "roleManager": "מנהל",
     "title": "עריכת משחק",
     "location": "מיקום",
     "when": "מתי?",

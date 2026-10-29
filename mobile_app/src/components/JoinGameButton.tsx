@@ -157,7 +157,7 @@ export default function JoinGameButton({
     if (offerPending) {
         return (
             <View className="gap-2">
-                <Text className="text-amber-800 font-bold text-xs text-center mb-1">
+                <Text className="text-amber-800 dark:text-amber-300 font-bold text-xs text-center mb-1">
                     {t('game.waitlistOfferSpotAvailable', 'התפנה מקום במשחק! המקום שמור לך.')}
                 </Text>
                 <View className="flex-row gap-2">
@@ -188,10 +188,10 @@ export default function JoinGameButton({
         return (
             <TouchableOpacity
                 disabled
-                className="bg-gray-100 flex-row items-center justify-center p-3 rounded-xl border border-gray-200"
+                className="bg-gray-100 dark:bg-cyber-border flex-row items-center justify-center p-3 rounded-xl border border-gray-200 dark:border-cyber-border"
             >
                 <Ionicons name="time-outline" size={16} color="#6b7280" />
-                <Text numberOfLines={1} ellipsizeMode="tail" className="ml-2 text-gray-600 font-bold flex-shrink">
+                <Text numberOfLines={1} ellipsizeMode="tail" className="ml-2 text-gray-600 dark:text-cyber-muted font-bold flex-shrink">
                     {poolCopy ? poolCopy.title : t('game.waitlisted', 'ברשימת המתנה')}
                 </Text>
             </TouchableOpacity>
@@ -202,10 +202,10 @@ export default function JoinGameButton({
         return (
             <TouchableOpacity
                 disabled
-                className="bg-amber-50 flex-row items-center justify-center p-3 rounded-xl border border-amber-200"
+                className="bg-amber-50 dark:bg-amber-950 flex-row items-center justify-center p-3 rounded-xl border border-amber-200 dark:border-amber-800"
             >
                 <Ionicons name="time-outline" size={16} color="#b45309" />
-                <Text numberOfLines={1} ellipsizeMode="tail" className="ml-2 text-amber-700 font-bold flex-shrink">{t("game.requestPending")}</Text>
+                <Text numberOfLines={1} ellipsizeMode="tail" className="ml-2 text-amber-700 dark:text-amber-300 font-bold flex-shrink">{t("game.requestPending")}</Text>
             </TouchableOpacity>
         );
     }
@@ -214,10 +214,10 @@ export default function JoinGameButton({
         return (
             <TouchableOpacity
                 disabled
-                className="bg-gray-100 flex-row items-center justify-center p-3 rounded-xl border border-gray-200"
+                className="bg-gray-100 dark:bg-cyber-border flex-row items-center justify-center p-3 rounded-xl border border-gray-200 dark:border-cyber-border"
             >
                 <Ionicons name="close-circle-outline" size={16} color="#6b7280" />
-                <Text numberOfLines={1} ellipsizeMode="tail" className="ml-2 text-gray-500 font-bold flex-shrink">{t("game.requestRejected")}</Text>
+                <Text numberOfLines={1} ellipsizeMode="tail" className="ml-2 text-gray-500 dark:text-cyber-muted font-bold flex-shrink">{t("game.requestRejected")}</Text>
             </TouchableOpacity>
         );
     }
@@ -227,10 +227,10 @@ export default function JoinGameButton({
         return (
             <TouchableOpacity
                 disabled
-                className="bg-gray-100 flex-row items-center justify-center p-3 rounded-xl border border-gray-200"
+                className="bg-gray-100 dark:bg-cyber-border flex-row items-center justify-center p-3 rounded-xl border border-gray-200 dark:border-cyber-border"
             >
                 <Ionicons name="lock-closed" size={16} color="#6b7280" />
-                <Text numberOfLines={1} ellipsizeMode="tail" className="ml-2 text-gray-500 font-bold flex-shrink">{t("game.opensAt", { time: timeStr })}</Text>
+                <Text numberOfLines={1} ellipsizeMode="tail" className="ml-2 text-gray-500 dark:text-cyber-muted font-bold flex-shrink">{t("game.opensAt", { time: timeStr })}</Text>
             </TouchableOpacity>
         );
     }
@@ -240,10 +240,10 @@ export default function JoinGameButton({
             <TouchableOpacity
                 disabled
                 testID="join-guest-closed"
-                className="bg-gray-100 flex-row items-center justify-center p-3 rounded-xl border border-gray-200"
+                className="bg-gray-100 dark:bg-cyber-border flex-row items-center justify-center p-3 rounded-xl border border-gray-200 dark:border-cyber-border"
             >
                 <Ionicons name="lock-closed" size={16} color="#6b7280" />
-                <Text numberOfLines={1} ellipsizeMode="tail" className="ml-2 text-gray-500 font-bold flex-shrink">
+                <Text numberOfLines={1} ellipsizeMode="tail" className="ml-2 text-gray-500 dark:text-cyber-muted font-bold flex-shrink">
                     {guestJoinClosedLabel(guestRegistrationOpensAt)}
                 </Text>
             </TouchableOpacity>

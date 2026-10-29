@@ -92,7 +92,7 @@ export default function GlobalSearchOmnibar() {
                 >
                     {!hasResults && !loading ? (
                         <View className="py-6 items-center justify-center">
-                            <Text className="text-gray-400">{t('omnibar.noResults')}</Text>
+                            <Text className="text-gray-400 dark:text-cyber-muted">{t('omnibar.noResults')}</Text>
                         </View>
                     ) : (
                         <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
@@ -113,13 +113,13 @@ export default function GlobalSearchOmnibar() {
                                             ) : (
                                                 <View
                                                     style={{ width: 32, height: 32, borderRadius: 16, marginRight: 12 }}
-                                                    className="bg-gray-200 items-center justify-center"
+                                                    className="bg-gray-200 dark:bg-cyber-border items-center justify-center"
                                                 >
                                                     <FontAwesome name="user" size={14} color="#9ca3af" />
                                                 </View>
                                             )}
                                             <Text className="text-gray-800 dark:text-cyber-text font-medium">
-                                                {u.name || 'משתמש'}
+                                                {u.name || t('common.user', 'משתמש')}
                                             </Text>
                                         </TouchableOpacity>
                                     ))}
@@ -139,7 +139,7 @@ export default function GlobalSearchOmnibar() {
                                             {!!f.city && (
                                                 <View className="flex-row items-center mt-0.5">
                                                     <FontAwesome name="map-marker" size={11} color="#9ca3af" style={{ marginRight: 4 }} />
-                                                    <Text className="text-gray-500 text-xs">{f.city}</Text>
+                                                    <Text className="text-gray-500 dark:text-cyber-muted text-xs">{f.city}</Text>
                                                 </View>
                                             )}
                                         </TouchableOpacity>
@@ -152,7 +152,7 @@ export default function GlobalSearchOmnibar() {
                                     <SectionHeader label={t('omnibar.games')} />
                                     {results.games.map((g) => {
                                         const sportLabel = g.sport ? SPORT_MAPPING[g.sport] || g.sport : '';
-                                        const title = g.title || sportLabel || 'משחק';
+                                        const title = g.title || sportLabel || t('search.game', 'משחק');
                                         const meta = [sportLabel, g.field?.city, g.time].filter(Boolean).join(' · ');
                                         return (
                                             <TouchableOpacity
@@ -163,7 +163,7 @@ export default function GlobalSearchOmnibar() {
                                                 <FontAwesome name="soccer-ball-o" size={16} color="#059669" style={{ marginRight: 12 }} />
                                                 <View className="flex-1">
                                                     <Text className="text-gray-800 dark:text-cyber-text font-medium">{title}</Text>
-                                                    {!!meta && <Text className="text-gray-500 text-xs mt-0.5">{meta}</Text>}
+                                                    {!!meta && <Text className="text-gray-500 dark:text-cyber-muted text-xs mt-0.5">{meta}</Text>}
                                                 </View>
                                             </TouchableOpacity>
                                         );
@@ -181,7 +181,7 @@ export default function GlobalSearchOmnibar() {
 function SectionHeader({ label }: { label: string }) {
     return (
         <View className="px-4 pt-3 pb-1 bg-gray-50 dark:bg-gray-900">
-            <Text className="text-xs font-bold text-gray-500 uppercase tracking-wide">{label}</Text>
+            <Text className="text-xs font-bold text-gray-500 dark:text-cyber-muted uppercase tracking-wide">{label}</Text>
         </View>
     );
 }

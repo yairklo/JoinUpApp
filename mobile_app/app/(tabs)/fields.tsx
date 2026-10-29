@@ -251,14 +251,14 @@ export default function FieldsDirectoryScreen() {
     const renderField = ({ item: field }: { item: Field }) => (
         <TouchableOpacity
             onPress={() => router.push(`/field/${field.id}`)}
-            className="flex-row items-center px-4 py-3 border-b border-gray-100 bg-white"
+            className="flex-row items-center px-4 py-3 border-b border-gray-100 dark:border-cyber-border bg-white dark:bg-cyber-card"
             accessibilityRole="button"
         >
             <View style={{ position: 'relative' }}>
                 {field.image ? (
-                    <SafeImage source={{ uri: field.image }} className="w-14 h-14 rounded-xl mr-3 bg-gray-100" />
+                    <SafeImage source={{ uri: field.image }} className="w-14 h-14 rounded-xl mr-3 bg-gray-100 dark:bg-cyber-border" />
                 ) : (
-                    <View className="w-14 h-14 rounded-xl mr-3 bg-brand-mist items-center justify-center">
+                    <View className="w-14 h-14 rounded-xl mr-3 bg-brand-mist dark:bg-brand-ink items-center justify-center">
                         <FontAwesome name="map-marker" size={20} color="#059669" />
                     </View>
                 )}
@@ -267,11 +267,11 @@ export default function FieldsDirectoryScreen() {
                 </View>
             </View>
             <View className="flex-1">
-                <Text className="text-base font-bold text-gray-900" numberOfLines={1}>{field.name}</Text>
-                <Text className="text-sm text-gray-500 mt-0.5" numberOfLines={1}>
+                <Text className="text-base font-bold text-gray-900 dark:text-cyber-text" numberOfLines={1}>{field.name}</Text>
+                <Text className="text-sm text-gray-500 dark:text-cyber-muted mt-0.5" numberOfLines={1}>
                     {field.city || field.location || ''}
                 </Text>
-                <Text className="text-xs text-gray-400 mt-0.5">
+                <Text className="text-xs text-gray-400 dark:text-cyber-muted mt-0.5">
                     {field.type === 'closed' ? t('field.closedField', 'מגרש מקורה') : t('field.openField', 'מגרש פתוח')}
                     {typeof field.price === 'number' && field.price > 0
                         ? ` · ${t('field.pricePerHour', { price: field.price })}`
@@ -283,19 +283,19 @@ export default function FieldsDirectoryScreen() {
     );
 
     return (
-        <View className="flex-1 bg-white">
+        <View className="flex-1 bg-white dark:bg-cyber-card">
             {/* Mode Switch: Large Segmented Control ABOVE the Search Bar */}
             <MapListToggle isMapView={isMapView} onChange={setIsMapView} />
 
             {/* Search Input with Debounce */}
-            <View className="px-4 py-2 border-b border-gray-100 bg-white">
-                <View className="flex-row items-center bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5">
+            <View className="px-4 py-2 border-b border-gray-100 dark:border-cyber-border bg-white dark:bg-cyber-card">
+                <View className="flex-row items-center bg-gray-50 dark:bg-cyber-bg border border-gray-200 dark:border-cyber-border rounded-xl px-3.5 py-2.5">
                     <FontAwesome name="search" size={15} color="#9ca3af" />
                     <TextInput
                         value={query}
                         onChangeText={setQuery}
                         placeholder={t('field.searchPlaceholder', 'חפש מגרש או עיר')}
-                        className="flex-1 ml-2.5 text-base text-gray-800"
+                        className="flex-1 ml-2.5 text-base text-gray-800 dark:text-cyber-text"
                         returnKeyType="search"
                     />
                     {query.length > 0 && (
@@ -307,7 +307,7 @@ export default function FieldsDirectoryScreen() {
             </View>
 
             {/* Sport Filter Pills */}
-            <View className="px-4 py-2.5 border-b border-gray-100 bg-white">
+            <View className="px-4 py-2.5 border-b border-gray-100 dark:border-cyber-border bg-white dark:bg-cyber-card">
                 <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -383,7 +383,7 @@ export default function FieldsDirectoryScreen() {
             ) : fields.length === 0 ? (
                 <View className="flex-1 justify-center items-center px-8">
                     <FontAwesome name="map-marker" size={32} color="#d1d5db" />
-                    <Text className="text-gray-500 mt-3 text-center">
+                    <Text className="text-gray-500 dark:text-cyber-muted mt-3 text-center">
                         {t('field.emptyDirectory', 'לא נמצאו מגרשים')}
                     </Text>
                 </View>
