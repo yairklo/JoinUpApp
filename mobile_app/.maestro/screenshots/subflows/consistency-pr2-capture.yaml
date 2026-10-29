@@ -1,7 +1,8 @@
 appId: com.yairklo.joinupapp
 ---
-# One theme+language pass over the PR2 screens. Env: THEME, LANG, TAG (before|after).
-- openLink: mobileapp:///
+# One theme pass over the PR2 screens, navigating by taps only (no openLink): on the Android dev client an
+# incoming VIEW intent after the dark toggle re-creates the activity and the app loops between themes.
+# Env: THEME, LANG (he|en, file names only), TAG (before|after). Starts and ends on the home tab.
 - extendedWaitUntil:
     visible:
       id: home-create-game
@@ -12,7 +13,10 @@ appId: com.yairklo.joinupapp
     env:
       PAUSE_MS: '1500'
 
-- openLink: mobileapp:///settings
+- tapOn:
+    id: header-profile
+- tapOn:
+    id: header-menu-settings
 - runFlow:
     file: pause.yaml
     env:
@@ -20,39 +24,53 @@ appId: com.yairklo.joinupapp
 - takeScreenshot:
     path: ${TAG}/settings-${LANG}-${THEME}
 
-- openLink: mobileapp:///settings/notifications
+- tapOn:
+    text: 'התראות|Notifications'
 - runFlow:
     file: pause.yaml
     env:
       PAUSE_MS: '5000'
 - takeScreenshot:
     path: ${TAG}/settings-notifications-${LANG}-${THEME}
+- back
 
-- openLink: mobileapp:///settings/blocked
-- runFlow:
-    file: pause.yaml
-    env:
-      PAUSE_MS: '4000'
-- takeScreenshot:
-    path: ${TAG}/settings-blocked-${LANG}-${THEME}
-
-- openLink: mobileapp:///settings/feedback
-- runFlow:
-    file: pause.yaml
-    env:
-      PAUSE_MS: '2500'
-- takeScreenshot:
-    path: ${TAG}/settings-feedback-${LANG}-${THEME}
-
-- openLink: mobileapp:///profile/settings
+- tapOn:
+    text: 'הגדרות פרטיות|Privacy Settings'
 - runFlow:
     file: pause.yaml
     env:
       PAUSE_MS: '4000'
 - takeScreenshot:
     path: ${TAG}/privacy-settings-${LANG}-${THEME}
+- scrollUntilVisible:
+    element:
+      text: 'דיווח על באג.*|Report a Bug.*'
+    optional: true
+- tapOn:
+    text: 'דיווח על באג.*|Report a Bug.*'
+    optional: true
+- runFlow:
+    file: pause.yaml
+    env:
+      PAUSE_MS: '2500'
+- takeScreenshot:
+    path: ${TAG}/settings-feedback-${LANG}-${THEME}
+- back
+- back
 
-- openLink: mobileapp:///friends
+- tapOn:
+    text: 'משתמשים חסומים|Blocked users'
+- runFlow:
+    file: pause.yaml
+    env:
+      PAUSE_MS: '4000'
+- takeScreenshot:
+    path: ${TAG}/settings-blocked-${LANG}-${THEME}
+- back
+- back
+
+- tapOn:
+    text: 'חברים|Friends'
 - runFlow:
     file: pause.yaml
     env:
@@ -70,3 +88,7 @@ appId: com.yairklo.joinupapp
       PAUSE_MS: '5000'
 - takeScreenshot:
     path: ${TAG}/user-profile-${LANG}-${THEME}
+- back
+- tapOn:
+    text: 'בית|Home'
+    optional: true

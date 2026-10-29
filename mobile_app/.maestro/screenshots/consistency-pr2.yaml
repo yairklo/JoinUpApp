@@ -5,7 +5,7 @@ name: consistency pr2 (settings, profile, friends)
 # locale on a fresh install: run.mjs-style `pm clear` + `cmd locale set-system-locales` before each run.
 # Avoid the in-app HE/EN toggle: its RTL reload loops on a slow emulator.
 - runFlow:
-    file: subflows/session.yaml
+    file: subflows/consistency-session.yaml
     env:
       THEME: light
 - runFlow:
