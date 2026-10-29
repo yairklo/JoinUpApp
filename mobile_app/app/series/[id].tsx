@@ -358,18 +358,18 @@ export default function SeriesScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={label}
                 accessibilityState={{ selected: picked }}
-                className={`flex-row items-center p-3 ${picked ? 'bg-brand-mist' : 'bg-white'} ${!isLast ? 'border-b border-gray-100' : ''}`}
+                className={`flex-row items-center p-3 ${picked ? 'bg-brand-mist dark:bg-brand-ink' : 'bg-white dark:bg-cyber-card'} ${!isLast ? 'border-b border-gray-100 dark:border-cyber-border' : ''}`}
             >
                 {u.avatar || u.imageUrl ? (
-                    <SafeImage source={{ uri: u.avatar || u.imageUrl }} className="w-9 h-9 rounded-full border border-gray-200" />
+                    <SafeImage source={{ uri: u.avatar || u.imageUrl }} className="w-9 h-9 rounded-full border border-gray-200 dark:border-cyber-border" />
                 ) : (
-                    <View className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center border border-gray-200">
+                    <View className="w-9 h-9 rounded-full bg-gray-100 dark:bg-cyber-border items-center justify-center border border-gray-200 dark:border-cyber-border">
                         <FontAwesome name="user" size={14} color="#9ca3af" />
                     </View>
                 )}
-                <Text className="flex-1 mx-3 text-gray-800 font-medium" numberOfLines={1}>{label}</Text>
+                <Text className="flex-1 mx-3 text-gray-800 dark:text-cyber-text font-medium" numberOfLines={1}>{label}</Text>
                 {showFriendBadge && (
-                    <Text className="text-xs text-brand-dark bg-brand-mist rounded-full px-2 py-0.5 mx-2">{t('series.friendBadge', 'חבר/ה')}</Text>
+                    <Text className="text-xs text-brand-dark dark:text-brand-light bg-brand-mist dark:bg-brand-ink rounded-full px-2 py-0.5 mx-2">{t('series.friendBadge', 'חבר/ה')}</Text>
                 )}
                 {picked && <FontAwesome name="check" size={14} color="#059669" />}
             </TouchableOpacity>
@@ -476,10 +476,10 @@ export default function SeriesScreen() {
 
     if (loading) {
         return (
-            <SafeAreaView edges={['top']} className="flex-1 bg-white">
-                <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100">
+            <SafeAreaView edges={['top']} className="flex-1 bg-white dark:bg-cyber-card">
+                <View className="flex-row items-center px-4 py-3 bg-white dark:bg-cyber-card border-b border-gray-100 dark:border-cyber-border">
                     <BackButton className="me-3" />
-                    <Text className="text-xl font-bold text-gray-900">{t('series.details', 'Group Details')}</Text>
+                    <Text className="text-xl font-bold text-gray-900 dark:text-cyber-text">{t('series.details', 'Group Details')}</Text>
                 </View>
                 <View className="flex-1 justify-center items-center">
                     <LoadingMotif id="passing-lane" label={t('series.loadingSeries', 'טוען קבוצה…')} />
@@ -490,13 +490,13 @@ export default function SeriesScreen() {
 
     if (!series) {
         return (
-            <SafeAreaView edges={['top']} className="flex-1 bg-white">
-                <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100">
+            <SafeAreaView edges={['top']} className="flex-1 bg-white dark:bg-cyber-card">
+                <View className="flex-row items-center px-4 py-3 bg-white dark:bg-cyber-card border-b border-gray-100 dark:border-cyber-border">
                     <BackButton className="me-3" />
-                    <Text className="text-xl font-bold text-gray-900">{t('series.details', 'Group Details')}</Text>
+                    <Text className="text-xl font-bold text-gray-900 dark:text-cyber-text">{t('series.details', 'Group Details')}</Text>
                 </View>
                 <View className="flex-1 justify-center items-center px-6">
-                    <Text className="text-gray-500 text-center">
+                    <Text className="text-gray-500 dark:text-cyber-muted text-center">
                         {friendsOnlyLocked ? t('friendsOnly.seriesLocked') : t('series.notFound', 'Group not found')}
                     </Text>
                 </View>
@@ -521,11 +521,11 @@ export default function SeriesScreen() {
         : t('series.customDates', 'Custom Dates');
 
     return (
-        <SafeAreaView edges={['top']} className="flex-1 bg-white">
+        <SafeAreaView edges={['top']} className="flex-1 bg-white dark:bg-cyber-card">
             {/* Navigation Header — same pattern as game/[id].tsx */}
-            <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100">
+            <View className="flex-row items-center px-4 py-3 bg-white dark:bg-cyber-card border-b border-gray-100 dark:border-cyber-border">
                 <BackButton className="me-3" />
-                <Text className="text-xl font-bold text-gray-900 flex-1" numberOfLines={1}>
+                <Text className="text-xl font-bold text-gray-900 dark:text-cyber-text flex-1" numberOfLines={1}>
                     {series.title || series.fieldName}
                 </Text>
                 {canManage && (
@@ -535,27 +535,27 @@ export default function SeriesScreen() {
                 )}
             </View>
 
-            <ScrollView ref={scrollViewRef} keyboardShouldPersistTaps="handled" className="flex-1 bg-gray-50">
+            <ScrollView ref={scrollViewRef} keyboardShouldPersistTaps="handled" className="flex-1 bg-gray-50 dark:bg-cyber-bg">
 
                 {/* Hero Header Card */}
-                <View className="bg-white p-6 mb-4 shadow-sm">
+                <View className="bg-white dark:bg-cyber-card p-6 mb-4 shadow-sm">
                     {!!imageUrl && (
                         <SafeImage source={{ uri: imageUrl }} className="w-full h-40 rounded-xl mb-4" resizeMode="cover" />
                     )}
                     {/* Organizer row */}
                     <View className="flex-row items-center mb-4">
                         {series.organizer?.avatar ? (
-                            <SafeImage source={{ uri: series.organizer.avatar }} className="w-12 h-12 rounded-full mr-3 border border-gray-200" />
+                            <SafeImage source={{ uri: series.organizer.avatar }} className="w-12 h-12 rounded-full mr-3 border border-gray-200 dark:border-cyber-border" />
                         ) : (
-                            <View className="w-12 h-12 rounded-full bg-brand-pale items-center justify-center mr-3">
+                            <View className="w-12 h-12 rounded-full bg-brand-pale dark:bg-brand-ink items-center justify-center mr-3">
                                 <FontAwesome name="user" size={20} color="#059669" />
                             </View>
                         )}
                         <View className="flex-1">
-                            <Text className="text-2xl font-bold text-gray-800" numberOfLines={1}>
+                            <Text className="text-2xl font-bold text-gray-800 dark:text-cyber-text" numberOfLines={1}>
                                 {series.title || series.fieldName}
                             </Text>
-                            <Text className="text-gray-500 text-sm mt-0.5">
+                            <Text className="text-gray-500 dark:text-cyber-muted text-sm mt-0.5">
                                 {t('series.organizedBy', 'by')} {series.organizer?.name || t('series.organizer', 'Organizer')}
                             </Text>
                         </View>
@@ -568,7 +568,7 @@ export default function SeriesScreen() {
                             className="flex-row items-center mb-2"
                         >
                             <FontAwesome name="map-marker" size={16} color="#059669" style={{ width: 24 }} />
-                            <Text className="text-brand text-base font-bold flex-1" numberOfLines={1}>
+                            <Text className="text-brand dark:text-brand-light text-base font-bold flex-1" numberOfLines={1}>
                                 {series.fieldLocation || series.fieldName}
                             </Text>
                             <FontAwesome name="chevron-left" size={12} color="#059669" />
@@ -576,7 +576,7 @@ export default function SeriesScreen() {
                     ) : (
                         <View className="flex-row items-center mb-2">
                             <FontAwesome name="map-marker" size={16} color="#6b7280" style={{ width: 24 }} />
-                            <Text className="text-gray-600 text-base flex-1" numberOfLines={1}>
+                            <Text className="text-gray-600 dark:text-cyber-muted text-base flex-1" numberOfLines={1}>
                                 {series.fieldLocation || series.fieldName}
                             </Text>
                         </View>
@@ -591,18 +591,18 @@ export default function SeriesScreen() {
                     />
                     <View className="flex-row items-center mb-5">
                         <FontAwesome name="clock-o" size={16} color="#6b7280" style={{ width: 24 }} />
-                        <Text className="text-gray-600 text-base">{dayName}, {series.time}</Text>
+                        <Text className="text-gray-600 dark:text-cyber-muted text-base">{dayName}, {series.time}</Text>
                     </View>
 
                     {!!series.description && (
-                        <Text className="text-gray-700 text-base mb-5" testID="series-description">{series.description}</Text>
+                        <Text className="text-gray-700 dark:text-cyber-text text-base mb-5" testID="series-description">{series.description}</Text>
                     )}
                     {!!series.membersOnlyPriority && !series.viewerIsMember && (!!series.guestDescription || series.guestPrice != null) && (
-                        <View className="bg-gray-50 rounded-xl p-3 mb-5" testID="series-guest-info">
-                            <Text className="text-gray-800 font-bold mb-1">{t('series.guestsTitle', 'לאורחים')}</Text>
-                            {!!series.guestDescription && <Text className="text-gray-700">{series.guestDescription}</Text>}
+                        <View className="bg-gray-50 dark:bg-cyber-bg rounded-xl p-3 mb-5" testID="series-guest-info">
+                            <Text className="text-gray-800 dark:text-cyber-text font-bold mb-1">{t('series.guestsTitle', 'לאורחים')}</Text>
+                            {!!series.guestDescription && <Text className="text-gray-700 dark:text-cyber-text">{series.guestDescription}</Text>}
                             {series.guestPrice != null && (
-                                <Text className="text-gray-700">{t('series.guestPriceLine', 'מחיר לאורחים')}: ₪{series.guestPrice}</Text>
+                                <Text className="text-gray-700 dark:text-cyber-text">{t('series.guestPriceLine', 'מחיר לאורחים')}: ₪{series.guestPrice}</Text>
                             )}
                         </View>
                     )}
@@ -627,23 +627,23 @@ export default function SeriesScreen() {
 
                     {/* Subscribe button (a join request for outsiders of a friends-only group) */}
                     {!isSubscribed && requestStatus === 'REJECTED' ? (
-                        <View className="py-4 rounded-xl items-center bg-gray-100">
-                            <Text className="font-bold text-base text-gray-500">{t('series.requestDeclined')}</Text>
+                        <View className="py-4 rounded-xl items-center bg-gray-100 dark:bg-cyber-border">
+                            <Text className="font-bold text-base text-gray-500 dark:text-cyber-muted">{t('series.requestDeclined')}</Text>
                         </View>
                     ) : !isSubscribed && requestStatus === 'PENDING' ? (
                         <View className="flex-row gap-2">
-                            <View className="flex-1 py-4 rounded-xl items-center flex-row justify-center bg-gray-100">
+                            <View className="flex-1 py-4 rounded-xl items-center flex-row justify-center bg-gray-100 dark:bg-cyber-border">
                                 <FontAwesome name="hourglass-half" size={16} color="#6b7280" style={{ marginRight: 8 }} />
-                                <Text className="font-bold text-base text-gray-600">{t('series.requestSent')}</Text>
+                                <Text className="font-bold text-base text-gray-600 dark:text-cyber-muted">{t('series.requestSent')}</Text>
                             </View>
-                            <TouchableOpacity onPress={toggleSubscribe} className="py-4 px-4 rounded-xl items-center justify-center border border-gray-200">
-                                <Text className="font-bold text-gray-700">{t('series.cancelRequest')}</Text>
+                            <TouchableOpacity onPress={toggleSubscribe} className="py-4 px-4 rounded-xl items-center justify-center border border-gray-200 dark:border-cyber-border">
+                                <Text className="font-bold text-gray-700 dark:text-cyber-text">{t('series.cancelRequest')}</Text>
                             </TouchableOpacity>
                         </View>
                     ) : (
                         <TouchableOpacity
                             onPress={toggleSubscribe}
-                            className={`py-4 rounded-xl items-center flex-row justify-center ${isSubscribed ? 'bg-brand-mist border border-brand-pale' : 'bg-brand'}`}
+                            className={`py-4 rounded-xl items-center flex-row justify-center ${isSubscribed ? 'bg-brand-mist dark:bg-brand-ink border border-brand-pale' : 'bg-brand'}`}
                         >
                             <FontAwesome
                                 name={isSubscribed ? "check" : "bell"}
@@ -651,7 +651,7 @@ export default function SeriesScreen() {
                                 color={isSubscribed ? "#059669" : "white"}
                                 style={{ marginRight: 8 }}
                             />
-                            <Text className={`font-bold text-base ${isSubscribed ? 'text-brand-dark' : 'text-white'}`}>
+                            <Text className={`font-bold text-base ${isSubscribed ? 'text-brand-dark dark:text-brand-light' : 'text-white'}`}>
                                 {isSubscribed
                                     ? t('series.subscribed', 'Subscribed ✓')
                                     : (series.viewerAccess === 'REQUEST' || series.viewerJoinRequiresApproval)
@@ -665,39 +665,39 @@ export default function SeriesScreen() {
                             targetType="SERIES"
                             targetId={id}
                             labelKey="notificationSettings.muteGroup"
-                            className="mt-3 py-3 rounded-xl border border-gray-200 bg-white flex-row items-center justify-center"
+                            className="mt-3 py-3 rounded-xl border border-gray-200 dark:border-cyber-border bg-white dark:bg-cyber-card flex-row items-center justify-center"
                         />
                     )}
                 </View>
 
                 {/* Quick Stats Bar — same pattern as game utility actions */}
-                <View className="bg-white mb-4 shadow-sm flex-row justify-around border-y border-gray-100 py-4">
+                <View className="bg-white dark:bg-cyber-card mb-4 shadow-sm flex-row justify-around border-y border-gray-100 dark:border-cyber-border py-4">
                     <View className="items-center">
-                        <View className="w-12 h-12 bg-brand-mist rounded-full items-center justify-center mb-1">
+                        <View className="w-12 h-12 bg-brand-mist dark:bg-brand-ink rounded-full items-center justify-center mb-1">
                             <FontAwesome name="users" size={20} color="#059669" />
                         </View>
-                        <Text className="text-xs text-gray-600 font-bold">{series.subscribers?.length || 0}</Text>
-                        <Text className="text-xs text-gray-400">{t('series.regulars', 'Regulars')}</Text>
+                        <Text className="text-xs text-gray-600 dark:text-cyber-muted font-bold">{series.subscribers?.length || 0}</Text>
+                        <Text className="text-xs text-gray-400 dark:text-cyber-muted">{t('series.regulars', 'Regulars')}</Text>
                     </View>
                     <View className="items-center">
-                        <View className="w-12 h-12 bg-green-50 rounded-full items-center justify-center mb-1">
+                        <View className="w-12 h-12 bg-green-50 dark:bg-brand-ink rounded-full items-center justify-center mb-1">
                             <FontAwesome name="calendar" size={20} color="#16a34a" />
                         </View>
-                        <Text className="text-xs text-gray-600 font-bold">{series.upcomingGames?.length || 0}</Text>
-                        <Text className="text-xs text-gray-400">{t('series.upcoming', 'Upcoming')}</Text>
+                        <Text className="text-xs text-gray-600 dark:text-cyber-muted font-bold">{series.upcomingGames?.length || 0}</Text>
+                        <Text className="text-xs text-gray-400 dark:text-cyber-muted">{t('series.upcoming', 'Upcoming')}</Text>
                     </View>
                     <View className="items-center">
                         <View className="w-12 h-12 bg-purple-50 rounded-full items-center justify-center mb-1">
                             <FontAwesome name="repeat" size={20} color="#9333ea" />
                         </View>
-                        <Text className="text-xs text-gray-600 font-bold">{dayName}</Text>
-                        <Text className="text-xs text-gray-400">{t('series.schedule', 'Schedule')}</Text>
+                        <Text className="text-xs text-gray-600 dark:text-cyber-muted font-bold">{dayName}</Text>
+                        <Text className="text-xs text-gray-400 dark:text-cyber-muted">{t('series.schedule', 'Schedule')}</Text>
                     </View>
                 </View>
 
                 {/* Regulars Section */}
-                <View className="bg-white p-6 mb-4 shadow-sm">
-                    <Text className="text-lg font-bold text-gray-800 mb-4">
+                <View className="bg-white dark:bg-cyber-card p-6 mb-4 shadow-sm">
+                    <Text className="text-lg font-bold text-gray-800 dark:text-cyber-text mb-4">
                         {t('series.regulars', 'The Regulars')} ({series.subscribers?.length || 0})
                     </Text>
                     {series.subscribers?.length > 0 ? (
@@ -711,18 +711,18 @@ export default function SeriesScreen() {
                                         className="items-center"
                                     >
                                         {sub.user?.avatar ? (
-                                            <SafeImage source={{ uri: sub.user.avatar }} className="w-14 h-14 rounded-full mb-1 border border-gray-200" />
+                                            <SafeImage source={{ uri: sub.user.avatar }} className="w-14 h-14 rounded-full mb-1 border border-gray-200 dark:border-cyber-border" />
                                         ) : (
-                                            <View className="w-14 h-14 rounded-full bg-gray-100 items-center justify-center mb-1 border border-gray-200">
+                                            <View className="w-14 h-14 rounded-full bg-gray-100 dark:bg-cyber-border items-center justify-center mb-1 border border-gray-200 dark:border-cyber-border">
                                                 <FontAwesome name="user" size={20} color="#9ca3af" />
                                             </View>
                                         )}
-                                        <Text className="text-xs text-gray-700 text-center font-medium" numberOfLines={1}>
+                                        <Text className="text-xs text-gray-700 dark:text-cyber-text text-center font-medium" numberOfLines={1}>
                                             {sub.user?.name || t('game.user', 'משתמש')}
                                         </Text>
                                     </TouchableOpacity>
                                     {sub.role === 'MANAGER' && (
-                                        <Text className="text-[10px] text-brand font-bold">{t('series.manager', 'Manager')}</Text>
+                                        <Text className="text-[10px] text-brand dark:text-brand-light font-bold">{t('series.manager', 'Manager')}</Text>
                                     )}
                                     {isOrganizer && sub.userId !== series.organizer?.id && (
                                         <TouchableOpacity onPress={() => toggleManager(sub.userId, sub.role !== 'MANAGER')} className="mt-1">
@@ -735,7 +735,7 @@ export default function SeriesScreen() {
                     ) : (
                         <View className="items-center py-4">
                             <FontAwesome name="users" size={32} color="#d1d5db" />
-                            <Text className="text-gray-400 mt-2">{t('series.noRegulars', 'No regulars yet. Be the first!')}</Text>
+                            <Text className="text-gray-400 dark:text-cyber-muted mt-2">{t('series.noRegulars', 'No regulars yet. Be the first!')}</Text>
                         </View>
                     )}
                 </View>
@@ -745,8 +745,8 @@ export default function SeriesScreen() {
                 )}
 
                 {canManage && (
-                    <View className="bg-white p-6 mb-4 shadow-sm">
-                        <Text className="text-lg font-bold text-gray-800 mb-3">{t('series.inviteMembers', 'Invite & add members')}</Text>
+                    <View className="bg-white dark:bg-cyber-card p-6 mb-4 shadow-sm">
+                        <Text className="text-lg font-bold text-gray-800 dark:text-cyber-text mb-3">{t('series.inviteMembers', 'Invite & add members')}</Text>
                         <TouchableOpacity onPress={shareInvite} className="py-3 rounded-xl items-center bg-brand mb-3">
                             <Text className="text-white font-bold">{t('series.shareInvite', 'Share invite link')}</Text>
                         </TouchableOpacity>
@@ -758,7 +758,7 @@ export default function SeriesScreen() {
                             placeholder={t('series.searchUsers', 'חיפוש משתמשים להוספה')}
                             autoCapitalize="none"
                             autoCorrect={false}
-                            className="bg-gray-50 p-3 rounded-lg border border-gray-200"
+                            className="bg-gray-50 dark:bg-cyber-bg p-3 rounded-lg border border-gray-200 dark:border-cyber-border text-gray-900 dark:text-cyber-text"
                         />
                         {selectedMembers.length > 0 && (
                             <View className="flex-row flex-wrap gap-2 mt-3">
@@ -768,23 +768,23 @@ export default function SeriesScreen() {
                                         onPress={() => toggleSelectedMember(m)}
                                         accessibilityRole="button"
                                         accessibilityLabel={t('series.removeSelected', 'הסר את {{name}}', { name: m.name })}
-                                        className="flex-row items-center bg-brand-mist border border-brand-pale rounded-full px-3 py-1"
+                                        className="flex-row items-center bg-brand-mist dark:bg-brand-ink border border-brand-pale rounded-full px-3 py-1"
                                     >
-                                        <Text className="text-brand-dark text-sm font-medium">{m.name}</Text>
+                                        <Text className="text-brand-dark dark:text-brand-light text-sm font-medium">{m.name}</Text>
                                         <FontAwesome name="times" size={12} color="#047857" style={{ marginStart: 6 }} />
                                     </TouchableOpacity>
                                 ))}
                             </View>
                         )}
                         {searchMode && (
-                            <View className="mt-3 rounded-lg border border-gray-100 overflow-hidden">
+                            <View className="mt-3 rounded-lg border border-gray-100 dark:border-cyber-border overflow-hidden">
                                 {memberSearching ? (
                                     <View className="py-4 items-center"><ActivityIndicator accessibilityLabel={t('series.searching', 'מחפש…')} /></View>
                                 ) : visibleResults.length === 0 ? (
                                     memberSearchError ? (
                                         <Text className="text-red-500 text-center py-4">{t('series.searchError', 'החיפוש נכשל. נסו שוב.')}</Text>
                                     ) : (
-                                        <Text className="text-gray-400 text-center py-4">{t('series.noUsersFound', 'לא נמצאו משתמשים')}</Text>
+                                        <Text className="text-gray-400 dark:text-cyber-muted text-center py-4">{t('series.noUsersFound', 'לא נמצאו משתמשים')}</Text>
                                     )
                                 ) : (
                                     visibleResults.map((u, index) => renderMemberRow(u, index === visibleResults.length - 1, u.isFriend))
@@ -792,8 +792,8 @@ export default function SeriesScreen() {
                             </View>
                         )}
                         {!searchMode && memberFocused && (
-                            <View className="mt-3 rounded-lg border border-gray-100 overflow-hidden">
-                                <Text className="text-xs font-bold text-gray-500 px-3 pt-2 pb-1">{t('series.yourFriends', 'החברים שלך')}</Text>
+                            <View className="mt-3 rounded-lg border border-gray-100 dark:border-cyber-border overflow-hidden">
+                                <Text className="text-xs font-bold text-gray-500 dark:text-cyber-muted px-3 pt-2 pb-1">{t('series.yourFriends', 'החברים שלך')}</Text>
                                 {friendsLoading ? (
                                     <View className="py-4 items-center"><ActivityIndicator accessibilityLabel={t('series.loadingFriends', 'טוען חברים…')} /></View>
                                 ) : friendsError ? (
@@ -803,15 +803,15 @@ export default function SeriesScreen() {
                                             onPress={loadFriends}
                                             accessibilityRole="button"
                                             accessibilityLabel={t('series.retryFriends', 'נסו שוב')}
-                                            className="mt-2 px-4 py-2 rounded-lg bg-gray-100"
+                                            className="mt-2 px-4 py-2 rounded-lg bg-gray-100 dark:bg-cyber-border"
                                         >
-                                            <Text className="text-gray-700 font-medium">{t('series.retryFriends', 'נסו שוב')}</Text>
+                                            <Text className="text-gray-700 dark:text-cyber-text font-medium">{t('series.retryFriends', 'נסו שוב')}</Text>
                                         </TouchableOpacity>
                                     </View>
                                 ) : myFriends !== null && myFriends.length === 0 ? (
-                                    <Text className="text-gray-400 text-center py-4">{t('series.noFriendsYet', 'עדיין אין לך חברים. אפשר לחפש לפי שם')}</Text>
+                                    <Text className="text-gray-400 dark:text-cyber-muted text-center py-4">{t('series.noFriendsYet', 'עדיין אין לך חברים. אפשר לחפש לפי שם')}</Text>
                                 ) : myFriends !== null && friendOptions.length === 0 ? (
-                                    <Text className="text-gray-400 text-center py-4">{t('series.allFriendsInGroup', 'כל החברים שלך כבר בקבוצה')}</Text>
+                                    <Text className="text-gray-400 dark:text-cyber-muted text-center py-4">{t('series.allFriendsInGroup', 'כל החברים שלך כבר בקבוצה')}</Text>
                                 ) : (
                                     friendOptions.map((u, index) => renderMemberRow(u, index === friendOptions.length - 1, false))
                                 )}
@@ -831,25 +831,25 @@ export default function SeriesScreen() {
                 )}
 
                 {/* Upcoming Games Section */}
-                <View className="bg-white p-6 mb-4 shadow-sm">
-                    <Text className="text-lg font-bold text-gray-800 mb-4">{t('series.upcomingGames', 'Upcoming Games')}</Text>
+                <View className="bg-white dark:bg-cyber-card p-6 mb-4 shadow-sm">
+                    <Text className="text-lg font-bold text-gray-800 dark:text-cyber-text mb-4">{t('series.upcomingGames', 'Upcoming Games')}</Text>
                     {series.upcomingGames?.length > 0 ? (
-                        <View className="rounded-xl overflow-hidden border border-gray-100">
+                        <View className="rounded-xl overflow-hidden border border-gray-100 dark:border-cyber-border">
                             {series.upcomingGames.map((game: any, index: number) => {
                                 const gDate = new Date(game.date);
                                 return (
                                     <TouchableOpacity
                                         key={game.id}
                                         onPress={() => router.push(`/game/${game.id}`)}
-                                        className={`flex-row items-center p-4 bg-white ${index !== series.upcomingGames.length - 1 ? 'border-b border-gray-100' : ''}`}
+                                        className={`flex-row items-center p-4 bg-white dark:bg-cyber-card ${index !== series.upcomingGames.length - 1 ? 'border-b border-gray-100 dark:border-cyber-border' : ''}`}
                                     >
-                                        <View className="bg-brand-mist rounded-xl w-12 h-12 items-center justify-center mr-4 border border-brand-pale">
-                                            <Text className="text-brand-dark font-bold text-lg leading-tight">{gDate.toLocaleDateString(dateLocale, { day: 'numeric', timeZone: 'Asia/Jerusalem' })}</Text>
-                                            <Text className="text-brand text-[10px] font-bold uppercase">{gDate.toLocaleDateString(dateLocale, { month: 'short', timeZone: 'Asia/Jerusalem' })}</Text>
+                                        <View className="bg-brand-mist dark:bg-brand-ink rounded-xl w-12 h-12 items-center justify-center mr-4 border border-brand-pale">
+                                            <Text className="text-brand-dark dark:text-brand-light font-bold text-lg leading-tight">{gDate.toLocaleDateString(dateLocale, { day: 'numeric', timeZone: 'Asia/Jerusalem' })}</Text>
+                                            <Text className="text-brand dark:text-brand-light text-[10px] font-bold uppercase">{gDate.toLocaleDateString(dateLocale, { month: 'short', timeZone: 'Asia/Jerusalem' })}</Text>
                                         </View>
                                         <View className="flex-1">
-                                            <Text className="font-bold text-gray-800 text-base">{gDate.toLocaleDateString(dateLocale, { weekday: 'long', timeZone: 'Asia/Jerusalem' })}</Text>
-                                            <Text className="text-gray-500 text-xs mt-0.5">
+                                            <Text className="font-bold text-gray-800 dark:text-cyber-text text-base">{gDate.toLocaleDateString(dateLocale, { weekday: 'long', timeZone: 'Asia/Jerusalem' })}</Text>
+                                            <Text className="text-gray-500 dark:text-cyber-muted text-xs mt-0.5">
                                                 {game.currentPlayers} / {game.maxPlayers} {t('series.players', 'Players')} · {game.time || series.time}
                                             </Text>
                                         </View>
@@ -861,7 +861,7 @@ export default function SeriesScreen() {
                     ) : (
                         <View className="items-center py-6">
                             <FontAwesome name="calendar-o" size={32} color="#d1d5db" />
-                            <Text className="text-gray-400 mt-2">{t('series.noGames', 'No upcoming games scheduled.')}</Text>
+                            <Text className="text-gray-400 dark:text-cyber-muted mt-2">{t('series.noGames', 'No upcoming games scheduled.')}</Text>
                         </View>
                     )}
                 </View>
@@ -871,32 +871,32 @@ export default function SeriesScreen() {
                     <View className="p-6 mb-6" onLayout={(e) => { settingsSectionY.current = e.nativeEvent.layout.y; }}>
                         <TouchableOpacity
                             onPress={toggleSettings}
-                            className="flex-row items-center justify-between bg-gray-100 p-4 rounded-xl mb-2"
+                            className="flex-row items-center justify-between bg-gray-100 dark:bg-cyber-border p-4 rounded-xl mb-2"
                         >
                             <View className="flex-row items-center">
                                 <FontAwesome name="cog" size={18} color="#4b5563" style={{ marginRight: 10 }} />
-                                <Text className="font-bold text-gray-700">{t('series.manageSettings', 'Manage Group Settings')}</Text>
+                                <Text className="font-bold text-gray-700 dark:text-cyber-text">{t('series.manageSettings', 'Manage Group Settings')}</Text>
                             </View>
                             <FontAwesome name={showSettings ? "chevron-up" : "chevron-down"} size={14} color="#6b7280" />
                         </TouchableOpacity>
 
                         {showSettings && (
-                            <View className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                            <View className="bg-white dark:bg-cyber-card p-5 rounded-xl shadow-sm border border-gray-100 dark:border-cyber-border">
                                 <SeriesImageUpload seriesId={id} image={imageUrl} onChange={setImageUrl} />
 
-                                <Text className="text-gray-700 font-bold mb-2">{t('series.title', 'Group name')}</Text>
+                                <Text className="text-gray-700 dark:text-cyber-text font-bold mb-2">{t('series.title', 'Group name')}</Text>
                                 <TextInput
                                     value={title}
                                     onChangeText={setTitle}
-                                    className="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-4 text-base"
+                                    className="bg-gray-50 dark:bg-cyber-bg p-3 rounded-lg border border-gray-200 dark:border-cyber-border mb-4 text-base text-gray-900 dark:text-cyber-text"
                                 />
 
-                                <Text className="text-gray-700 font-bold mb-2">{t('series.description', 'Description')}</Text>
+                                <Text className="text-gray-700 dark:text-cyber-text font-bold mb-2">{t('series.description', 'Description')}</Text>
                                 <TextInput
                                     value={description}
                                     onChangeText={setDescription}
                                     multiline
-                                    className="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-4 text-base min-h-[80px]"
+                                    className="bg-gray-50 dark:bg-cyber-bg p-3 rounded-lg border border-gray-200 dark:border-cyber-border mb-4 text-base min-h-[80px] text-gray-900 dark:text-cyber-text"
                                 />
 
                                 <SeriesLocationPicker
@@ -912,27 +912,27 @@ export default function SeriesScreen() {
 
                                 <View className="flex-row gap-3 mb-4">
                                     <View className="flex-1">
-                                        <Text className="text-gray-700 font-bold mb-2">{t('series.defaultTime', 'Default Time')}</Text>
+                                        <Text className="text-gray-700 dark:text-cyber-text font-bold mb-2">{t('series.defaultTime', 'Default Time')}</Text>
                                         <TextInput
                                             value={time}
                                             onChangeText={setTime}
                                             placeholder="HH:MM"
-                                            className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-base"
+                                            className="bg-gray-50 dark:bg-cyber-bg p-3 rounded-lg border border-gray-200 dark:border-cyber-border text-base text-gray-900 dark:text-cyber-text"
                                         />
                                     </View>
                                     <View className="flex-1">
-                                        <Text className="text-gray-700 font-bold mb-2">{t('series.duration', 'משך (שעות)')}</Text>
+                                        <Text className="text-gray-700 dark:text-cyber-text font-bold mb-2">{t('series.duration', 'משך (שעות)')}</Text>
                                         <TextInput
                                             value={duration}
                                             onChangeText={setDuration}
                                             keyboardType="decimal-pad"
-                                            className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-base"
+                                            className="bg-gray-50 dark:bg-cyber-bg p-3 rounded-lg border border-gray-200 dark:border-cyber-border text-base text-gray-900 dark:text-cyber-text"
                                         />
                                     </View>
                                 </View>
 
                                 {series.type === 'WEEKLY' && series.dayOfWeek !== null && series.dayOfWeek !== undefined && (
-                                    <Text className="text-gray-400 text-xs -mt-2 mb-4">
+                                    <Text className="text-gray-400 dark:text-cyber-muted text-xs -mt-2 mb-4">
                                         {t('series.fixedDay', 'יום קבוע')}: {dayName} — {t('series.fixedDayHint', 'לא ניתן לשנות יום בקבוצה שבועית קיימת')}
                                     </Text>
                                 )}
@@ -950,7 +950,7 @@ export default function SeriesScreen() {
                                     gameTime={time}
                                 />
 
-                                <Text className="text-gray-700 font-bold mb-2">{t('series.sport', 'Sport')}</Text>
+                                <Text className="text-gray-700 dark:text-cyber-text font-bold mb-2">{t('series.sport', 'Sport')}</Text>
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
                                     {Object.keys(SPORT_MAPPING).map(s => {
                                         const isSelected = sport === s;
@@ -958,9 +958,9 @@ export default function SeriesScreen() {
                                             <TouchableOpacity
                                                 key={s}
                                                 onPress={() => setSport(s)}
-                                                className={`px-4 py-2 rounded-full mr-2 border ${isSelected ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
+                                                className={`px-4 py-2 rounded-full mr-2 border ${isSelected ? 'bg-brand border-brand' : 'bg-white dark:bg-cyber-card border-gray-300 dark:border-cyber-border'}`}
                                             >
-                                                <Text className={`${isSelected ? 'text-white' : 'text-gray-700'} font-medium`}>
+                                                <Text className={`${isSelected ? 'text-white' : 'text-gray-700 dark:text-cyber-text'} font-medium`}>
                                                     {SPORT_MAPPING[s]}
                                                 </Text>
                                             </TouchableOpacity>
@@ -970,46 +970,46 @@ export default function SeriesScreen() {
 
                                 <View className="flex-row gap-3 mb-4">
                                     <View className="flex-1">
-                                        <Text className="text-gray-700 font-bold mb-2">{t('series.maxPlayers', 'Max Players')}</Text>
+                                        <Text className="text-gray-700 dark:text-cyber-text font-bold mb-2">{t('series.maxPlayers', 'Max Players')}</Text>
                                         <TextInput
                                             value={maxPlayers}
                                             onChangeText={setMaxPlayers}
                                             keyboardType="number-pad"
-                                            className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-base"
+                                            className="bg-gray-50 dark:bg-cyber-bg p-3 rounded-lg border border-gray-200 dark:border-cyber-border text-base text-gray-900 dark:text-cyber-text"
                                         />
                                     </View>
                                     <View className="flex-1">
-                                        <Text className="text-gray-700 font-bold mb-2">{t('series.teamSize', 'Team Size')}</Text>
+                                        <Text className="text-gray-700 dark:text-cyber-text font-bold mb-2">{t('series.teamSize', 'Team Size')}</Text>
                                         <TextInput
                                             value={teamSize}
                                             onChangeText={setTeamSize}
                                             keyboardType="number-pad"
                                             placeholder={t('editGame.none', 'None')}
-                                            className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-base"
+                                            className="bg-gray-50 dark:bg-cyber-bg p-3 rounded-lg border border-gray-200 dark:border-cyber-border text-base text-gray-900 dark:text-cyber-text"
                                         />
                                     </View>
                                     <View className="flex-1">
-                                        <Text className="text-gray-700 font-bold mb-2">{t('series.price', 'Price')}</Text>
+                                        <Text className="text-gray-700 dark:text-cyber-text font-bold mb-2">{t('series.price', 'Price')}</Text>
                                         <TextInput
                                             value={price}
                                             onChangeText={setPrice}
                                             keyboardType="number-pad"
                                             placeholder="0"
-                                            className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-base"
+                                            className="bg-gray-50 dark:bg-cyber-bg p-3 rounded-lg border border-gray-200 dark:border-cyber-border text-base text-gray-900 dark:text-cyber-text"
                                         />
                                     </View>
                                 </View>
 
-                                <Text className="text-gray-700 font-bold mb-2">{t('series.welcomeMessage', 'Automatic welcome message')}</Text>
+                                <Text className="text-gray-700 dark:text-cyber-text font-bold mb-2">{t('series.welcomeMessage', 'Automatic welcome message')}</Text>
                                 <TextInput
                                     value={welcomeMessage}
                                     onChangeText={setWelcomeMessage}
                                     multiline
-                                    className="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-4 text-base min-h-[60px]"
+                                    className="bg-gray-50 dark:bg-cyber-bg p-3 rounded-lg border border-gray-200 dark:border-cyber-border mb-4 text-base min-h-[60px] text-gray-900 dark:text-cyber-text"
                                 />
 
                                 <View className="flex-row justify-between items-center mb-4">
-                                    <Text className="text-gray-700 font-bold w-3/4">{t('series.membersOnlyPriority', 'עדיפות לחברי הקבוצה (הרשמה מוקדמת)')}</Text>
+                                    <Text className="text-gray-700 dark:text-cyber-text font-bold w-3/4">{t('series.membersOnlyPriority', 'עדיפות לחברי הקבוצה (הרשמה מוקדמת)')}</Text>
                                     <Switch
                                         value={membersOnlyPriority}
                                         onValueChange={setMembersOnlyPriority}
@@ -1017,40 +1017,40 @@ export default function SeriesScreen() {
                                     />
                                 </View>
                                 {membersOnlyPriority && (
-                                    <View className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200" testID="guest-settings">
-                                        <Text className="text-gray-700 font-bold mb-2">{t('series.guestHours', 'הרשמה לאורחים נפתחת (שעות לפני המשחק)')}</Text>
+                                    <View className="mb-4 p-3 bg-gray-50 dark:bg-cyber-bg rounded-lg border border-gray-200 dark:border-cyber-border" testID="guest-settings">
+                                        <Text className="text-gray-700 dark:text-cyber-text font-bold mb-2">{t('series.guestHours', 'הרשמה לאורחים נפתחת (שעות לפני המשחק)')}</Text>
                                         <TextInput
                                             value={guestHours}
                                             onChangeText={setGuestHours}
                                             keyboardType="decimal-pad"
-                                            className="bg-white p-3 rounded-lg border border-gray-200 mb-3 text-base"
+                                            className="bg-white dark:bg-cyber-card p-3 rounded-lg border border-gray-200 dark:border-cyber-border mb-3 text-base text-gray-900 dark:text-cyber-text"
                                         />
-                                        <Text className="text-gray-700 font-bold mb-2">{t('series.guestPrice', 'מחיר לאורחים (₪, להצגה בלבד)')}</Text>
+                                        <Text className="text-gray-700 dark:text-cyber-text font-bold mb-2">{t('series.guestPrice', 'מחיר לאורחים (₪, להצגה בלבד)')}</Text>
                                         <TextInput
                                             value={guestPrice}
                                             onChangeText={setGuestPrice}
                                             keyboardType="number-pad"
-                                            className="bg-white p-3 rounded-lg border border-gray-200 mb-3 text-base"
+                                            className="bg-white dark:bg-cyber-card p-3 rounded-lg border border-gray-200 dark:border-cyber-border mb-3 text-base text-gray-900 dark:text-cyber-text"
                                         />
-                                        <Text className="text-gray-700 font-bold mb-2">{t('series.guestDescription', 'תיאור לאורחים')}</Text>
+                                        <Text className="text-gray-700 dark:text-cyber-text font-bold mb-2">{t('series.guestDescription', 'תיאור לאורחים')}</Text>
                                         <TextInput
                                             value={guestDescription}
                                             onChangeText={setGuestDescription}
                                             multiline
-                                            className="bg-white p-3 rounded-lg border border-gray-200 mb-3 text-base min-h-[60px]"
+                                            className="bg-white dark:bg-cyber-card p-3 rounded-lg border border-gray-200 dark:border-cyber-border mb-3 text-base min-h-[60px] text-gray-900 dark:text-cyber-text"
                                         />
-                                        <Text className="text-gray-700 font-bold mb-2">{t('series.guestWelcomeMessage', 'הודעת פתיחה לאורחים (נשלחת בפרטי)')}</Text>
+                                        <Text className="text-gray-700 dark:text-cyber-text font-bold mb-2">{t('series.guestWelcomeMessage', 'הודעת פתיחה לאורחים (נשלחת בפרטי)')}</Text>
                                         <TextInput
                                             value={guestWelcomeMessage}
                                             onChangeText={setGuestWelcomeMessage}
                                             multiline
-                                            className="bg-white p-3 rounded-lg border border-gray-200 text-base min-h-[60px]"
+                                            className="bg-white dark:bg-cyber-card p-3 rounded-lg border border-gray-200 dark:border-cyber-border text-base min-h-[60px] text-gray-900 dark:text-cyber-text"
                                         />
                                     </View>
                                 )}
 
                                 <View className="flex-row justify-between items-center mb-4">
-                                    <Text className="text-gray-700 font-bold w-3/4">{t('series.friendsOnly', 'Friends-only games')}</Text>
+                                    <Text className="text-gray-700 dark:text-cyber-text font-bold w-3/4">{t('series.friendsOnly', 'Friends-only games')}</Text>
                                     <Switch
                                         value={isFriendsOnly}
                                         onValueChange={setIsFriendsOnly}
@@ -1066,7 +1066,7 @@ export default function SeriesScreen() {
                                 )}
 
                                 <View className="flex-row justify-between items-center mb-4">
-                                    <Text className="text-gray-700 font-bold w-3/4">{t('series.requiresApproval', 'Requires approval to join')}</Text>
+                                    <Text className="text-gray-700 dark:text-cyber-text font-bold w-3/4">{t('series.requiresApproval', 'Requires approval to join')}</Text>
                                     <Switch
                                         value={requiresApproval}
                                         onValueChange={setRequiresApproval}
@@ -1076,7 +1076,7 @@ export default function SeriesScreen() {
                                 </View>
 
                                 <View className="flex-row justify-between items-center mb-4">
-                                    <Text className="text-gray-700 font-bold w-3/4">{t('series.lotteryEnabled', 'Spot lottery')}</Text>
+                                    <Text className="text-gray-700 dark:text-cyber-text font-bold w-3/4">{t('series.lotteryEnabled', 'Spot lottery')}</Text>
                                     <Switch
                                         value={lotteryEnabled}
                                         onValueChange={setLotteryEnabled}
@@ -1087,7 +1087,7 @@ export default function SeriesScreen() {
 
                                 {lotteryEnabled && (
                                     <View className="flex-row justify-between items-center mb-6">
-                                        <Text className="text-gray-700 font-bold w-3/4">{t('series.organizerInLottery', 'Include organizer in lottery')}</Text>
+                                        <Text className="text-gray-700 dark:text-cyber-text font-bold w-3/4">{t('series.organizerInLottery', 'Include organizer in lottery')}</Text>
                                         <Switch
                                             value={organizerInLottery}
                                             onValueChange={setOrganizerInLottery}
@@ -1098,7 +1098,7 @@ export default function SeriesScreen() {
                                 )}
 
                                 <View className="flex-row justify-between items-center mb-6">
-                                    <Text className="text-gray-700 font-bold w-3/4">{t('series.updateFuture', 'Update all future games?')}</Text>
+                                    <Text className="text-gray-700 dark:text-cyber-text font-bold w-3/4">{t('series.updateFuture', 'Update all future games?')}</Text>
                                     <Switch
                                         value={updateFuture}
                                         onValueChange={setUpdateFuture}
@@ -1120,9 +1120,9 @@ export default function SeriesScreen() {
                                 {isOrganizer && (
                                 <TouchableOpacity
                                     onPress={() => setDeleteModalOpen(true)}
-                                    className="bg-red-50 p-4 rounded-xl items-center border border-red-100"
+                                    className="bg-red-50 dark:bg-red-950 p-4 rounded-xl items-center border border-red-100 dark:border-red-900"
                                 >
-                                    <Text className="text-red-600 font-bold text-base">{t('series.delete', 'Delete Group')}</Text>
+                                    <Text className="text-red-600 dark:text-red-400 font-bold text-base">{t('series.delete', 'Delete Group')}</Text>
                                 </TouchableOpacity>
                                 )}
                             </View>
@@ -1134,9 +1134,9 @@ export default function SeriesScreen() {
                     <View className="px-6 mb-6">
                         <TouchableOpacity
                             onPress={handleLeaveGroup}
-                            className="bg-red-50 p-4 rounded-xl items-center border border-red-100"
+                            className="bg-red-50 dark:bg-red-950 p-4 rounded-xl items-center border border-red-100 dark:border-red-900"
                         >
-                            <Text className="text-red-600 font-bold text-base">{t('series.leaveGroup', 'Leave Group')}</Text>
+                            <Text className="text-red-600 dark:text-red-400 font-bold text-base">{t('series.leaveGroup', 'Leave Group')}</Text>
                         </TouchableOpacity>
                     </View>
                 )}
@@ -1153,15 +1153,15 @@ export default function SeriesScreen() {
             />
             <Modal visible={!!memberMenu} transparent animationType="fade" onRequestClose={() => setMemberMenu(null)} accessibilityViewIsModal>
                 <Pressable className="flex-1 bg-black/40 justify-end" onPress={() => setMemberMenu(null)} accessibilityRole="button" accessibilityLabel={t('common.cancel', 'ביטול')}>
-                    <Pressable className="bg-white rounded-t-2xl p-4" onPress={() => {}}>
-                        <Text className="text-center text-gray-800 font-bold mb-3" numberOfLines={1}>{memberMenu?.name}</Text>
+                    <Pressable className="bg-white dark:bg-cyber-card rounded-t-2xl p-4" onPress={() => {}}>
+                        <Text className="text-center text-gray-800 dark:text-cyber-text font-bold mb-3" numberOfLines={1}>{memberMenu?.name}</Text>
                         <TouchableOpacity
                             accessibilityRole="button"
                             className="flex-row items-center py-3"
                             onPress={() => { const m = memberMenu; setMemberMenu(null); if (m) router.push(`/user/${m.id}`); }}
                         >
                             <FontAwesome name="user" size={16} color="#059669" style={{ marginEnd: 12 }} />
-                            <Text className="text-gray-800 font-medium">{t('series.openProfile', 'פתח פרופיל')}</Text>
+                            <Text className="text-gray-800 dark:text-cyber-text font-medium">{t('series.openProfile', 'פתח פרופיל')}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             accessibilityRole="button"
@@ -1169,10 +1169,10 @@ export default function SeriesScreen() {
                             onPress={() => { const m = memberMenu; setMemberMenu(null); if (m) messageMember(m.id); }}
                         >
                             <FontAwesome name="paper-plane" size={16} color="#059669" style={{ marginEnd: 12 }} />
-                            <Text className="text-gray-800 font-medium">{t('series.sendMessage', 'שלח הודעה')}</Text>
+                            <Text className="text-gray-800 dark:text-cyber-text font-medium">{t('series.sendMessage', 'שלח הודעה')}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity accessibilityRole="button" className="py-3 items-center" onPress={() => setMemberMenu(null)}>
-                            <Text className="text-gray-500 font-medium">{t('common.cancel', 'ביטול')}</Text>
+                            <Text className="text-gray-500 dark:text-cyber-muted font-medium">{t('common.cancel', 'ביטול')}</Text>
                         </TouchableOpacity>
                     </Pressable>
                 </Pressable>
