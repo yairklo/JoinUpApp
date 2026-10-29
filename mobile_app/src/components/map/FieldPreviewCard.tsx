@@ -230,7 +230,7 @@ export default function FieldPreviewCard({
                         accessibilityLabel={t('common.close', 'סגירה')}
                         hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
                     >
-                        <FontAwesome name="times" size={13} color="#6b7280" />
+                        <FontAwesome name="times" size={13} color={p.muted} />
                     </TouchableOpacity>
                 </View>
 
