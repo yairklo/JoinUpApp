@@ -23,7 +23,8 @@
     },
     "today": "היום",
     "tomorrow": "מחר",
-    "loadingAuth": "טוען..."
+    "loadingAuth": "טוען...",
+    "loading": "טוען…"
   },
   "tabs": {
     "home": "בית",
@@ -152,6 +153,8 @@
     "loadingChats": "טוען צ'אטים…"
   },
   "profile": {
+    "friendsOnly": "הפרופיל הזה פתוח לחברים בלבד",
+    "groups": "קבוצות",
     "unknownCity": "עיר לא ידועה",
     "personalDetails": "פרטים אישיים",
     "email": "אימייל",

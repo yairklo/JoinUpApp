@@ -15,6 +15,7 @@ import MatchResultBadge from '@/components/MatchResultBadge';
 import ReportPlayerEntry from '@/components/ReportPlayerEntry';
 import SafeImage from '@/components/SafeImage';
 import { appAlert } from '@/i18n/appAlert';
+import BackButton from '@/components/ui/BackButton';
 
 const PAGE_SIZE = 5;
 
@@ -200,7 +201,7 @@ export default function UserProfileScreen() {
 
     if (loading) {
         return (
-            <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
+            <SafeAreaView className="flex-1 bg-gray-50 dark:bg-cyber-bg items-center justify-center">
                 <LoadingMotif id="crowd-wave" label={t('profile.loadingUser', 'טוען שחקן…')} />
             </SafeAreaView>
         );
@@ -208,14 +209,14 @@ export default function UserProfileScreen() {
 
     if (loadError && !profile) {
         return (
-            <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center px-6" testID="user-profile-error">
-                <Text className="text-gray-600 text-center">
+            <SafeAreaView className="flex-1 bg-gray-50 dark:bg-cyber-bg items-center justify-center px-6" testID="user-profile-error">
+                <Text className="text-gray-600 dark:text-cyber-muted text-center">
                     {loadError === 'rateLimited'
                         ? t('profile.rateLimited', 'יותר מדי בקשות כרגע. חכו רגע ונסו שוב.')
                         : t('profile.failedToLoadProfile', 'Failed to load user profile.')}
                 </Text>
-                <TouchableOpacity onPress={loadUserData} accessibilityRole="button" className="mt-4 px-5 h-11 items-center justify-center bg-gray-200 rounded-lg">
-                    <Text>{t('profile.retry', 'נסו שוב')}</Text>
+                <TouchableOpacity onPress={loadUserData} accessibilityRole="button" className="mt-4 px-5 h-11 items-center justify-center bg-gray-200 dark:bg-cyber-border rounded-lg">
+                    <Text className="text-gray-900 dark:text-cyber-text">{t('profile.retry', 'נסו שוב')}</Text>
                 </TouchableOpacity>
             </SafeAreaView>
         );
@@ -223,37 +224,35 @@ export default function UserProfileScreen() {
 
     if (!profile) {
         return (
-            <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
-                <Text className="text-gray-500">{t('profile.userNotFound', 'User not found.')}</Text>
-                <TouchableOpacity onPress={() => router.back()} className="mt-4 p-2 bg-gray-200 rounded-lg">
-                    <Text>{t('common.back', 'Go Back')}</Text>
+            <SafeAreaView className="flex-1 bg-gray-50 dark:bg-cyber-bg items-center justify-center">
+                <Text className="text-gray-500 dark:text-cyber-muted">{t('profile.userNotFound', 'User not found.')}</Text>
+                <TouchableOpacity onPress={() => router.back()} className="mt-4 p-2 bg-gray-200 dark:bg-cyber-border rounded-lg">
+                    <Text className="text-gray-900 dark:text-cyber-text">{t('common.back', 'חזרה')}</Text>
                 </TouchableOpacity>
             </SafeAreaView>
         );
     }
 
     return (
-        <SafeAreaView className="flex-1 bg-gray-50" edges={['top', 'left', 'right']}>
-            <View className="flex-row items-center p-4 border-b border-gray-200 bg-white">
-                <TouchableOpacity onPress={() => router.back()} className="w-10 h-10 items-center justify-center">
-                    <FontAwesome name="chevron-left" size={20} color="#374151" />
-                </TouchableOpacity>
-                <Text className="flex-1 text-center font-bold text-lg mr-10">{profile.name}</Text>
+        <SafeAreaView className="flex-1 bg-gray-50 dark:bg-cyber-bg" edges={['top', 'left', 'right']}>
+            <View className="flex-row items-center p-4 border-b border-gray-200 dark:border-cyber-border bg-white dark:bg-cyber-card">
+                <BackButton />
+                <Text className="flex-1 text-center font-bold text-lg mr-10 text-gray-900 dark:text-cyber-text">{profile.name}</Text>
             </View>
 
             <ScrollView className="flex-1" contentContainerStyle={{ padding: 20 }}>
                 <View className="items-center mb-6">
                     <SafeImage
                         source={{ uri: profile.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&size=200` }}
-                        className="w-32 h-32 rounded-full mb-4 bg-gray-200"
+                        className="w-32 h-32 rounded-full mb-4 bg-gray-200 dark:bg-cyber-border"
                     />
-                    <Text className="text-2xl font-bold text-gray-900 mb-1">{profile.name}</Text>
+                    <Text className="text-2xl font-bold text-gray-900 dark:text-cyber-text mb-1">{profile.name}</Text>
 
                     {/* Player rating aggregate */}
                     {profile.totalRatings && profile.totalRatings > 0 && profile.ratingAverage != null ? (
                         <View className="flex-row items-center justify-center mb-2">
                             <Text className="text-amber-500 text-lg mr-1">★</Text>
-                            <Text className="text-gray-700 font-semibold">
+                            <Text className="text-gray-700 dark:text-cyber-text font-semibold">
                                 {t('ratings.average', {
                                     score: profile.ratingAverage.toFixed(1),
                                     count: profile.totalRatings,
@@ -261,13 +260,13 @@ export default function UserProfileScreen() {
                             </Text>
                         </View>
                     ) : (
-                        <Text className="text-gray-400 text-sm mb-2">{t('ratings.noRatings')}</Text>
+                        <Text className="text-gray-400 dark:text-cyber-muted text-sm mb-2">{t('ratings.noRatings')}</Text>
                     )}
 
                     {profile.city && (
                         <View className="flex-row items-center">
                             <FontAwesome name="map-marker" size={16} color="#6b7280" className="mr-1" />
-                            <Text className="text-gray-600 text-base">{profile.city}</Text>
+                            <Text className="text-gray-600 dark:text-cyber-muted text-base">{profile.city}</Text>
                         </View>
                     )}
                 </View>
@@ -279,7 +278,7 @@ export default function UserProfileScreen() {
                             <TouchableOpacity
                                 onPress={handleRemoveFriend}
                                 disabled={actionLoading}
-                                className="bg-red-50 px-6 py-3 rounded-xl border border-red-200 flex-row items-center"
+                                className="bg-red-50 dark:bg-red-950 px-6 py-3 rounded-xl border border-red-200 dark:border-red-900 flex-row items-center"
                             >
                                 <FontAwesome name="user-times" size={16} color="#ef4444" style={{ marginRight: 8 }} />
                                 <Text className="text-red-500 font-bold">{actionLoading ? '...' : t('profile.removeFriend', 'Remove Friend')}</Text>
@@ -305,10 +304,10 @@ export default function UserProfileScreen() {
                         {relationship === 'pending_outgoing' && (
                             <TouchableOpacity
                                 disabled={true}
-                                className="bg-gray-100 px-6 py-3 rounded-xl border border-gray-300 flex-row items-center"
+                                className="bg-gray-100 dark:bg-cyber-border px-6 py-3 rounded-xl border border-gray-300 dark:border-cyber-border flex-row items-center"
                             >
                                 <FontAwesome name="clock-o" size={16} color="#6b7280" style={{ marginRight: 8 }} />
-                                <Text className="text-gray-500 font-bold">{t('profile.pendingSent', 'Request Sent')}</Text>
+                                <Text className="text-gray-500 dark:text-cyber-muted font-bold">{t('profile.pendingSent', 'Request Sent')}</Text>
                             </TouchableOpacity>
                         )}
 
@@ -347,17 +346,17 @@ export default function UserProfileScreen() {
                                     }
                                 }}
                                 disabled={actionLoading}
-                                className="bg-white px-6 py-3 rounded-xl border border-brand-pale flex-row items-center shadow-sm"
+                                className="bg-white dark:bg-cyber-card px-6 py-3 rounded-xl border border-brand-pale flex-row items-center shadow-sm"
                             >
                                 <FontAwesome name="paper-plane" size={16} color="#059669" style={{ marginRight: 8 }} />
-                                <Text className="text-brand font-bold">{t('profile.sendMessage', 'Send Message')}</Text>
+                                <Text className="text-brand dark:text-brand-light font-bold">{t('profile.sendMessage', 'Send Message')}</Text>
                             </TouchableOpacity>
                         )}
                     </View>
                     {relationship !== 'self' && (
                         <TouchableOpacity onPress={handleToggleBlock} disabled={actionLoading} className="flex-row items-center py-2">
                             <FontAwesome name="ban" size={14} color={isBlocked ? '#6b7280' : '#ef4444'} style={{ marginRight: 6 }} />
-                            <Text className={isBlocked ? 'text-gray-600 font-semibold' : 'text-red-500 font-semibold'}>
+                            <Text className={isBlocked ? 'text-gray-600 dark:text-cyber-muted font-semibold' : 'text-red-500 font-semibold'}>
                                 {isBlocked ? t('profile.unblock', 'בטל חסימה') : t('profile.block', 'חסום משתמש')}
                             </Text>
                         </TouchableOpacity>
@@ -369,23 +368,23 @@ export default function UserProfileScreen() {
 
 
                 {/* Additional Info */}
-                <View className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                    <Text className="font-bold text-gray-900 text-lg mb-4">{t('profile.about', 'About')}</Text>
+                <View className="bg-white dark:bg-cyber-card rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-cyber-border">
+                    <Text className="font-bold text-gray-900 dark:text-cyber-text text-lg mb-4">{t('profile.about', 'About')}</Text>
                     {profile.profileRestricted ? (
-                        <Text className="text-gray-500">{t('profile.friendsOnly', 'הפרופיל הזה פתוח לחברים בלבד')}</Text>
+                        <Text className="text-gray-500 dark:text-cyber-muted">{t('profile.friendsOnly', 'הפרופיל הזה פתוח לחברים בלבד')}</Text>
                     ) : null}
 
                     {!profile.profileRestricted && profile.age ? (
                         <View className="flex-row items-center mb-3">
                             <View className="w-8 items-center"><FontAwesome name="birthday-cake" size={16} color="#9ca3af" /></View>
-                            <Text className="text-gray-700">{profile.age} {t('profile.yearsOld', 'years old')}</Text>
+                            <Text className="text-gray-700 dark:text-cyber-text">{profile.age} {t('profile.yearsOld', 'years old')}</Text>
                         </View>
                     ) : null}
 
                     {!profile.profileRestricted && profile.gender ? (
                         <View className="flex-row items-center mb-3">
                             <View className="w-8 items-center"><FontAwesome name="user" size={16} color="#9ca3af" /></View>
-                            <Text className="text-gray-700">
+                            <Text className="text-gray-700 dark:text-cyber-text">
                                 {profile.gender === 'MALE'
                                     ? t('profile.male', 'גבר')
                                     : t('profile.female', 'אישה')}
@@ -395,11 +394,11 @@ export default function UserProfileScreen() {
 
                     {!profile.profileRestricted && profile.sports && profile.sports.length > 0 && (
                         <View className="mt-4">
-                            <Text className="font-bold text-gray-800 mb-2">{t('profile.favoriteSports', 'Favorite Sports')}</Text>
+                            <Text className="font-bold text-gray-800 dark:text-cyber-text mb-2">{t('profile.favoriteSports', 'Favorite Sports')}</Text>
                             <View className="flex-row flex-wrap">
                                 {profile.sports.map((sport, index) => (
-                                    <View key={index} className="bg-brand-mist px-3 py-1 rounded-full mr-2 mb-2 border border-brand-pale">
-                                        <Text className="text-brand-dark text-sm">
+                                    <View key={index} className="bg-brand-mist dark:bg-brand-ink px-3 py-1 rounded-full mr-2 mb-2 border border-brand-pale">
+                                        <Text className="text-brand-dark dark:text-brand-light text-sm">
                                             {sport.name} {sport.position ? `- ${sport.position}` : ''}
                                         </Text>
                                     </View>
@@ -411,16 +410,16 @@ export default function UserProfileScreen() {
 
                 {/* Groups (recurring series); absent when the user hides them */}
                 {profile.groups && profile.groups.length > 0 && (
-                    <View className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mt-4">
-                        <Text className="font-bold text-gray-900 text-lg mb-3">{t('profile.groups', 'קבוצות')}</Text>
+                    <View className="bg-white dark:bg-cyber-card rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-cyber-border mt-4">
+                        <Text className="font-bold text-gray-900 dark:text-cyber-text text-lg mb-3">{t('profile.groups', 'קבוצות')}</Text>
                         <View className="flex-row flex-wrap gap-2">
                             {profile.groups.map((g) => (
                                 <TouchableOpacity
                                     key={g.id}
                                     onPress={() => router.push(`/series/${g.id}`)}
-                                    className="bg-brand-mist border border-brand-pale rounded-full px-3 py-1.5"
+                                    className="bg-brand-mist dark:bg-brand-ink border border-brand-pale rounded-full px-3 py-1.5"
                                 >
-                                    <Text className="text-brand font-bold text-sm">{g.title || g.fieldName}</Text>
+                                    <Text className="text-brand dark:text-brand-light font-bold text-sm">{g.title || g.fieldName}</Text>
                                 </TouchableOpacity>
                             ))}
                         </View>
@@ -429,10 +428,10 @@ export default function UserProfileScreen() {
 
                 {/* Friends (privacy-filtered) */}
                 {profile.sections?.friends && profile.friends && (
-                    <View className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mt-4">
-                        <Text className="font-bold text-gray-900 text-lg mb-4">{t('privacy.friendsSection', 'Friends')}</Text>
+                    <View className="bg-white dark:bg-cyber-card rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-cyber-border mt-4">
+                        <Text className="font-bold text-gray-900 dark:text-cyber-text text-lg mb-4">{t('privacy.friendsSection', 'Friends')}</Text>
                         {profile.friends.length === 0 ? (
-                            <Text className="text-gray-400">{t('privacy.noFriends', 'No friends to show')}</Text>
+                            <Text className="text-gray-400 dark:text-cyber-muted">{t('privacy.noFriends', 'No friends to show')}</Text>
                         ) : (
                             <ScrollView horizontal showsHorizontalScrollIndicator={false} nestedScrollEnabled>
                                 {profile.friends.map((f) => (
@@ -444,9 +443,9 @@ export default function UserProfileScreen() {
                                     >
                                         <SafeImage
                                             source={{ uri: f.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(f.name || 'U')}&size=100` }}
-                                            className="w-14 h-14 rounded-full mb-1 bg-gray-200"
+                                            className="w-14 h-14 rounded-full mb-1 bg-gray-200 dark:bg-cyber-border"
                                         />
-                                        <Text className="text-gray-700 text-xs text-center" numberOfLines={1}>{f.name || t('game.user', 'משתמש')}</Text>
+                                        <Text className="text-gray-700 dark:text-cyber-text text-xs text-center" numberOfLines={1}>{f.name || t('game.user', 'משתמש')}</Text>
                                     </TouchableOpacity>
                                 ))}
                             </ScrollView>
@@ -459,15 +458,15 @@ export default function UserProfileScreen() {
 
                 {/* Match history (privacy-filtered) */}
                 {profile.sections?.matchHistory && profile.matchHistory && (
-                    <View className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mt-4">
-                        <Text className="font-bold text-gray-900 text-lg mb-3">{t('privacy.matchHistory', 'Match History')}</Text>
+                    <View className="bg-white dark:bg-cyber-card rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-cyber-border mt-4">
+                        <Text className="font-bold text-gray-900 dark:text-cyber-text text-lg mb-3">{t('privacy.matchHistory', 'Match History')}</Text>
 
                         {/* Sport stats chips — contextualized right above the match feed */}
                         {profile.sportStats && profile.sportStats.length > 0 && (
                             <View className="flex-row flex-wrap mb-4">
                                 {profile.sportStats.map((s) => (
-                                    <View key={s.sport} className="bg-brand-mist px-3 py-1.5 rounded-full mr-2 mb-2 border border-brand-pale">
-                                        <Text className="text-brand-dark text-sm font-semibold">
+                                    <View key={s.sport} className="bg-brand-mist dark:bg-brand-ink px-3 py-1.5 rounded-full mr-2 mb-2 border border-brand-pale">
+                                        <Text className="text-brand-dark dark:text-brand-light text-sm font-semibold">
                                             {(SPORT_EMOJI[s.sport] || '🏅')} {t(`sports.${s.sport.toLowerCase()}`, SPORT_MAPPING[s.sport] || s.sport)} · {s.count}
                                         </Text>
                                     </View>
@@ -476,7 +475,7 @@ export default function UserProfileScreen() {
                         )}
 
                         {matches.length === 0 ? (
-                            <Text className="text-gray-400">{t('privacy.noMatches', 'No past matches')}</Text>
+                            <Text className="text-gray-400 dark:text-cyber-muted">{t('privacy.noMatches', 'No past matches')}</Text>
                         ) : (
                             matches.map((m) => {
                                 const sportLabel = m.sport ? t(`sports.${m.sport.toLowerCase()}`, SPORT_MAPPING[m.sport] || m.sport) : '';
@@ -486,12 +485,12 @@ export default function UserProfileScreen() {
                                     <TouchableOpacity
                                         key={m.id}
                                         onPress={() => router.push(`/game/${m.id}`)}
-                                        className="flex-row items-center py-3 border-b border-gray-50"
+                                        className="flex-row items-center py-3 border-b border-gray-50 dark:border-cyber-border"
                                     >
                                         <FontAwesome name="soccer-ball-o" size={18} color="#059669" style={{ marginRight: 12 }} />
                                         <View className="flex-1">
-                                            <Text className="text-gray-800 font-medium">{m.title || sportLabel || t('search.game', 'משחק')}</Text>
-                                            <Text className="text-gray-500 text-xs mt-0.5">{meta}</Text>
+                                            <Text className="text-gray-800 dark:text-cyber-text font-medium">{m.title || sportLabel || t('search.game', 'משחק')}</Text>
+                                            <Text className="text-gray-500 dark:text-cyber-muted text-xs mt-0.5">{meta}</Text>
                                         </View>
                                         <MatchResultBadge gameId={m.id} result={m.result} sport={m.sport} compact />
                                     </TouchableOpacity>
@@ -503,14 +502,14 @@ export default function UserProfileScreen() {
                             <TouchableOpacity
                                 onPress={handleLoadMore}
                                 disabled={loadingMore}
-                                className="mt-4 py-3 rounded-xl border border-brand-pale bg-brand-mist items-center flex-row justify-center"
+                                className="mt-4 py-3 rounded-xl border border-brand-pale bg-brand-mist dark:bg-brand-ink items-center flex-row justify-center"
                             >
                                 {loadingMore ? (
                                     <ActivityIndicator size="small" color="#059669" />
                                 ) : (
                                     <>
                                         <FontAwesome name="chevron-down" size={13} color="#059669" style={{ marginRight: 8 }} />
-                                        <Text className="text-brand font-bold">{t('privacy.loadMore', 'Load more games')}</Text>
+                                        <Text className="text-brand dark:text-brand-light font-bold">{t('privacy.loadMore', 'Load more games')}</Text>
                                     </>
                                 )}
                             </TouchableOpacity>

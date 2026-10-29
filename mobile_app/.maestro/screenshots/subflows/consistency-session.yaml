@@ -1,0 +1,56 @@
+appId: com.yairklo.joinupapp
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'http://10[.]0[.]2[.]2:8081'
+    timeout: 30000
+    optional: true
+- tapOn:
+    text: 'http://10[.]0[.]2[.]2:8081'
+    optional: true
+# The dev launcher shows "Error loading app / timeout" when Metro is still
+# rebuilding after a cold launch; dismiss it and tap the server again.
+- extendedWaitUntil:
+    visible: 'Error loading app|Continue|.*home-create-game.*'
+    timeout: 60000
+    optional: true
+- runFlow: launcher-retry.yaml
+- runFlow: launcher-retry.yaml
+- runFlow: launcher-retry.yaml
+- runFlow: launcher-retry.yaml
+- runFlow: launcher-retry.yaml
+- runFlow: launcher-retry.yaml
+- runFlow: launcher-retry.yaml
+- runFlow: launcher-retry.yaml
+- tapOn:
+    text: 'להמתין|Wait'
+    optional: true
+- extendedWaitUntil:
+    visible: 'Continue'
+    timeout: 90000
+    optional: true
+- tapOn:
+    text: 'Continue'
+    optional: true
+- tapOn:
+    text: 'להמתין|Wait'
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: 'sign-in-email|home-create-game'
+    timeout: 90000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: sign-in-email
+    file: sign-in.yaml
+- tapOn:
+    text: 'להמתין|Wait'
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: home-create-game
+    timeout: 60000
+- runFlow: theme.yaml
