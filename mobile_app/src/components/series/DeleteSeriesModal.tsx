@@ -3,6 +3,7 @@ import { View, Text, Modal, TouchableOpacity, ScrollView, ActivityIndicator } fr
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 import { useTranslation } from 'react-i18next';
+import { dateLocaleFor } from '@/utils/dateLocale';
 import { seriesApi, type SeriesDeleteStrategy } from '@/services/api/series';
 
 interface Props {
@@ -19,7 +20,7 @@ interface GameSummary { id: string; date: string; }
 export default function DeleteSeriesModal({ visible, seriesId, seriesName, onClose, onDeleted }: Props) {
     const getTokenRef = useAuthTokenRef();
     const { t, i18n } = useTranslation();
-    const dateLocale = i18n.language === 'he' ? 'he-IL' : 'en-US';
+    const dateLocale = dateLocaleFor(i18n.language);
     const [strategy, setStrategy] = useState<SeriesDeleteStrategy>('DELETE_ALL');
     const [games, setGames] = useState<GameSummary[]>([]);
     const [selected, setSelected] = useState<string[]>([]);
@@ -81,32 +82,32 @@ export default function DeleteSeriesModal({ visible, seriesId, seriesName, onClo
     return (
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
             <View className="flex-1 bg-black/50 justify-center px-5">
-                <View className="bg-white rounded-2xl p-5 max-h-[85%]">
-                    <Text className="text-lg font-bold text-red-600 mb-1">{t('series.deleteTitle', 'מחיקת קבוצה')}: {seriesName}</Text>
-                    <Text className="text-gray-500 text-sm mb-3">{t('series.deleteIrreversible', 'פעולה זו היא בלתי הפיכה ולא ניתן לבטל אותה.')}</Text>
-                    <Text className="text-gray-800 mb-3">
+                <View className="bg-white dark:bg-cyber-card rounded-2xl p-5 max-h-[85%]">
+                    <Text className="text-lg font-bold text-red-600 dark:text-red-400 mb-1">{t('series.deleteTitle', 'מחיקת קבוצה')}: {seriesName}</Text>
+                    <Text className="text-gray-500 dark:text-cyber-muted text-sm mb-3">{t('series.deleteIrreversible', 'פעולה זו היא בלתי הפיכה ולא ניתן לבטל אותה.')}</Text>
+                    <Text className="text-gray-800 dark:text-cyber-text mb-3">
                         {fetching ? '…' : loadError ? t('series.deleteLoadError', 'טעינת המשחקים העתידיים נכשלה. אפשר למחוק הכל או לשמור משחקים, אך לא לבחור משחקים ספציפיים.') : t('series.deleteFoundGames', 'נמצאו {{count}} משחקים עתידיים בקבוצה זו. כיצד תרצה להמשיך?', { count: games.length })}
                     </Text>
 
                     <ScrollView>
                         {options.map((o) => (
                             <TouchableOpacity key={o.value} onPress={() => setStrategy(o.value)} className="flex-row items-start py-2">
-                                <View className={`w-5 h-5 rounded-full border-2 items-center justify-center mr-3 mt-0.5 ${strategy === o.value ? 'border-red-600' : 'border-gray-300'}`}>
+                                <View className={`w-5 h-5 rounded-full border-2 items-center justify-center mr-3 mt-0.5 ${strategy === o.value ? 'border-red-600' : 'border-gray-300 dark:border-cyber-border'}`}>
                                     {strategy === o.value && <View className="w-2.5 h-2.5 rounded-full bg-red-600" />}
                                 </View>
                                 <View className="flex-1">
-                                    <Text className="font-bold text-gray-800">{o.title}</Text>
-                                    <Text className="text-gray-500 text-xs">{o.desc}</Text>
+                                    <Text className="font-bold text-gray-800 dark:text-cyber-text">{o.title}</Text>
+                                    <Text className="text-gray-500 dark:text-cyber-muted text-xs">{o.desc}</Text>
                                 </View>
                             </TouchableOpacity>
                         ))}
 
                         {strategy === 'SELECTIVE' && (
-                            <View className="mt-2 border border-gray-200 rounded-xl overflow-hidden">
-                                <View className="flex-row justify-between items-center bg-gray-50 px-3 py-2">
-                                    <Text className="text-xs font-bold text-gray-600">{t('series.upcomingGames', 'משחקים עתידיים')}</Text>
+                            <View className="mt-2 border border-gray-200 dark:border-cyber-border rounded-xl overflow-hidden">
+                                <View className="flex-row justify-between items-center bg-gray-50 dark:bg-cyber-bg px-3 py-2">
+                                    <Text className="text-xs font-bold text-gray-600 dark:text-cyber-muted">{t('series.upcomingGames', 'משחקים עתידיים')}</Text>
                                     <TouchableOpacity onPress={() => setSelected(selected.length === games.length ? [] : games.map((g) => g.id))}>
-                                        <Text className="text-brand text-xs font-bold">
+                                        <Text className="text-brand dark:text-brand-light text-xs font-bold">
                                             {selected.length === games.length ? t('series.clearSelection', 'נקה בחירה') : t('series.selectAll', 'בחר הכל')}
                                         </Text>
                                     </TouchableOpacity>
@@ -114,12 +115,12 @@ export default function DeleteSeriesModal({ visible, seriesId, seriesName, onClo
                                 {fetching ? (
                                     <ActivityIndicator className="py-4" />
                                 ) : games.length === 0 ? (
-                                    <Text className="text-gray-400 text-xs p-3">{t('series.noGames', 'אין משחקים קרובים מתוכננים.')}</Text>
+                                    <Text className="text-gray-400 dark:text-cyber-muted text-xs p-3">{t('series.noGames', 'אין משחקים קרובים מתוכננים.')}</Text>
                                 ) : (
                                     games.map((g) => (
-                                        <TouchableOpacity key={g.id} onPress={() => toggle(g.id)} className="flex-row items-center px-3 py-2 border-t border-gray-100">
+                                        <TouchableOpacity key={g.id} onPress={() => toggle(g.id)} className="flex-row items-center px-3 py-2 border-t border-gray-100 dark:border-cyber-border">
                                             <FontAwesome name={selected.includes(g.id) ? 'check-square' : 'square-o'} size={18} color={selected.includes(g.id) ? '#dc2626' : '#9ca3af'} />
-                                            <Text className="ml-3 text-gray-700 text-sm">
+                                            <Text className="ml-3 text-gray-700 dark:text-cyber-text text-sm">
                                                 {new Date(g.date).toLocaleString(dateLocale, { timeZone: 'Asia/Jerusalem', dateStyle: 'medium', timeStyle: 'short' })}
                                             </Text>
                                         </TouchableOpacity>
@@ -129,11 +130,11 @@ export default function DeleteSeriesModal({ visible, seriesId, seriesName, onClo
                         )}
                     </ScrollView>
 
-                    {!!error && <Text className="text-red-600 text-sm mt-3">{error}</Text>}
+                    {!!error && <Text className="text-red-600 dark:text-red-400 text-sm mt-3">{error}</Text>}
 
                     <View className="flex-row gap-3 mt-4">
-                        <TouchableOpacity onPress={onClose} disabled={busy} className="flex-1 p-3 rounded-xl items-center bg-gray-100">
-                            <Text className="font-bold text-gray-700">{t('common.cancel', 'ביטול')}</Text>
+                        <TouchableOpacity onPress={onClose} disabled={busy} className="flex-1 p-3 rounded-xl items-center bg-gray-100 dark:bg-cyber-border">
+                            <Text className="font-bold text-gray-700 dark:text-cyber-text">{t('common.cancel', 'ביטול')}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             onPress={confirm}
