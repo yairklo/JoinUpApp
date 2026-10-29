@@ -8,6 +8,7 @@ import type { UpdateSeriesDTO } from '@/services/api/series';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { dateLocaleFor } from '@/utils/dateLocale';
 import LoadingMotif from '@/components/loading/LoadingMotif';
 import { SPORT_MAPPING } from '@/utils/sports';
 import SeriesImageUpload from '@/components/series/SeriesImageUpload';
@@ -32,7 +33,7 @@ export default function SeriesScreen() {
     const { user } = useUser();
     const router = useRouter();
     const { t, i18n } = useTranslation();
-    const dateLocale = i18n.language === 'he' ? 'he-IL' : 'en-US';
+    const dateLocale = dateLocaleFor(i18n.language);
 
     const [series, setSeries] = useState<any>(null);
     const [loading, setLoading] = useState(true);

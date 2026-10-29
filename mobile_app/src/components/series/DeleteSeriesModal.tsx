@@ -3,6 +3,7 @@ import { View, Text, Modal, TouchableOpacity, ScrollView, ActivityIndicator } fr
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 import { useTranslation } from 'react-i18next';
+import { dateLocaleFor } from '@/utils/dateLocale';
 import { seriesApi, type SeriesDeleteStrategy } from '@/services/api/series';
 
 interface Props {
@@ -19,7 +20,7 @@ interface GameSummary { id: string; date: string; }
 export default function DeleteSeriesModal({ visible, seriesId, seriesName, onClose, onDeleted }: Props) {
     const getTokenRef = useAuthTokenRef();
     const { t, i18n } = useTranslation();
-    const dateLocale = i18n.language === 'he' ? 'he-IL' : 'en-US';
+    const dateLocale = dateLocaleFor(i18n.language);
     const [strategy, setStrategy] = useState<SeriesDeleteStrategy>('DELETE_ALL');
     const [games, setGames] = useState<GameSummary[]>([]);
     const [selected, setSelected] = useState<string[]>([]);
