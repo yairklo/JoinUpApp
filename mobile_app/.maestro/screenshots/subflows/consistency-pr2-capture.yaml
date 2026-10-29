@@ -1,0 +1,72 @@
+appId: com.yairklo.joinupapp
+---
+# One theme+language pass over the PR2 screens. Env: THEME, LANG, TAG (before|after).
+- openLink: mobileapp:///
+- extendedWaitUntil:
+    visible:
+      id: home-create-game
+    timeout: 60000
+- runFlow: theme.yaml
+- runFlow:
+    file: pause.yaml
+    env:
+      PAUSE_MS: '1500'
+
+- openLink: mobileapp:///settings
+- runFlow:
+    file: pause.yaml
+    env:
+      PAUSE_MS: '4000'
+- takeScreenshot:
+    path: ${TAG}/settings-${LANG}-${THEME}
+
+- openLink: mobileapp:///settings/notifications
+- runFlow:
+    file: pause.yaml
+    env:
+      PAUSE_MS: '5000'
+- takeScreenshot:
+    path: ${TAG}/settings-notifications-${LANG}-${THEME}
+
+- openLink: mobileapp:///settings/blocked
+- runFlow:
+    file: pause.yaml
+    env:
+      PAUSE_MS: '4000'
+- takeScreenshot:
+    path: ${TAG}/settings-blocked-${LANG}-${THEME}
+
+- openLink: mobileapp:///settings/feedback
+- runFlow:
+    file: pause.yaml
+    env:
+      PAUSE_MS: '2500'
+- takeScreenshot:
+    path: ${TAG}/settings-feedback-${LANG}-${THEME}
+
+- openLink: mobileapp:///profile/settings
+- runFlow:
+    file: pause.yaml
+    env:
+      PAUSE_MS: '4000'
+- takeScreenshot:
+    path: ${TAG}/privacy-settings-${LANG}-${THEME}
+
+- openLink: mobileapp:///friends
+- runFlow:
+    file: pause.yaml
+    env:
+      PAUSE_MS: '5000'
+- takeScreenshot:
+    path: ${TAG}/friends-${LANG}-${THEME}
+
+# Friend profile: open the first friend row (adult-b, יונתן לוי) when the seeded friendship exists.
+- tapOn:
+    text: 'יונתן לוי'
+    optional: true
+- runFlow:
+    file: pause.yaml
+    env:
+      PAUSE_MS: '5000'
+- takeScreenshot:
+    path: ${TAG}/user-profile-${LANG}-${THEME}

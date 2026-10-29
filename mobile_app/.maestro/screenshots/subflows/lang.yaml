@@ -1,0 +1,24 @@
+appId: com.yairklo.joinupapp
+---
+# Header language toggle shows the CURRENT language ("HE"/"EN"); tap it only when it differs from ${LANG}.
+# Switching language reloads the app (RTL flip), so wait for the home screen again afterwards.
+- runFlow:
+    when:
+      visible: '^HE$'
+      true: ${LANG == "en"}
+    commands:
+      - tapOn: '^HE$'
+      - extendedWaitUntil:
+          visible:
+            id: home-create-game
+          timeout: 120000
+- runFlow:
+    when:
+      visible: '^EN$'
+      true: ${LANG == "he"}
+    commands:
+      - tapOn: '^EN$'
+      - extendedWaitUntil:
+          visible:
+            id: home-create-game
+          timeout: 120000

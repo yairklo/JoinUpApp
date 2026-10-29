@@ -12,6 +12,7 @@ import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 import SafeImage from '@/components/SafeImage';
 import { appAlert } from '@/i18n/appAlert';
+import { formatTimeOfDay } from '@/utils/dateLocale';
 
 // "1.0.0 · preview · a1b2c3d4" — which store build and which OTA update is running. The update id
 // is only present when the running JS came from EAS Update rather than the bundle embedded in the build.
@@ -26,7 +27,7 @@ function buildInfoLabel(): string {
 const chevronStyle = I18nManager.isRTL ? { transform: [{ scaleX: -1 }] } : undefined;
 
 export default function SettingsScreen() {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { signOut, getToken } = useAuth();
     const { user } = useUser();
     const { imageUrl: avatarUrl } = useMyAvatar();
@@ -50,7 +51,7 @@ export default function SettingsScreen() {
                 if (!settings.pushEnabled || perm.status !== 'granted') {
                     setNotifSummary(t('notificationSettings.summaryPushOff'));
                 } else if (settings.snoozeUntil) {
-                    const time = new Date(settings.snoozeUntil).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const time = formatTimeOfDay(settings.snoozeUntil, i18n.language);
                     setNotifSummary(t('notificationSettings.snoozedUntil', { time }));
                 } else {
                     setNotifSummary(t('notificationSettings.summaryOn'));
@@ -118,30 +119,30 @@ export default function SettingsScreen() {
     return (
         <>
             <Stack.Screen options={{ title: t('settings.title', 'Settings'), headerShown: true }} />
-            <ScrollView className="flex-1 bg-gray-50">
+            <ScrollView className="flex-1 bg-gray-50 dark:bg-cyber-bg">
                 {/* Profile Section */}
                 <View className="mt-6 mb-6 items-center">
                     <SafeImage
                         source={{ uri: avatarUrl }}
-                        className="w-24 h-24 rounded-full bg-gray-200 mb-3"
+                        className="w-24 h-24 rounded-full bg-gray-200 dark:bg-cyber-border mb-3"
                     />
-                    <Text className="text-xl font-bold text-gray-800">{myName}</Text>
-                    <Text className="text-gray-500">{user?.primaryEmailAddress?.emailAddress}</Text>
+                    <Text className="text-xl font-bold text-gray-800 dark:text-cyber-text">{myName}</Text>
+                    <Text className="text-gray-500 dark:text-cyber-muted">{user?.primaryEmailAddress?.emailAddress}</Text>
                 </View>
 
                 {/* General Settings */}
-                <View className="bg-white mx-4 rounded-xl mb-4 shadow-sm overflow-hidden">
+                <View className="bg-white dark:bg-cyber-card mx-4 rounded-xl mb-4 shadow-sm overflow-hidden">
                     <TouchableOpacity
-                        className="p-4 flex-row justify-between items-center border-b border-gray-100"
+                        className="p-4 flex-row justify-between items-center border-b border-gray-100 dark:border-cyber-border"
                         onPress={() => router.push('/settings/notifications' as any)}
                     >
                         <View className="flex-row items-center flex-1">
-                            <View className="w-8 h-8 rounded-full bg-brand-pale items-center justify-center me-3">
+                            <View className="w-8 h-8 rounded-full bg-brand-pale dark:bg-brand-ink items-center justify-center me-3">
                                 <FontAwesome name="bell" size={14} color="#059669" />
                             </View>
                             <View className="flex-1">
-                                <Text className="text-base text-gray-800 font-medium">{t('notificationSettings.title')}</Text>
-                                {!!notifSummary && <Text className="text-sm text-gray-500">{notifSummary}</Text>}
+                                <Text className="text-base text-gray-800 dark:text-cyber-text font-medium">{t('notificationSettings.title')}</Text>
+                                {!!notifSummary && <Text className="text-sm text-gray-500 dark:text-cyber-muted">{notifSummary}</Text>}
                             </View>
                         </View>
                         <FontAwesome name="angle-right" size={16} color="#9ca3af" style={chevronStyle} />
@@ -151,49 +152,49 @@ export default function SettingsScreen() {
                         onPress={() => router.push('/profile/settings' as any)}
                     >
                         <View className="flex-row items-center flex-1">
-                            <View className="w-8 h-8 rounded-full bg-brand-pale items-center justify-center me-3">
+                            <View className="w-8 h-8 rounded-full bg-brand-pale dark:bg-brand-ink items-center justify-center me-3">
                                 <FontAwesome name="lock" size={15} color="#059669" />
                             </View>
-                            <Text className="text-base text-gray-800 font-medium flex-1">{t('privacy.settings', 'הגדרות פרטיות')}</Text>
+                            <Text className="text-base text-gray-800 dark:text-cyber-text font-medium flex-1">{t('privacy.settings', 'הגדרות פרטיות')}</Text>
                         </View>
                         <FontAwesome name="angle-right" size={16} color="#9ca3af" style={chevronStyle} />
                     </TouchableOpacity>
                 </View>
 
                 {/* App Info, Support */}
-                <View className="bg-white mx-4 rounded-xl mb-6 shadow-sm overflow-hidden">
+                <View className="bg-white dark:bg-cyber-card mx-4 rounded-xl mb-6 shadow-sm overflow-hidden">
                     <TouchableOpacity
-                        className="p-4 border-b border-gray-100 flex-row items-center justify-between"
+                        className="p-4 border-b border-gray-100 dark:border-cyber-border flex-row items-center justify-between"
                         onPress={() => router.push('/legal/privacy' as any)}
                     >
-                        <Text className="text-base text-gray-800">{t('settings.privacyPolicy', 'Privacy Policy')}</Text>
+                        <Text className="text-base text-gray-800 dark:text-cyber-text">{t('settings.privacyPolicy', 'Privacy Policy')}</Text>
                         <FontAwesome name="angle-right" size={16} color="#9ca3af" style={chevronStyle} />
                     </TouchableOpacity>
                     <TouchableOpacity
-                        className="p-4 border-b border-gray-100 flex-row items-center justify-between"
+                        className="p-4 border-b border-gray-100 dark:border-cyber-border flex-row items-center justify-between"
                         onPress={() => router.push('/legal/terms' as any)}
                     >
-                        <Text className="text-base text-gray-800">{t('settings.termsOfService', 'Terms of Service')}</Text>
+                        <Text className="text-base text-gray-800 dark:text-cyber-text">{t('settings.termsOfService', 'Terms of Service')}</Text>
                         <FontAwesome name="angle-right" size={16} color="#9ca3af" style={chevronStyle} />
                     </TouchableOpacity>
                     <TouchableOpacity
-                        className="p-4 border-b border-gray-100 flex-row items-center justify-between"
+                        className="p-4 border-b border-gray-100 dark:border-cyber-border flex-row items-center justify-between"
                         onPress={() => router.push('/settings/blocked' as any)}
                     >
-                        <Text className="text-base text-gray-800">{t('settings.blockedUsers', 'משתמשים חסומים')}</Text>
+                        <Text className="text-base text-gray-800 dark:text-cyber-text">{t('settings.blockedUsers', 'משתמשים חסומים')}</Text>
                         <FontAwesome name="angle-right" size={16} color="#9ca3af" style={chevronStyle} />
                     </TouchableOpacity>
-                    <View className="p-4 flex-row items-center justify-between bg-gray-50">
-                        <Text className="text-sm text-gray-500">{t('settings.version', 'Version')}</Text>
-                        <Text className="text-sm text-gray-500 font-bold">{buildInfoLabel()}</Text>
+                    <View className="p-4 flex-row items-center justify-between bg-gray-50 dark:bg-cyber-bg">
+                        <Text className="text-sm text-gray-500 dark:text-cyber-muted">{t('settings.version', 'Version')}</Text>
+                        <Text className="text-sm text-gray-500 dark:text-cyber-muted font-bold">{buildInfoLabel()}</Text>
                     </View>
                 </View>
 
                 <TouchableOpacity
                     onPress={handleSignOut}
-                    className="mx-4 bg-red-50 p-4 rounded-xl items-center border border-red-100 mb-2"
+                    className="mx-4 bg-red-50 dark:bg-red-950 p-4 rounded-xl items-center border border-red-100 dark:border-red-900 mb-2"
                 >
-                    <Text className="text-red-600 font-bold text-lg">{t('settings.signOut', 'Sign Out')}</Text>
+                    <Text className="text-red-600 dark:text-red-400 font-bold text-lg">{t('settings.signOut', 'Sign Out')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -201,7 +202,7 @@ export default function SettingsScreen() {
                     disabled={deleting}
                     className="mx-4 p-4 rounded-xl items-center mb-10"
                 >
-                    <Text className="text-red-600 font-semibold">
+                    <Text className="text-red-600 dark:text-red-400 font-semibold">
                         {deleting ? t('settings.deletingAccount', 'מוחק חשבון...') : t('settings.deleteAccount', 'מחיקת חשבון')}
                     </Text>
                 </TouchableOpacity>

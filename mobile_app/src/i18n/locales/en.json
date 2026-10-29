@@ -31,7 +31,8 @@
     },
     "today": "Today",
     "tomorrow": "Tomorrow",
-    "loadingAuth": "Loading..."
+    "loadingAuth": "Loading...",
+    "loading": "Loading…"
   },
   "search": {
     "mapNoResults": "No games match this search",
@@ -152,6 +153,8 @@
     "loadingChats": "Loading chats…"
   },
   "profile": {
+    "friendsOnly": "This profile is visible to friends only",
+    "groups": "Groups",
     "unknownCity": "Unknown City",
     "personalDetails": "Personal Details",
     "email": "Email",

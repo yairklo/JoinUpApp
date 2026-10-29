@@ -1,0 +1,35 @@
+appId: com.yairklo.joinupapp
+name: consistency pr2 (settings, profile, friends)
+---
+- runFlow:
+    file: subflows/session.yaml
+    env:
+      THEME: light
+- runFlow:
+    file: subflows/lang.yaml
+    env:
+      LANG: he
+- runFlow:
+    file: subflows/consistency-pr2-capture.yaml
+    env:
+      THEME: light
+      LANG: he
+- runFlow:
+    file: subflows/consistency-pr2-capture.yaml
+    env:
+      THEME: dark
+      LANG: he
+- runFlow:
+    file: subflows/lang.yaml
+    env:
+      LANG: en
+- runFlow:
+    file: subflows/consistency-pr2-capture.yaml
+    env:
+      THEME: dark
+      LANG: en
+- runFlow:
+    file: subflows/consistency-pr2-capture.yaml
+    env:
+      THEME: light
+      LANG: en
