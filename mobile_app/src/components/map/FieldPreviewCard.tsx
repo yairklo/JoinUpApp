@@ -7,13 +7,7 @@ import FavoriteButton from '@/components/FavoriteButton';
 import { getSportColorHex, getSportIconName } from '@/utils/mapSport';
 import { SPORT_MAPPING } from '@/utils/sports';
 import SafeImage from '@/components/SafeImage';
-import { useColorMode } from '@/theme/ColorModeContext';
-
-// Card colours per mode (same tokens as tailwind cyber-*/brand-*; this card is inline-styled, so no dark: classes).
-const PALETTE = {
-    light: { surface: '#ffffff', neutralBg: '#f3f4f6', text: '#111827', muted: '#6b7280', muted2: '#4b5563', brandBg: '#ecfdf5', brandBorder: '#a7f3d0', brandText: '#047857' },
-    dark: { surface: '#111a2c', neutralBg: '#1e293b', text: '#f1f5f9', muted: '#94a3b8', muted2: '#cbd5e1', brandBg: '#022c22', brandBorder: '#065f46', brandText: '#34d399' },
-} as const;
+import { usePalette } from '@/theme/palette';
 
 export interface PreviewField {
     id: string;
@@ -54,8 +48,7 @@ export default function FieldPreviewCard({
     primaryAction,
 }: FieldPreviewCardProps) {
     const { t } = useTranslation();
-    const { colorMode } = useColorMode();
-    const p = PALETTE[colorMode === 'dark' ? 'dark' : 'light'];
+    const p = usePalette();
 
     return (
         <View
@@ -74,7 +67,7 @@ export default function FieldPreviewCard({
                 onPress={onPress}
                 style={{
                     width: '100%',
-                    backgroundColor: p.surface,
+                    backgroundColor: p.card,
                     borderRadius: 20,
                     padding: 14,
                     shadowColor: '#000',
@@ -96,7 +89,7 @@ export default function FieldPreviewCard({
                             marginBottom: 10,
                             paddingBottom: 8,
                             borderBottomWidth: 1,
-                            borderBottomColor: p.neutralBg,
+                            borderBottomColor: p.chipBg,
                         }}
                     >
                         <Text style={{ fontSize: 12, fontWeight: '700', color: '#059669' }}>
@@ -114,7 +107,7 @@ export default function FieldPreviewCard({
                                         paddingHorizontal: 10,
                                         paddingVertical: 3,
                                         borderRadius: 8,
-                                        backgroundColor: clusterIndex === idx ? '#059669' : p.neutralBg,
+                                        backgroundColor: clusterIndex === idx ? '#059669' : p.chipBg,
                                     }}
                                 >
                                     <Text
@@ -138,7 +131,7 @@ export default function FieldPreviewCard({
                         {field.image ? (
                             <SafeImage
                                 source={{ uri: field.image }}
-                                style={{ width: 60, height: 60, borderRadius: 14, backgroundColor: p.neutralBg }}
+                                style={{ width: 60, height: 60, borderRadius: 14, backgroundColor: p.chipBg }}
                             />
                         ) : (
                             <View
@@ -190,8 +183,8 @@ export default function FieldPreviewCard({
                                     </Text>
                                 </View>
                             )}
-                            <View style={{ backgroundColor: p.neutralBg, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 }}>
-                                <Text style={{ fontSize: 11, fontWeight: '600', color: p.muted2 }}>
+                            <View style={{ backgroundColor: p.chipBg, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 }}>
+                                <Text style={{ fontSize: 11, fontWeight: '600', color: p.chipText }}>
                                     {field.type === 'closed' ? t('field.closedField', 'מגרש מקורה') : t('field.openField', 'מגרש פתוח')}
                                 </Text>
                             </View>
@@ -221,7 +214,7 @@ export default function FieldPreviewCard({
                             width: 30,
                             height: 30,
                             borderRadius: 15,
-                            backgroundColor: p.neutralBg,
+                            backgroundColor: p.chipBg,
                             alignItems: 'center',
                             justifyContent: 'center',
                             alignSelf: 'flex-start',
@@ -260,7 +253,7 @@ export default function FieldPreviewCard({
                         marginTop: 10,
                         paddingTop: 8,
                         borderTopWidth: 1,
-                        borderTopColor: p.neutralBg,
+                        borderTopColor: p.chipBg,
                         flexDirection: 'row',
                         alignItems: 'center',
                         justifyContent: 'space-between',
