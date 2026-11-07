@@ -34,7 +34,7 @@ const heebo = Heebo({
 // Bump when the brand icons change: icons are cached for a week (next.config.ts headers) and the
 // service worker serves static images stale-while-revalidate, so a new query string is what forces
 // every client to fetch the new files. Keep in sync with the icon `src` query strings in public/manifest.json.
-const ICON_VERSION = "brand2";
+const ICON_VERSION = "brand3";
 
 export const viewport: Viewport = {
   themeColor: "#047857",
