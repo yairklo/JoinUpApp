@@ -90,10 +90,10 @@ export default function AppNavbar() {
                 sx={{ cursor: "pointer", display: "flex", alignItems: "center" }}
               >
                 {/* Full lockup; symbol-only below 360px so it never crowds the header buttons. */}
-                <Box sx={{ display: "block", [NARROW]: { display: "none" }, "& svg": { height: { xs: 28, md: 32 }, width: "auto" } }}>
-                  <JoinUpLogo variant="lockup" height={28} />
+                <Box sx={{ display: "block", [NARROW]: { display: "none" }, "& img": { height: { xs: 32, md: 36 }, width: "auto" } }}>
+                  <JoinUpLogo variant="lockup" height={32} />
                 </Box>
-                <Box sx={{ display: "none", [NARROW]: { display: "block" }, "& svg": { height: { xs: 32, md: 36 }, width: "auto" } }}>
+                <Box sx={{ display: "none", [NARROW]: { display: "block" }, "& img": { height: { xs: 32, md: 36 }, width: "auto" } }}>
                   <JoinUpLogo variant="symbol" height={32} />
                 </Box>
               </Box>

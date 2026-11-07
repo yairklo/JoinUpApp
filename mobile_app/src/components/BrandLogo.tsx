@@ -2,13 +2,13 @@ import React from 'react';
 import { Image } from 'react-native';
 import { useColorMode } from '@/theme/ColorModeContext';
 
-// Artwork from design/brand/joinup-logo-kit (light = #047857/#D9480F, dark = #10B981/#F2672A:
-// #047857 is only 3.4:1 on the dark background).
+// Artwork generated from design/brand/joinup-logo-v2: five-people icon, lockup = icon + "JoinUp"
+// wordmark. Dark variant uses the lighter #10B981/#F2672A (brand green is too dim on dark).
 const ASSETS = {
     lockup: {
         light: require('../../assets/images/brand/lockup-light.png'),
         dark: require('../../assets/images/brand/lockup-dark.png'),
-        aspect: 900 / 218,
+        aspect: 471 / 168,
     },
     symbol: {
         light: require('../../assets/images/brand/symbol-light.png'),
