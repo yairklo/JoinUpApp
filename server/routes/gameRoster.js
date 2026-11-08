@@ -457,26 +457,8 @@ router.post('/:id/waitlist-bypass/:userId', authenticateToken, rejectIfCancelled
   }
 });
 
-// Next organizer when the current one leaves: a confirmed participant, managers first,
-// earliest participation createdAt within that group. Pending, rejected, and waitlisted
-// rows are not eligible.
-async function pickOrganizerSuccessor(db, gameId, leavingUserId) {
-  const confirmed = await db.participation.findMany({
-    where: { gameId, status: 'CONFIRMED', userId: { not: leavingUserId } },
-    orderBy: { createdAt: 'asc' },
-    select: { userId: true },
-  });
-  if (!confirmed.length) return null;
-  const managers = await db.gameRole.findMany({
-    where: {
-      gameId,
-      role: 'MANAGER',
-      userId: { in: confirmed.map((p) => p.userId) },
-    },
-    select: { userId: true },
-  });
-  const managerIds = new Set(managers.map((r) => r.userId));
-  return confirmed.find((p) => managerIds.has(p.userId)) || confirmed[0];
+class LeaveConflict extends Error {
+  constructor(code) { super(code); this.code = code; }
 }
 
 // Leave game
@@ -532,17 +514,45 @@ router.post('/:id/leave', authenticateToken, rejectIfCancelled, async (req, res)
     const isOrganizer = game.organizerId === req.user.id;
     let successor = null;
     if (isOrganizer) {
-      successor = await pickOrganizerSuccessor(prisma, game.id, req.user.id);
-      if (!successor) {
+      // The organizer may not leave without explicitly appointing the next one, so a game is never
+      // left without an admin. The appointee must be another confirmed participant.
+      const successorId = typeof req.body?.successorId === 'string' ? req.body.successorId : '';
+      const eligible = participants.filter((p) => p.status === 'CONFIRMED' && p.userId !== req.user.id);
+      if (!eligible.length) {
         return res.status(400).json({
           error: 'לא ניתן לעזוב את המשחק כי אין משתתף מאושר שאפשר להעביר אליו את ניהול המשחק',
           code: 'NO_CONFIRMED_SUCCESSOR',
         });
       }
+      if (!successorId) {
+        return res.status(400).json({
+          error: 'מנהל לא יכול לעזוב את המשחק בלי למנות מנהל אחר במקומו',
+          code: 'ADMIN_SUCCESSOR_REQUIRED',
+        });
+      }
+      successor = eligible.find((p) => p.userId === successorId);
+      if (!successor) {
+        return res.status(400).json({
+          error: 'המנהל החדש חייב להיות משתתף מאושר במשחק',
+          code: 'INVALID_SUCCESSOR',
+        });
+      }
     }
 
-    if (isOrganizer) {
-      await prisma.$transaction(async (tx) => {
+    // Everything below runs under the game-row lock and re-checks what the pre-checks above read
+    // outside it. Otherwise a successor leaving (or the leaver being handed the game) at the same
+    // moment could leave the organizer outside the participant list.
+    await prisma.$transaction(async (tx) => {
+      await lockGameRow(tx, game.id);
+      const fresh = await tx.game.findUnique({ where: { id: game.id }, select: { organizerId: true } });
+      if (!fresh) throw new LeaveConflict('GAME_GONE');
+      if ((fresh.organizerId === req.user.id) !== isOrganizer) throw new LeaveConflict('ORGANIZER_CHANGED');
+      if (isOrganizer) {
+        const stillConfirmed = await tx.participation.findFirst({
+          where: { gameId: game.id, userId: successor.userId, status: 'CONFIRMED' },
+          select: { id: true },
+        });
+        if (!stillConfirmed) throw new LeaveConflict('INVALID_SUCCESSOR');
         await tx.participation.deleteMany({ where: { gameId: game.id, userId: req.user.id } });
         await tx.chatParticipant.deleteMany({ where: { userId: req.user.id, chatId: game.id } });
         await tx.game.update({ where: { id: game.id }, data: { organizerId: successor.userId } });
@@ -552,13 +562,11 @@ router.post('/:id/leave', authenticateToken, rejectIfCancelled, async (req, res)
           update: { role: 'ORGANIZER' },
           create: { gameId: game.id, userId: successor.userId, role: 'ORGANIZER' },
         });
-      });
-    } else {
-      await prisma.participation.deleteMany({ where: { gameId: game.id, userId: req.user.id } });
-      try {
-        await prisma.chatParticipant.deleteMany({ where: { userId: req.user.id, chatId: game.id } });
-      } catch (e) { /* Ignore */ }
-    }
+      } else {
+        await tx.participation.deleteMany({ where: { gameId: game.id, userId: req.user.id } });
+        await tx.chatParticipant.deleteMany({ where: { userId: req.user.id, chatId: game.id } });
+      }
+    });
     try { leaveUserChatRoom(req.io, req.user.id, game.id); } catch (e) { /* Ignore */ }
 
     // If a confirmed player left, offer the spot to the next waitlisted user
@@ -573,6 +581,15 @@ router.post('/:id/leave', authenticateToken, rejectIfCancelled, async (req, res)
     broadcastGameUpdate(req.io, game.id, updated).catch(err => console.error('[SOCKET] Failed to broadcast game update', game.id, err));
     res.json(applyViewerAccess(mapGameForClient(updated, req.user.id), leaverAccess));
   } catch (error) {
+    if (error instanceof LeaveConflict) {
+      const invalid = error.code === 'INVALID_SUCCESSOR';
+      return res.status(invalid ? 400 : 409).json({
+        error: invalid
+          ? 'המנהל החדש חייב להיות משתתף מאושר במשחק'
+          : 'מצב המשחק השתנה, נסה שוב',
+        code: invalid ? 'INVALID_SUCCESSOR' : 'LEAVE_CONFLICT',
+      });
+    }
     console.error('Leave game error:', error);
     res.status(500).json({ error: 'Failed to leave game' });
   }

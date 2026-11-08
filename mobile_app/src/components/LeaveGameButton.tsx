@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { TouchableOpacity, Text, ActivityIndicator, Alert } from "react-native";
+import SuccessorPickerModal, { eligibleSuccessors, type AdminCandidate } from "./SuccessorPickerModal";
 import { gamesApi } from "@/services/api";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useGameUpdate } from "@/context/GameUpdateContext";
@@ -9,35 +10,48 @@ import { appAlert } from "@/i18n/appAlert";
 
 export default function LeaveGameButton({
     gameId,
-    onLeft
+    onLeft,
+    organizerId,
+    participants
 }: {
     gameId: string;
     onLeft?: () => void;
+    /** When the viewer is the organizer, leaving requires appointing a successor from `participants`. */
+    organizerId?: string | null;
+    participants?: AdminCandidate[];
 }) {
     const { getToken } = useAuth();
     const { user } = useUser();
     const { notifyGameUpdate } = useGameUpdate();
     const { t } = useTranslation();
     const [loading, setLoading] = useState(false);
+    const [pickerOpen, setPickerOpen] = useState(false);
+    const isOrganizer = !!user?.id && organizerId === user.id;
+    const candidates = eligibleSuccessors(participants, user?.id);
 
     const handleLeave = () => {
+        if (isOrganizer) {
+            setPickerOpen(true);
+            return;
+        }
         Alert.alert(
             t("game.leaveGame"),
             t("game.confirmLeave"),
             [
                 { text: t("common.cancel"), style: "cancel" },
-                { text: t("game.leave"), style: "destructive", onPress: leave }
+                { text: t("game.leave"), style: "destructive", onPress: () => leave() }
             ]
         );
     };
 
-    const leave = async () => {
+    const leave = async (successorId?: string) => {
+        setPickerOpen(false);
         setLoading(true);
         try {
             const token = await getToken().catch(() => "");
             if (!token) throw new Error("Unauthorized");
 
-            await gamesApi.leave(gameId, token);
+            await gamesApi.leave(gameId, token, successorId);
             notifyGameUpdate(gameId, "leave", user?.id || "");
             if (onLeft) onLeft();
         } catch (e: any) {
@@ -49,6 +63,7 @@ export default function LeaveGameButton({
     };
 
     return (
+        <>
         <TouchableOpacity
             onPress={handleLeave}
             disabled={loading}
@@ -63,5 +78,12 @@ export default function LeaveGameButton({
                 </>
             )}
         </TouchableOpacity>
+        <SuccessorPickerModal
+            visible={pickerOpen}
+            candidates={candidates}
+            onPick={(id) => leave(id)}
+            onCancel={() => setPickerOpen(false)}
+        />
+        </>
     );
 }

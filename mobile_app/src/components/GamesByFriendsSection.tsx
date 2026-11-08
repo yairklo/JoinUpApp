@@ -44,7 +44,7 @@ export default function GamesByFriendsSection({ sportFilter }: { sportFilter?: s
                                 <View className="flex-row justify-between items-center w-full">
                                     <View className="flex-1 mr-2">
                                         {isJoined ? (
-                                            <LeaveGameButton gameId={game.id} onLeft={() => {}} />
+                                            <LeaveGameButton gameId={game.id} onLeft={() => {}} organizerId={game.organizerId} participants={game.participants} />
                                         ) : (
                                             <JoinGameButton
                                                 gameId={game.id}

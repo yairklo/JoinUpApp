@@ -411,13 +411,61 @@ router.delete('/:seriesId/subscribe', authenticateToken, async (req, res) => {
   try {
     const { seriesId } = req.params;
     const userId = req.user.id;
-    await prisma.seriesParticipant.deleteMany({
-      where: { seriesId, userId }
+    const series = await prisma.gameSeries.findUnique({ where: { id: seriesId }, select: { organizerId: true } });
+    let successorId = null;
+    if (series && series.organizerId === userId) {
+      // The organizer may not leave without appointing another member as organizer, so a group is
+      // never left without an admin.
+      successorId = typeof req.body?.successorId === 'string' ? req.body.successorId : '';
+      if (!successorId) {
+        return res.status(400).json({
+          error: 'מנהל לא יכול לעזוב את הקבוצה בלי למנות מנהל אחר במקומו',
+          code: 'ADMIN_SUCCESSOR_REQUIRED',
+        });
+      }
+      if (successorId === userId) {
+        return res.status(400).json({ error: 'המנהל החדש חייב להיות חבר בקבוצה', code: 'INVALID_SUCCESSOR' });
+      }
+      // Lock the series row, then re-check inside the transaction: the successor may have left
+      // (or the organizer changed) since the request started.
+      const outcome = await prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM "GameSeries" WHERE id = ${seriesId} FOR UPDATE`;
+        const fresh = await tx.gameSeries.findUnique({ where: { id: seriesId }, select: { organizerId: true } });
+        if (!fresh || fresh.organizerId !== userId) return 'CONFLICT';
+        const member = await tx.seriesParticipant.findUnique({
+          where: { seriesId_userId: { seriesId, userId: successorId } },
+        });
+        if (!member) return 'INVALID_SUCCESSOR';
+        await tx.gameSeries.update({ where: { id: seriesId }, data: { organizerId: successorId } });
+        await tx.seriesParticipant.update({
+          where: { seriesId_userId: { seriesId, userId: successorId } },
+          data: { role: 'MANAGER' },
+        });
+        await tx.seriesParticipant.deleteMany({ where: { seriesId, userId } });
+        return 'OK';
+      });
+      if (outcome === 'INVALID_SUCCESSOR') {
+        return res.status(400).json({ error: 'המנהל החדש חייב להיות חבר בקבוצה', code: 'INVALID_SUCCESSOR' });
+      }
+      if (outcome === 'CONFLICT') {
+        return res.status(409).json({ error: 'מצב הקבוצה השתנה, נסה שוב', code: 'LEAVE_CONFLICT' });
+      }
+      return res.json({ ok: true });
+    }
+    const conflict = await prisma.$transaction(async (tx) => {
+      // Same lock as the organizer's handoff: someone who was just appointed organizer must not
+      // be dropped from the group by a leave that started before the handoff committed.
+      await tx.$queryRaw`SELECT id FROM "GameSeries" WHERE id = ${seriesId} FOR UPDATE`;
+      const fresh = await tx.gameSeries.findUnique({ where: { id: seriesId }, select: { organizerId: true } });
+      if (fresh && fresh.organizerId === userId) return true;
+      await tx.seriesParticipant.deleteMany({ where: { seriesId, userId } });
+      // Also withdraws a pending join request (a declined one stays declined).
+      await tx.seriesJoinRequest.deleteMany({ where: { seriesId, userId, status: 'PENDING' } });
+      return false;
     });
-    // Also withdraws a pending join request (a declined one stays declined).
-    await prisma.seriesJoinRequest.deleteMany({
-      where: { seriesId, userId, status: 'PENDING' }
-    });
+    if (conflict) {
+      return res.status(409).json({ error: 'מצב הקבוצה השתנה, נסה שוב', code: 'LEAVE_CONFLICT' });
+    }
     return res.json({ ok: true });
   } catch (e) {
     console.error('Series unsubscribe error:', e);

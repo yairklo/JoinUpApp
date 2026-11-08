@@ -207,10 +207,12 @@ export const gamesApi = {
         });
     },
 
-    leave: (gameId: string, token: string) => {
+    /** An organizer must pass `successorId` (a confirmed participant) to hand over the game. */
+    leave: (gameId: string, token: string, successorId?: string) => {
         return apiClient<Game & { deleted?: boolean }>(`/api/games/${gameId}/leave`, {
             method: 'POST',
             token,
+            ...(successorId ? { data: { successorId } } : {}),
         });
     },
 
