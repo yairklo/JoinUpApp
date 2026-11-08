@@ -457,28 +457,6 @@ router.post('/:id/waitlist-bypass/:userId', authenticateToken, rejectIfCancelled
   }
 });
 
-// Next organizer when the current one leaves: a confirmed participant, managers first,
-// earliest participation createdAt within that group. Pending, rejected, and waitlisted
-// rows are not eligible.
-async function pickOrganizerSuccessor(db, gameId, leavingUserId) {
-  const confirmed = await db.participation.findMany({
-    where: { gameId, status: 'CONFIRMED', userId: { not: leavingUserId } },
-    orderBy: { createdAt: 'asc' },
-    select: { userId: true },
-  });
-  if (!confirmed.length) return null;
-  const managers = await db.gameRole.findMany({
-    where: {
-      gameId,
-      role: 'MANAGER',
-      userId: { in: confirmed.map((p) => p.userId) },
-    },
-    select: { userId: true },
-  });
-  const managerIds = new Set(managers.map((r) => r.userId));
-  return confirmed.find((p) => managerIds.has(p.userId)) || confirmed[0];
-}
-
 // Leave game
 router.post('/:id/leave', authenticateToken, rejectIfCancelled, async (req, res) => {
   try {
@@ -532,11 +510,27 @@ router.post('/:id/leave', authenticateToken, rejectIfCancelled, async (req, res)
     const isOrganizer = game.organizerId === req.user.id;
     let successor = null;
     if (isOrganizer) {
-      successor = await pickOrganizerSuccessor(prisma, game.id, req.user.id);
-      if (!successor) {
+      // The organizer may not leave without explicitly appointing the next one, so a game is never
+      // left without an admin. The appointee must be another confirmed participant.
+      const successorId = typeof req.body?.successorId === 'string' ? req.body.successorId : '';
+      const eligible = participants.filter((p) => p.status === 'CONFIRMED' && p.userId !== req.user.id);
+      if (!eligible.length) {
         return res.status(400).json({
           error: 'לא ניתן לעזוב את המשחק כי אין משתתף מאושר שאפשר להעביר אליו את ניהול המשחק',
           code: 'NO_CONFIRMED_SUCCESSOR',
+        });
+      }
+      if (!successorId) {
+        return res.status(400).json({
+          error: 'מנהל לא יכול לעזוב את המשחק בלי למנות מנהל אחר במקומו',
+          code: 'ADMIN_SUCCESSOR_REQUIRED',
+        });
+      }
+      successor = eligible.find((p) => p.userId === successorId);
+      if (!successor) {
+        return res.status(400).json({
+          error: 'המנהל החדש חייב להיות משתתף מאושר במשחק',
+          code: 'INVALID_SUCCESSOR',
         });
       }
     }

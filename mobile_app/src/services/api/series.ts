@@ -76,6 +76,15 @@ export const seriesApi = {
         });
     },
 
+    /** The organizer leaves by naming a member who becomes the new organizer. */
+    leaveAsOrganizer: (seriesId: string, successorId: string, token: string) => {
+        return apiClient<{ ok?: boolean }>(`/api/series/${seriesId}/subscribe`, {
+            method: 'DELETE',
+            data: { successorId },
+            token
+        });
+    },
+
     getJoinRequests: (seriesId: string, token: string) => {
         return apiClient<{ pending: SeriesJoinRequest[]; rejected: SeriesJoinRequest[] }>(
             `/api/series/${seriesId}/join-requests`,

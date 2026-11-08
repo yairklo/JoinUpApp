@@ -411,6 +411,35 @@ router.delete('/:seriesId/subscribe', authenticateToken, async (req, res) => {
   try {
     const { seriesId } = req.params;
     const userId = req.user.id;
+    const series = await prisma.gameSeries.findUnique({ where: { id: seriesId }, select: { organizerId: true } });
+    let successorId = null;
+    if (series && series.organizerId === userId) {
+      // The organizer may not leave without appointing another member as organizer, so a group is
+      // never left without an admin.
+      successorId = typeof req.body?.successorId === 'string' ? req.body.successorId : '';
+      if (!successorId) {
+        return res.status(400).json({
+          error: 'מנהל לא יכול לעזוב את הקבוצה בלי למנות מנהל אחר במקומו',
+          code: 'ADMIN_SUCCESSOR_REQUIRED',
+        });
+      }
+      const member = await prisma.seriesParticipant.findUnique({
+        where: { seriesId_userId: { seriesId, userId: successorId } },
+      });
+      if (!member || successorId === userId) {
+        return res.status(400).json({
+          error: 'המנהל החדש חייב להיות חבר בקבוצה',
+          code: 'INVALID_SUCCESSOR',
+        });
+      }
+      await prisma.$transaction([
+        prisma.gameSeries.update({ where: { id: seriesId }, data: { organizerId: successorId } }),
+        prisma.seriesParticipant.update({
+          where: { seriesId_userId: { seriesId, userId: successorId } },
+          data: { role: 'MANAGER' },
+        }),
+      ]);
+    }
     await prisma.seriesParticipant.deleteMany({
       where: { seriesId, userId }
     });

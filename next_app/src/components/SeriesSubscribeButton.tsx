@@ -9,6 +9,7 @@ import StarBorderIcon from "@mui/icons-material/StarBorder";
 import HourglassTopIcon from "@mui/icons-material/HourglassTop";
 import CircularProgress from "@mui/material/CircularProgress";
 import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
@@ -31,11 +32,13 @@ export default function SeriesSubscribeButton({
     const [isSubscribed, setIsSubscribed] = useState(initialSubscribed);
     const [requestStatus, setRequestStatus] = useState<RequestStatus>(initialRequestStatus);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     // DELETE both leaves the group and withdraws a pending request.
     const send = async (method: "POST" | "DELETE") => {
         if (!isSignedIn) return;
         setLoading(true);
+        setError(null);
         try {
             const token = await getToken();
             const res = await fetch(`${API_BASE}/api/series/${seriesId}/subscribe`, {
@@ -56,6 +59,9 @@ export default function SeriesSubscribeButton({
                 router.refresh();
             } else if (body.code === "SERIES_JOIN_DECLINED") {
                 setRequestStatus("REJECTED");
+            } else if (body.code === "ADMIN_SUCCESSOR_REQUIRED" || body.code === "INVALID_SUCCESSOR") {
+                // The organizer must appoint another admin before leaving.
+                setError(body.error || "מנהל לא יכול לעזוב את הקבוצה בלי למנות מנהל אחר במקומו");
             }
         } catch (e) {
             console.error(e);
@@ -92,6 +98,7 @@ export default function SeriesSubscribeButton({
     const joinLabel = viewerAccess === "REQUEST" ? "בקשת הצטרפות" : "הצטרף לקבוצה";
 
     return (
+        <Stack spacing={0.5} alignItems="flex-start">
         <Button
             variant={isSubscribed ? "outlined" : "contained"}
             color={isSubscribed ? "secondary" : "primary"}
@@ -103,5 +110,7 @@ export default function SeriesSubscribeButton({
         >
             {isSubscribed ? "חבר בקבוצה" : joinLabel}
         </Button>
+        {error && <Typography variant="caption" color="error" role="alert">{error}</Typography>}
+        </Stack>
     );
 }

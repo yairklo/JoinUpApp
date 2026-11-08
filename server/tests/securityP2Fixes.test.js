@@ -210,7 +210,7 @@ describe('security fixes for roster handoff, series access, and broadcasts', () 
     expect(organizerRole.userId).toBe(ORG);
   });
 
-  test('organizer leave hands the game to the earliest confirmed manager and moves the organizer role', async () => {
+  test('organizer leave hands the game to the appointed successor and moves the organizer role', async () => {
     const game = await makeGame({
       participants: {
         create: [
@@ -223,7 +223,7 @@ describe('security fixes for roster handoff, series access, and broadcasts', () 
     });
     await prisma.gameRole.create({ data: { gameId: game.id, userId: MANAGER, role: 'MANAGER' } });
 
-    const res = await request(app).post(`/api/games/${game.id}/leave`).set(auth('tok_org'));
+    const res = await request(app).post(`/api/games/${game.id}/leave`).set(auth('tok_org')).send({ successorId: MANAGER });
     expect(res.statusCode).toBe(200);
 
     const row = await prisma.game.findUnique({ where: { id: game.id } });
@@ -235,21 +235,50 @@ describe('security fixes for roster handoff, series access, and broadcasts', () 
     expect(await prisma.participation.findFirst({ where: { gameId: game.id, userId: PENDING } })).toBeTruthy();
   });
 
-  test('without a manager, organizer leave picks the earliest confirmed participant', async () => {
+  test('organizer cannot leave a game without appointing another admin', async () => {
     const game = await makeGame({
       participants: {
         create: [
-          { userId: LATE, status: 'CONFIRMED', createdAt: T2 },
           { userId: EARLY, status: 'CONFIRMED', createdAt: T0 },
+          { userId: PENDING, status: 'PENDING', createdAt: T1 },
           { userId: ORG, status: 'CONFIRMED', createdAt: T3 },
         ],
       },
     });
 
-    const res = await request(app).post(`/api/games/${game.id}/leave`).set(auth('tok_org'));
+    let res = await request(app).post(`/api/games/${game.id}/leave`).set(auth('tok_org'));
+    expect(res.statusCode).toBe(400);
+    expect(res.body.code).toBe('ADMIN_SUCCESSOR_REQUIRED');
+
+    // A non-confirmed participant is not a valid successor.
+    res = await request(app).post(`/api/games/${game.id}/leave`).set(auth('tok_org')).send({ successorId: PENDING });
+    expect(res.statusCode).toBe(400);
+    expect(res.body.code).toBe('INVALID_SUCCESSOR');
+
+    expect((await prisma.game.findUnique({ where: { id: game.id } })).organizerId).toBe(ORG);
+    expect(await prisma.participation.findFirst({ where: { gameId: game.id, userId: ORG } })).toBeTruthy();
+
+    res = await request(app).post(`/api/games/${game.id}/leave`).set(auth('tok_org')).send({ successorId: EARLY });
     expect(res.statusCode).toBe(200);
     expect((await prisma.game.findUnique({ where: { id: game.id } })).organizerId).toBe(EARLY);
-    expect((await prisma.gameRole.findFirst({ where: { gameId: game.id, role: 'ORGANIZER' } })).userId).toBe(EARLY);
+  });
+
+  test('group organizer cannot leave without appointing another admin', async () => {
+    const series = await makeSeries({ isFriendsOnly: false, joinPolicy: 'INSTANT' });
+    await prisma.seriesParticipant.create({ data: { seriesId: series.id, userId: EARLY, role: 'MEMBER' } });
+
+    let res = await request(app).delete(`/api/series/${series.id}/subscribe`).set(auth('tok_org'));
+    expect(res.statusCode).toBe(400);
+    expect(res.body.code).toBe('ADMIN_SUCCESSOR_REQUIRED');
+
+    res = await request(app).delete(`/api/series/${series.id}/subscribe`).set(auth('tok_org')).send({ successorId: LATE });
+    expect(res.statusCode).toBe(400);
+    expect(res.body.code).toBe('INVALID_SUCCESSOR');
+    expect((await prisma.gameSeries.findUnique({ where: { id: series.id } })).organizerId).toBe(ORG);
+
+    res = await request(app).delete(`/api/series/${series.id}/subscribe`).set(auth('tok_org')).send({ successorId: EARLY });
+    expect(res.statusCode).toBe(200);
+    expect((await prisma.gameSeries.findUnique({ where: { id: series.id } })).organizerId).toBe(EARLY);
   });
 
   test('subscribing to a public group does not unlock a friends-only game in it', async () => {

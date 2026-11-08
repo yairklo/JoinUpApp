@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import SeriesSubscribeButton from "@/components/SeriesSubscribeButton";
+import SeriesOrganizerLeaveButton from "@/components/SeriesOrganizerLeaveButton";
 import MuteNotificationsButton from "@/components/notifications/MuteNotificationsButton";
 import SeriesSettingsEditor from "@/components/SeriesSettingsEditor";
 import SeriesMembersPanel from "@/components/SeriesMembersPanel";
@@ -255,6 +256,14 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                                     initialGuestDescription={series.guestDescription}
                                     initialGuestPrice={series.guestPrice}
                                     canManage={true}
+                                />
+                            )}
+                            {isOrganizer && (
+                                <SeriesOrganizerLeaveButton
+                                    seriesId={series.id}
+                                    candidates={series.subscribers
+                                        .filter((s) => s.userId !== userId)
+                                        .map((s) => ({ id: s.userId, name: s.user.name, avatar: s.user.avatar }))}
                                 />
                             )}
                             <SeriesSubscribeButton

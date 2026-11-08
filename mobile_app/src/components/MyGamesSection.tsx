@@ -111,6 +111,8 @@ export default function MyGamesSection() {
                             <View className="flex-row justify-between items-center w-full">
                                 <LeaveGameButton
                                     gameId={game.id}
+                                    organizerId={game.organizerId}
+                                    participants={game.participants}
                                     onLeft={() => {
                                         setGames((prev) => prev.filter((g) => g.id !== game.id));
                                     }}

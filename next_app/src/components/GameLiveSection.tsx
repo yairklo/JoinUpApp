@@ -28,6 +28,7 @@ import SectionErrorBoundary from "@/components/SectionErrorBoundary";
 import Chat from "@/components/Chat";
 import { useSocket } from "@/context/SocketContext";
 import { canLeaveGame } from "@/utils/leaveGame";
+import AppointAdminAndLeaveButton from "@/components/AppointAdminAndLeaveButton";
 import { getGameVisibility } from "@/utils/gameStatus";
 import { normalizeIncomingGame } from "@/utils/timezone";
 import { gamesApi } from "@/services/api/games";
@@ -516,6 +517,18 @@ export default function GameLiveSection({
             onLeft={mergeAndSet}
             alwaysConfirm
             leaveLabel="בטל השתתפות"
+          />
+          ) : game.organizerId === viewerId && !finished && game.status !== "CANCELLED" ? (
+          <AppointAdminAndLeaveButton
+            kind="game"
+            testId="game-organizer-leave"
+            candidates={(game.participants || [])
+              .filter((p) => p.id !== viewerId)
+              .map((p) => ({ id: p.id, name: p.name, avatar: p.avatar }))}
+            onLeave={async (successorId, token) => {
+              const body = await gamesApi.leave(game.id, token, successorId);
+              mergeAndSet(body);
+            }}
           />
           ) : null
         ) : !isWaitlistOfferPending && !isWaitlisted ? (

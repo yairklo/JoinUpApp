@@ -89,6 +89,7 @@ export default function SeriesScreen() {
     const [newFieldName, setNewFieldName] = useState('');
     const [newFieldLocation, setNewFieldLocation] = useState('');
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [appointOpen, setAppointOpen] = useState(false);
     const [memberQuery, setMemberQuery] = useState('');
     const [addingMember, setAddingMember] = useState(false);
     const [memberResults, setMemberResults] = useState<any[]>([]);
@@ -450,6 +451,19 @@ export default function SeriesScreen() {
                 }
             ]
         );
+    };
+
+    // The organizer cannot leave without appointing another member as organizer.
+    const leaveAsOrganizer = async (successorId: string) => {
+        setAppointOpen(false);
+        try {
+            const token = await getToken();
+            if (!token) return;
+            await seriesApi.leaveAsOrganizer(id, successorId, token);
+            router.replace('/(tabs)');
+        } catch (e: any) {
+            appAlert(t('common.error', 'שגיאה'), e?.message || t('series.leaveError', 'Failed to leave group'));
+        }
     };
 
     const toggleSubscribe = async () => {
@@ -1141,8 +1155,46 @@ export default function SeriesScreen() {
                     </View>
                 )}
 
+                {isOrganizer && (
+                    <View className="px-6 mb-6">
+                        <TouchableOpacity
+                            onPress={() => setAppointOpen(true)}
+                            accessibilityRole="button"
+                            className="bg-red-50 p-4 rounded-xl items-center border border-red-100"
+                        >
+                            <Text className="text-red-600 font-bold text-base">{t('series.appointAndLeave')}</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+
                 <View className="h-10" />
             </ScrollView>
+
+            <Modal visible={appointOpen} transparent animationType="fade" onRequestClose={() => setAppointOpen(false)} accessibilityViewIsModal>
+                <View className="flex-1 justify-center bg-black/40 px-6">
+                    <View className="bg-white rounded-2xl p-4" style={{ maxHeight: 420 }}>
+                        <Text className="text-lg font-bold mb-1">{t('series.appointAdminTitle')}</Text>
+                        <Text className="text-gray-600 mb-3">{t('series.appointAdminBody')}</Text>
+                        <ScrollView>
+                            {(series.subscribers || []).filter((s: any) => s.userId !== user?.id).length === 0 ? (
+                                <Text className="text-gray-500 py-3">{t('series.appointAdminNone')}</Text>
+                            ) : (series.subscribers || []).filter((s: any) => s.userId !== user?.id).map((sub: any) => (
+                                <TouchableOpacity
+                                    key={sub.userId}
+                                    accessibilityRole="button"
+                                    onPress={() => leaveAsOrganizer(sub.userId)}
+                                    className="py-3 border-b border-gray-100"
+                                >
+                                    <Text className="text-base">{sub.user?.name || t('game.user', 'משתמש')}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                        <TouchableOpacity onPress={() => setAppointOpen(false)} className="pt-3 items-center">
+                            <Text className="text-gray-600 font-bold">{t('common.cancel', 'ביטול')}</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
 
             <DeleteSeriesModal
                 visible={deleteModalOpen}
