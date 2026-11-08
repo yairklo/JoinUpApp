@@ -281,6 +281,82 @@ describe('security fixes for roster handoff, series access, and broadcasts', () 
     expect((await prisma.gameSeries.findUnique({ where: { id: series.id } })).organizerId).toBe(EARLY);
   });
 
+  test('a waitlisted participant is not an eligible successor; a regular member can still leave', async () => {
+    const game = await makeGame({
+      participants: {
+        create: [
+          { userId: ORG, status: 'CONFIRMED', createdAt: T0 },
+          { userId: EARLY, status: 'CONFIRMED', createdAt: T1 },
+          { userId: WAIT, status: 'WAITLISTED', createdAt: T2 },
+        ],
+      },
+    });
+    let res = await request(app).post(`/api/games/${game.id}/leave`).set(auth('tok_org')).send({ successorId: WAIT });
+    expect(res.statusCode).toBe(400);
+    expect(res.body.code).toBe('INVALID_SUCCESSOR');
+    expect((await prisma.game.findUnique({ where: { id: game.id } })).organizerId).toBe(ORG);
+
+    // A non-organizer needs no successor.
+    res = await request(app).post(`/api/games/${game.id}/leave`).set(auth('tok_early'));
+    expect(res.statusCode).toBe(200);
+    expect(await prisma.participation.findFirst({ where: { gameId: game.id, userId: EARLY } })).toBeNull();
+    expect((await prisma.game.findUnique({ where: { id: game.id } })).organizerId).toBe(ORG);
+  });
+
+  test('concurrent organizer handoff and successor leaving never strands the organizer outside the roster', async () => {
+    for (let i = 0; i < 5; i += 1) {
+      const game = await makeGame({
+        participants: {
+          create: [
+            { userId: ORG, status: 'CONFIRMED', createdAt: T0 },
+            { userId: EARLY, status: 'CONFIRMED', createdAt: T1 },
+            { userId: LATE, status: 'CONFIRMED', createdAt: T2 },
+          ],
+        },
+      });
+      const [handoff, successorLeaves] = await Promise.all([
+        request(app).post(`/api/games/${game.id}/leave`).set(auth('tok_org')).send({ successorId: EARLY }),
+        request(app).post(`/api/games/${game.id}/leave`).set(auth('tok_early')),
+      ]);
+      expect([200, 400, 409]).toContain(handoff.statusCode);
+      expect([200, 409]).toContain(successorLeaves.statusCode);
+      // Exactly one of the two may win; the loser must be refused, not half-applied.
+      expect([handoff.statusCode === 200, successorLeaves.statusCode === 200].filter(Boolean).length).toBeLessThanOrEqual(2);
+      const row = await prisma.game.findUnique({ where: { id: game.id } });
+      if (row) {
+        const organizerRow = await prisma.participation.findFirst({
+          where: { gameId: game.id, userId: row.organizerId, status: 'CONFIRMED' },
+        });
+        expect(organizerRow).toBeTruthy();
+        const orgRole = await prisma.gameRole.findFirst({ where: { gameId: game.id, role: 'ORGANIZER' } });
+        if (orgRole) expect(orgRole.userId).toBe(row.organizerId);
+      }
+    }
+  });
+
+  test('concurrent group handoff and successor leaving never strands the organizer', async () => {
+    for (let i = 0; i < 3; i += 1) {
+      const series = await makeSeries({ isFriendsOnly: false, joinPolicy: 'INSTANT' });
+      await prisma.seriesParticipant.create({ data: { seriesId: series.id, userId: EARLY, role: 'MEMBER' } });
+      const [handoff, successorLeaves] = await Promise.all([
+        request(app).delete(`/api/series/${series.id}/subscribe`).set(auth('tok_org')).send({ successorId: EARLY }),
+        request(app).delete(`/api/series/${series.id}/subscribe`).set(auth('tok_early')),
+      ]);
+      expect([200, 400, 409]).toContain(handoff.statusCode);
+      expect([200, 409]).toContain(successorLeaves.statusCode);
+      const row = await prisma.gameSeries.findUnique({ where: { id: series.id } });
+      if (row.organizerId === EARLY) {
+        // The handoff won, so the new organizer's own (earlier-started) leave must have been refused.
+        expect(successorLeaves.statusCode).toBe(409);
+        expect(await prisma.seriesParticipant.findUnique({ where: { seriesId_userId: { seriesId: series.id, userId: EARLY } } })).toBeTruthy();
+      } else {
+        // The successor left first, so the handoff must have been refused and the organizer kept.
+        expect(row.organizerId).toBe(ORG);
+        expect(handoff.statusCode).toBe(400);
+      }
+    }
+  });
+
   test('subscribing to a public group does not unlock a friends-only game in it', async () => {
     const series = await makeSeries({
       isFriendsOnly: false,

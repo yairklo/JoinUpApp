@@ -8,6 +8,7 @@ import { Game } from '@/types/game';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSeriesLogic } from '@/hooks/useSeriesLogic';
+import SuccessorPickerModal, { eligibleSuccessors } from '@/components/SuccessorPickerModal';
 import { useTranslation } from 'react-i18next';
 import PendingRequestsList from '@/components/PendingRequestsList';
 import GameRatingsPanel from '@/components/GameRatingsPanel';
@@ -198,8 +199,40 @@ export default function GameDetailsScreen() {
         }
     };
 
+    const [successorPickerOpen, setSuccessorPickerOpen] = useState(false);
+
+    const performLeave = async (successorId?: string) => {
+        if (!game) return;
+        setSuccessorPickerOpen(false);
+        setActionLoading(true);
+        try {
+            const token = await getToken();
+            if (!token) return;
+            const res = await gamesApi.leave(game.id, token, successorId);
+            notifyGameUpdate(game.id, "leave", user?.id || "");
+            appAlert(
+                t('common.success', 'הצלחה'),
+                t('game.leftGameSuccess', 'עזבת את המשחק בהצלחה.')
+            );
+            if ((res as any)?.deleted) {
+                router.replace('/(tabs)');
+            } else {
+                await fetchGame();
+            }
+        } catch (err: any) {
+            appAlert(t('common.error', 'שגיאה'), err?.message || err?.response?.data?.error || t('game.actionFailed', 'הפעולה נכשלה'));
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     const handleעזוב = async () => {
         if (!game) return;
+        // An organizer must appoint another confirmed participant before leaving.
+        if (game.organizerId === user?.id) {
+            setSuccessorPickerOpen(true);
+            return;
+        }
         Alert.alert(
             t('game.confirmLeaveTitle', 'עזיבת משחק'),
             t('game.confirmLeaveMessage', 'האם אתה בטוח שברצונך לעזוב את המשחק?'),
@@ -208,28 +241,7 @@ export default function GameDetailsScreen() {
                 {
                     text: t('game.leave', 'עזוב'),
                     style: "destructive",
-                    onPress: async () => {
-                        setActionLoading(true);
-                        try {
-                            const token = await getToken();
-                            if (!token) return;
-                            const res = await gamesApi.leave(game.id, token);
-                            notifyGameUpdate(game.id, "leave", user?.id || "");
-                            appAlert(
-                                t('common.success', 'הצלחה'),
-                                t('game.leftGameSuccess', 'עזבת את המשחק בהצלחה.')
-                            );
-                            if ((res as any)?.deleted) {
-                                router.replace('/(tabs)');
-                            } else {
-                                await fetchGame();
-                            }
-                        } catch (err: any) {
-                            appAlert(t('common.error', 'שגיאה'), err?.message || err?.response?.data?.error || t('game.actionFailed', 'הפעולה נכשלה'));
-                        } finally {
-                            setActionLoading(false);
-                        }
-                    }
+                    onPress: () => performLeave()
                 }
             ]
         );
@@ -925,6 +937,12 @@ export default function GameDetailsScreen() {
                     </View>
                 </View>
             </Modal>
+            <SuccessorPickerModal
+                visible={successorPickerOpen}
+                candidates={eligibleSuccessors(game.participants, user?.id)}
+                onPick={(id) => performLeave(id)}
+                onCancel={() => setSuccessorPickerOpen(false)}
+            />
         </SafeAreaView>
     );
 }

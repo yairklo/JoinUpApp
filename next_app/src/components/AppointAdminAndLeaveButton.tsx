@@ -19,6 +19,9 @@ import ExitToAppIcon from "@mui/icons-material/ExitToApp";
 import Avatar from "@/components/Avatar";
 import { getActionErrorMessage } from "@/utils/apiError";
 
+// Server codes whose Hebrew message explains exactly what to do, so it is shown as is.
+const SHOWN_CODES = new Set(["ADMIN_SUCCESSOR_REQUIRED", "INVALID_SUCCESSOR", "NO_CONFIRMED_SUCCESSOR", "LEAVE_CONFLICT"]);
+
 export type AdminCandidate = { id: string; name?: string | null; avatar?: string | null };
 
 /**
@@ -52,7 +55,8 @@ export default function AppointAdminAndLeaveButton({
             await onLeave(selected, token || "");
             setOpen(false);
         } catch (e: unknown) {
-            setError(getActionErrorMessage(e));
+            const code = (e as { code?: string } | null)?.code;
+            setError(code && SHOWN_CODES.has(code) && e instanceof Error && e.message ? e.message : getActionErrorMessage(e));
         } finally {
             setLoading(false);
         }

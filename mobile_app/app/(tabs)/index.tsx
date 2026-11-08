@@ -73,7 +73,7 @@ export default function HomeScreen() {
         <GameCard titleLines={1} game={item} isJoined={!!isJoined}>
           <View className="w-full">
             {isJoined ? (
-              <LeaveGameButton gameId={item.id} onLeft={() => { }} />
+              <LeaveGameButton gameId={item.id} onLeft={() => { }} organizerId={item.organizerId} participants={item.participants} />
             ) : (
                             <JoinGameButton
                                 gameId={item.id}
