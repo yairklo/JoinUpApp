@@ -14,7 +14,7 @@ import BrandLogo from '@/components/BrandLogo';
 
 const BRAND = '#059669';
 
-const HomeHeaderTitle = () => <BrandLogo variant="lockup" height={24} />;
+const HomeHeaderTitle = () => <BrandLogo variant="lockup" height={28} />;
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 

@@ -1,4 +1,4 @@
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity } from 'react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { usersApi, type BlockedUser } from '@/services/api/users';
 import SafeImage from '@/components/SafeImage';
 import { appAlert } from '@/i18n/appAlert';
+import LoadingMotif from '@/components/loading/LoadingMotif';
 
 export default function BlockedUsersScreen() {
     const { t } = useTranslation();
@@ -41,29 +42,31 @@ export default function BlockedUsersScreen() {
     return (
         <>
             <Stack.Screen options={{ title: t('settings.blockedUsers', 'משתמשים חסומים'), headerShown: true }} />
-            <View className="flex-1 bg-gray-50">
+            <View className="flex-1 bg-gray-50 dark:bg-cyber-bg">
                 {loading ? (
-                    <ActivityIndicator className="mt-10" color="#059669" />
+                    <View className="flex-1 items-center justify-center">
+                        <LoadingMotif id="brand-pulse" label={t('common.loading', 'טוען…')} />
+                    </View>
                 ) : (
                     <FlatList
                         data={items}
                         keyExtractor={(b) => b.id}
                         contentContainerStyle={{ padding: 16 }}
                         ListEmptyComponent={
-                            <Text className="text-center text-gray-500 mt-10">
+                            <Text className="text-center text-gray-500 dark:text-cyber-muted mt-10">
                                 {t('settings.noBlockedUsers', 'לא חסמתם אף משתמש.')}
                             </Text>
                         }
                         renderItem={({ item }) => (
-                            <View className="bg-white rounded-xl p-3 mb-3 flex-row items-center border border-gray-100">
+                            <View className="bg-white dark:bg-cyber-card rounded-xl p-3 mb-3 flex-row items-center border border-gray-100 dark:border-cyber-border">
                                 {item.imageUrl ? (
-                                    <SafeImage source={{ uri: item.imageUrl }} className="w-10 h-10 rounded-full bg-gray-200" />
+                                    <SafeImage source={{ uri: item.imageUrl }} className="w-10 h-10 rounded-full bg-gray-200 dark:bg-cyber-border" />
                                 ) : (
-                                    <View className="w-10 h-10 rounded-full bg-gray-200" />
+                                    <View className="w-10 h-10 rounded-full bg-gray-200 dark:bg-cyber-border" />
                                 )}
-                                <Text className="flex-1 mx-3 text-base text-gray-900 text-left">{item.name || t('chat.thisUser', 'משתמש')}</Text>
-                                <TouchableOpacity onPress={() => unblock(item.id)} className="px-3 py-2 rounded-lg bg-gray-100">
-                                    <Text className="text-gray-700 font-semibold">{t('profile.unblock', 'בטל חסימה')}</Text>
+                                <Text className="flex-1 mx-3 text-base text-gray-900 dark:text-cyber-text text-left">{item.name || t('chat.thisUser', 'משתמש')}</Text>
+                                <TouchableOpacity onPress={() => unblock(item.id)} className="px-3 py-2 rounded-lg bg-gray-100 dark:bg-cyber-border">
+                                    <Text className="text-gray-700 dark:text-cyber-text font-semibold">{t('profile.unblock', 'בטל חסימה')}</Text>
                                 </TouchableOpacity>
                             </View>
                         )}

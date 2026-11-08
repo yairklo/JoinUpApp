@@ -89,8 +89,29 @@ const componentOverrides: ThemeOptions["components"] = {
   },
   MuiDialog: {
     styleOverrides: {
-      paper: { borderRadius: 20 },
+      paper: ({ theme }) => ({
+        borderRadius: 20,
+        // Phones (<= 360px content): keep a 16px gutter instead of MUI's 32px so forms and
+        // action rows have room; never touch fullScreen dialogs (margin 0, full width).
+        [theme.breakpoints.down("sm")]: {
+          "&:not(.MuiDialog-paperFullScreen)": {
+            margin: 16,
+            maxWidth: "calc(100% - 32px)",
+            maxHeight: "calc(100% - 32px)",
+          },
+          // fullWidth dialogs are sized with width: calc(100% - 64px); keep them in step with the margin.
+          "&.MuiDialog-paperFullWidth:not(.MuiDialog-paperFullScreen)": {
+            width: "calc(100% - 32px)",
+          },
+        },
+      }),
       paperFullScreen: { borderRadius: 0 },
+    },
+  },
+  MuiDialogActions: {
+    styleOverrides: {
+      // MUI does not wrap action rows; three Hebrew buttons overflow a 296px dialog.
+      root: { flexWrap: "wrap", rowGap: 8 },
     },
   },
   MuiLinearProgress: {

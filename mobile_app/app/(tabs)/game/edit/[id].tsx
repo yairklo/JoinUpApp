@@ -17,6 +17,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import BackButton from '@/components/ui/BackButton';
 import SafeImage from '@/components/SafeImage';
 import { appAlert } from '@/i18n/appAlert';
+import { formatDate, formatTimeOfDay } from '@/utils/dateLocale';
 
 interface ScrollSelectionModalProps<T> {
     visible: boolean;
@@ -33,11 +34,11 @@ function ScrollSelectionModal<T>({ visible, onClose, title, options, selectedVal
     return (
         <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
             <View className="flex-1 justify-end bg-black/50">
-                <View className="bg-white rounded-t-3xl p-6 h-[40%]">
+                <View className="bg-white dark:bg-cyber-card rounded-t-3xl p-6 h-[40%]">
                     <View className={`flex-row justify-between items-center mb-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                        <Text className="text-lg font-bold text-gray-800">{title}</Text>
+                        <Text className="text-lg font-bold text-gray-800 dark:text-cyber-text">{title}</Text>
                         <TouchableOpacity onPress={onClose}>
-                            <Text className="text-brand font-bold">{t('common.confirm', 'אישור')}</Text>
+                            <Text className="text-brand dark:text-brand-light font-bold">{t('common.confirm', 'אישור')}</Text>
                         </TouchableOpacity>
                     </View>
                     <ScrollView className="flex-1">
@@ -47,9 +48,9 @@ function ScrollSelectionModal<T>({ visible, onClose, title, options, selectedVal
                                 <TouchableOpacity
                                     key={idx}
                                     onPress={() => onSelect(opt.value)}
-                                    className={`py-3 px-4 rounded-xl mb-1 flex-row justify-between items-center ${isSelected ? 'bg-brand-mist' : ''} ${isRtl ? 'flex-row-reverse' : ''}`}
+                                    className={`py-3 px-4 rounded-xl mb-1 flex-row justify-between items-center ${isSelected ? 'bg-brand-mist dark:bg-brand-ink' : ''} ${isRtl ? 'flex-row-reverse' : ''}`}
                                 >
-                                    <Text className={`text-base ${isSelected ? 'text-brand-dark font-bold' : 'text-gray-700'}`}>{opt.label}</Text>
+                                    <Text className={`text-base ${isSelected ? 'text-brand-dark dark:text-brand-light font-bold' : 'text-gray-700 dark:text-cyber-text'}`}>{opt.label}</Text>
                                     {isSelected && <FontAwesome name="check" size={16} color="#059669" />}
                                 </TouchableOpacity>
                             );
@@ -427,7 +428,7 @@ export default function EditGameScreen() {
                     onPress: () => {
                         Alert.alert(
                             t('editGame.confirmRemovePlayerTitle', 'אישור הסרה'),
-                            t('editGame.confirmRemovePlayerMessage', { name: p.name || t('game.player', 'שחקן'), defaultValue: `האם אתה בטוח שברצונך להסיר את ${p.name || 'שחקן'} מהמשחק?` }),
+                            t('editGame.confirmRemovePlayerMessage', { name: p.name || t('game.player', 'שחקן'), defaultValue: `האם אתה בטוח שברצונך להסיר את ${p.name || t('editGame.playerFallback', 'שחקן')} מהמשחק?` }),
                             [
                                 { text: t('common.cancel', 'ביטול'), style: 'cancel' },
                                 { text: t('editGame.removeFromGame', 'הסר'), style: 'destructive', onPress: () => handleRemovePlayer(p.id) }
@@ -559,19 +560,19 @@ export default function EditGameScreen() {
 
     if (loading) {
         return (
-            <SafeAreaView className="flex-1 justify-center items-center bg-white">
-                <LoadingMotif id="pin-drop" label="טוען עריכת משחק…" />
+            <SafeAreaView className="flex-1 justify-center items-center bg-white dark:bg-cyber-card">
+                <LoadingMotif id="pin-drop" label={t('editGame.loadingEdit', 'טוען עריכת משחק…')} />
             </SafeAreaView>
         );
     }
 
     return (
-        <SafeAreaView edges={['top']} className="flex-1 bg-gray-50">
+        <SafeAreaView edges={['top']} className="flex-1 bg-gray-50 dark:bg-cyber-bg">
             <Stack.Screen options={{ headerShown: false }} />
             
-            <View className={`flex-row items-center px-4 py-3 bg-white border-b border-gray-100 ${isRtl ? 'flex-row-reverse' : ''}`}>
+            <View className={`flex-row items-center px-4 py-3 bg-white dark:bg-cyber-card border-b border-gray-100 dark:border-cyber-border ${isRtl ? 'flex-row-reverse' : ''}`}>
                 <BackButton className={isRtl ? 'ml-3' : 'mr-3'} />
-                <Text className={`text-xl font-bold text-gray-900 flex-1 ${isRtl ? 'text-right' : 'text-left'}`}>{t('editGame.title', 'Edit Game')}</Text>
+                <Text className={`text-xl font-bold text-gray-900 dark:text-cyber-text flex-1 ${isRtl ? 'text-right' : 'text-left'}`}>{t('editGame.title', 'Edit Game')}</Text>
             </View>
 
             <ScrollView
@@ -580,8 +581,8 @@ export default function EditGameScreen() {
             >
 
                 {/* Sport Selection */}
-                <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
-                    <Text className={`text-lg font-bold mb-2 text-gray-800 ${isRtl ? 'text-right' : 'text-left'}`}>{t('newGame.sport')}</Text>
+                <View className="bg-white dark:bg-cyber-card p-4 rounded-xl mb-4 shadow-sm">
+                    <Text className={`text-lg font-bold mb-2 text-gray-800 dark:text-cyber-text ${isRtl ? 'text-right' : 'text-left'}`}>{t('newGame.sport')}</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} className={`flex-row ${isRtl ? 'flex-row-reverse' : ''}`}>
                         {Object.keys(SPORT_MAPPING).map(s => {
                             const isSelected = sport === s;
@@ -589,9 +590,9 @@ export default function EditGameScreen() {
                                 <TouchableOpacity
                                     key={s}
                                     onPress={() => setSport(s)}
-                                    className={`px-4 py-2 rounded-full mr-2 border ${isSelected ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
+                                    className={`px-4 py-2 rounded-full mr-2 border ${isSelected ? 'bg-brand border-brand' : 'bg-white dark:bg-cyber-card border-gray-300 dark:border-cyber-border'}`}
                                 >
-                                    <Text className={`${isSelected ? 'text-white' : 'text-gray-700'} font-medium`}>
+                                    <Text className={`${isSelected ? 'text-white' : 'text-gray-700 dark:text-cyber-text'} font-medium`}>
                                         {SPORT_MAPPING[s]}
                                     </Text>
                                 </TouchableOpacity>
@@ -601,20 +602,20 @@ export default function EditGameScreen() {
                 </View>
 
                 {/* Title */}
-                <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
-                    <Text className={`text-lg font-bold mb-2 text-gray-800 ${isRtl ? 'text-right' : 'text-left'}`}>{t('newGame.title', 'Game Title (Optional)')}</Text>
+                <View className="bg-white dark:bg-cyber-card p-4 rounded-xl mb-4 shadow-sm">
+                    <Text className={`text-lg font-bold mb-2 text-gray-800 dark:text-cyber-text ${isRtl ? 'text-right' : 'text-left'}`}>{t('newGame.title', 'Game Title (Optional)')}</Text>
                     <TextInput
                         value={title}
                         onChangeText={setTitle}
                         placeholder={t('newGame.title', 'Game Title')}
-                        className={`bg-gray-100 p-3 rounded-lg ${isRtl ? 'text-right' : 'text-left'}`}
+                        className={`text-gray-900 dark:text-cyber-text bg-gray-100 dark:bg-cyber-border p-3 rounded-lg ${isRtl ? 'text-right' : 'text-left'}`}
                     />
                 </View>
 
                 {/* Location / Field Selection */}
-                <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
+                <View className="bg-white dark:bg-cyber-card p-4 rounded-xl mb-4 shadow-sm">
                     <View className={`flex-row justify-between items-center mb-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                        <Text className={`text-lg font-bold text-gray-800 ${isRtl ? 'text-right' : 'text-left'}`}>
+                        <Text className={`text-lg font-bold text-gray-800 dark:text-cyber-text ${isRtl ? 'text-right' : 'text-left'}`}>
                             {t('editGame.location', 'מיקום')}
                         </Text>
                         <TouchableOpacity
@@ -622,37 +623,37 @@ export default function EditGameScreen() {
                                 setNewFieldMode((v) => !v);
                                 if (!newFieldMode) setSelectedField(null);
                             }}
-                            className="bg-brand-mist px-3 py-1 rounded-full border border-brand-pale"
+                            className="bg-brand-mist dark:bg-brand-ink px-3 py-1 rounded-full border border-brand-pale"
                         >
-                            <Text className="text-brand-dark font-bold text-xs">
-                                {newFieldMode ? 'בחר מהרשימה' : 'הוסף מגרש חדש'}
+                            <Text className="text-brand-dark dark:text-brand-light font-bold text-xs">
+                                {newFieldMode ? t('editGame.chooseFromList', 'בחר מהרשימה') : t('editGame.addNewField', 'הוסף מגרש חדש')}
                             </Text>
                         </TouchableOpacity>
                     </View>
 
                     {newFieldMode ? (
-                        <View className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                            <Text className={`text-sm font-bold text-gray-700 mb-2 ${isRtl ? 'text-right' : 'text-left'}`}>צור מגרש חדש</Text>
+                        <View className="bg-gray-50 dark:bg-cyber-bg p-3 rounded-lg border border-gray-200 dark:border-cyber-border">
+                            <Text className={`text-sm font-bold text-gray-700 dark:text-cyber-text mb-2 ${isRtl ? 'text-right' : 'text-left'}`}>{t('editGame.createNewField', 'צור מגרש חדש')}</Text>
                             <TextInput
                                 value={newFieldName}
                                 onChangeText={setNewFieldName}
-                                placeholder="שם המגרש"
-                                className={`bg-white p-3 rounded-lg mb-2 border border-gray-200 ${isRtl ? 'text-right' : 'text-left'}`}
+                                placeholder={t('editGame.fieldNamePlaceholder', 'שם המגרש')}
+                                className={`text-gray-900 dark:text-cyber-text bg-white dark:bg-cyber-card p-3 rounded-lg mb-2 border border-gray-200 dark:border-cyber-border ${isRtl ? 'text-right' : 'text-left'}`}
                             />
                             <TextInput
                                 value={newFieldLocation}
                                 onChangeText={setNewFieldLocation}
-                                placeholder="מיקום / כתובת"
-                                className={`bg-white p-3 rounded-lg border border-gray-200 ${isRtl ? 'text-right' : 'text-left'}`}
+                                placeholder={t('editGame.fieldLocationPlaceholder', 'מיקום / כתובת')}
+                                className={`text-gray-900 dark:text-cyber-text bg-white dark:bg-cyber-card p-3 rounded-lg border border-gray-200 dark:border-cyber-border ${isRtl ? 'text-right' : 'text-left'}`}
                             />
                         </View>
                     ) : (
                         <>
                             {selectedField && (
-                                <View className="bg-green-50 p-3 rounded-lg mb-3 border border-green-200">
+                                <View className="bg-green-50 dark:bg-brand-ink p-3 rounded-lg mb-3 border border-green-200">
                                     <Text className="text-green-800 font-bold">{selectedField.name}</Text>
                                     {!!selectedField.location && (
-                                        <Text className="text-green-700 text-xs mt-1">{selectedField.location}</Text>
+                                        <Text className="text-green-700 dark:text-brand-light text-xs mt-1">{selectedField.location}</Text>
                                     )}
                                 </View>
                             )}
@@ -662,14 +663,14 @@ export default function EditGameScreen() {
                                     <TouchableOpacity
                                         key={city}
                                         onPress={() => setSelectedCity(city)}
-                                        className={`mr-2 px-4 py-2 rounded-full border ${selectedCity === city ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
+                                        className={`mr-2 px-4 py-2 rounded-full border ${selectedCity === city ? 'bg-brand border-brand' : 'bg-white dark:bg-cyber-card border-gray-300 dark:border-cyber-border'}`}
                                     >
-                                        <Text className={selectedCity === city ? 'text-white' : 'text-gray-700'}>{city}</Text>
+                                        <Text className={selectedCity === city ? 'text-white' : 'text-gray-700 dark:text-cyber-text'}>{city}</Text>
                                     </TouchableOpacity>
                                 ))}
                             </ScrollView>
 
-                            <Text className={`text-sm text-gray-500 mb-2 ${isRtl ? 'text-right' : 'text-left'}`}>בחר מגרש:</Text>
+                            <Text className={`text-sm text-gray-500 dark:text-cyber-muted mb-2 ${isRtl ? 'text-right' : 'text-left'}`}>{t('editGame.chooseField', 'בחר מגרש:')}</Text>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                 {fields.map((field) => (
                                     <TouchableOpacity
@@ -678,12 +679,12 @@ export default function EditGameScreen() {
                                             setSelectedField(field);
                                             setNewFieldMode(false);
                                         }}
-                                        className={`mr-3 p-3 rounded-xl border w-40 ${selectedField?.id === field.id ? 'bg-brand-mist border-brand' : 'bg-white border-gray-200'}`}
+                                        className={`mr-3 p-3 rounded-xl border w-40 ${selectedField?.id === field.id ? 'bg-brand-mist dark:bg-brand-ink border-brand' : 'bg-white dark:bg-cyber-card border-gray-200 dark:border-cyber-border'}`}
                                     >
-                                        <Text className={`font-bold ${selectedField?.id === field.id ? 'text-brand-dark' : 'text-gray-800'}`} numberOfLines={1}>
+                                        <Text className={`font-bold ${selectedField?.id === field.id ? 'text-brand-dark dark:text-brand-light' : 'text-gray-800 dark:text-cyber-text'}`} numberOfLines={1}>
                                             {field.name}
                                         </Text>
-                                        <Text className="text-xs text-gray-500" numberOfLines={1}>{field.location}</Text>
+                                        <Text className="text-xs text-gray-500 dark:text-cyber-muted" numberOfLines={1}>{field.location}</Text>
                                     </TouchableOpacity>
                                 ))}
                             </ScrollView>
@@ -692,23 +693,23 @@ export default function EditGameScreen() {
                 </View>
 
                 {/* Date & Time */}
-                <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
-                    <Text className={`text-lg font-bold mb-4 text-gray-800 ${isRtl ? 'text-right' : 'text-left'}`}>{t('editGame.when', 'When?')}</Text>
+                <View className="bg-white dark:bg-cyber-card p-4 rounded-xl mb-4 shadow-sm">
+                    <Text className={`text-lg font-bold mb-4 text-gray-800 dark:text-cyber-text ${isRtl ? 'text-right' : 'text-left'}`}>{t('editGame.when', 'When?')}</Text>
                     <View className={`flex-row justify-between ${isRtl ? 'flex-row-reverse' : ''}`}>
                         <TouchableOpacity
                             onPress={() => setShowDatePicker(true)}
-                            className="flex-1 bg-gray-100 p-3 rounded-lg mx-1 items-center"
+                            className="flex-1 bg-gray-100 dark:bg-cyber-border p-3 rounded-lg mx-1 items-center"
                         >
-                            <Text className="text-gray-500 text-xs mb-1">{t('editGame.date', 'Date')}</Text>
-                            <Text className="text-gray-800 font-medium">{date.toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'he-IL')}</Text>
+                            <Text className="text-gray-500 dark:text-cyber-muted text-xs mb-1">{t('editGame.date', 'Date')}</Text>
+                            <Text className="text-gray-800 dark:text-cyber-text font-medium">{formatDate(date, i18n.language)}</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
                             onPress={() => setShowTimePicker(true)}
-                            className="flex-1 bg-gray-100 p-3 rounded-lg mx-1 items-center"
+                            className="flex-1 bg-gray-100 dark:bg-cyber-border p-3 rounded-lg mx-1 items-center"
                         >
-                            <Text className="text-gray-500 text-xs mb-1">{t('editGame.time', 'Time')}</Text>
-                            <Text className="text-gray-800 font-medium">{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                            <Text className="text-gray-500 dark:text-cyber-muted text-xs mb-1">{t('editGame.time', 'Time')}</Text>
+                            <Text className="text-gray-800 dark:text-cyber-text font-medium">{formatTimeOfDay(time, i18n.language)}</Text>
                         </TouchableOpacity>
                     </View>
 
@@ -721,22 +722,22 @@ export default function EditGameScreen() {
                 </View>
 
                 {/* Config */}
-                <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
-                    <Text className={`text-lg font-bold mb-4 text-gray-800 ${isRtl ? 'text-right' : 'text-left'}`}>{t('editGame.details', 'Details')}</Text>
+                <View className="bg-white dark:bg-cyber-card p-4 rounded-xl mb-4 shadow-sm">
+                    <Text className={`text-lg font-bold mb-4 text-gray-800 dark:text-cyber-text ${isRtl ? 'text-right' : 'text-left'}`}>{t('editGame.details', 'Details')}</Text>
 
                     {/* Max Players Selector */}
                     <View className={`flex-row items-center justify-between mb-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                        <Text className="text-gray-700">{t('newGame.maxPlayers', 'Max Players')}</Text>
-                        <TouchableOpacity onPress={() => setShowMaxPlayersPicker(true)} className="bg-gray-100 px-4 py-2 rounded-lg w-28 items-center border border-gray-200">
-                            <Text className="text-gray-800 font-bold">{maxPlayers}</Text>
+                        <Text className="text-gray-700 dark:text-cyber-text">{t('newGame.maxPlayers', 'Max Players')}</Text>
+                        <TouchableOpacity onPress={() => setShowMaxPlayersPicker(true)} className="bg-gray-100 dark:bg-cyber-border px-4 py-2 rounded-lg w-28 items-center border border-gray-200 dark:border-cyber-border">
+                            <Text className="text-gray-800 dark:text-cyber-text font-bold">{maxPlayers}</Text>
                         </TouchableOpacity>
                     </View>
 
                     {/* Team Size Selector */}
                     <View className={`flex-row items-center justify-between mb-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                        <Text className="text-gray-700">{t('editGame.teamSize', 'Team Size')}</Text>
-                        <TouchableOpacity onPress={() => setShowTeamSizePicker(true)} className="bg-gray-100 px-4 py-2 rounded-lg w-32 items-center border border-gray-200">
-                            <Text className="text-gray-800 font-bold text-xs" numberOfLines={1}>
+                        <Text className="text-gray-700 dark:text-cyber-text">{t('editGame.teamSize', 'Team Size')}</Text>
+                        <TouchableOpacity onPress={() => setShowTeamSizePicker(true)} className="bg-gray-100 dark:bg-cyber-border px-4 py-2 rounded-lg w-32 items-center border border-gray-200 dark:border-cyber-border">
+                            <Text className="text-gray-800 dark:text-cyber-text font-bold text-xs" numberOfLines={1}>
                                 {teamSize ? `${teamSize} x ${teamSize}` : t('editGame.none', 'None')}
                             </Text>
                         </TouchableOpacity>
@@ -744,9 +745,9 @@ export default function EditGameScreen() {
 
                     {/* Duration Selector */}
                     <View className={`flex-row items-center justify-between mb-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                        <Text className="text-gray-700">{t('newGame.duration', 'Duration')}</Text>
-                        <TouchableOpacity onPress={() => setShowDurationPicker(true)} className="bg-gray-100 px-4 py-2 rounded-lg w-32 items-center border border-gray-200">
-                            <Text className="text-gray-800 font-bold text-xs" numberOfLines={1}>
+                        <Text className="text-gray-700 dark:text-cyber-text">{t('newGame.duration', 'Duration')}</Text>
+                        <TouchableOpacity onPress={() => setShowDurationPicker(true)} className="bg-gray-100 dark:bg-cyber-border px-4 py-2 rounded-lg w-32 items-center border border-gray-200 dark:border-cyber-border">
+                            <Text className="text-gray-800 dark:text-cyber-text font-bold text-xs" numberOfLines={1}>
                                 {parseFloat(duration) * 60} {t('editGame.min', 'min')}
                             </Text>
                         </TouchableOpacity>
@@ -754,16 +755,16 @@ export default function EditGameScreen() {
 
                     {/* Price Selector */}
                     <View className={`flex-row items-center justify-between mb-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                        <Text className="text-gray-700">{t('newGame.price', 'Price')}</Text>
-                        <TouchableOpacity onPress={() => setShowPricePicker(true)} className="bg-gray-100 px-4 py-2 rounded-lg w-28 items-center border border-gray-200">
-                            <Text className="text-gray-800 font-bold">
+                        <Text className="text-gray-700 dark:text-cyber-text">{t('newGame.price', 'Price')}</Text>
+                        <TouchableOpacity onPress={() => setShowPricePicker(true)} className="bg-gray-100 dark:bg-cyber-border px-4 py-2 rounded-lg w-28 items-center border border-gray-200 dark:border-cyber-border">
+                            <Text className="text-gray-800 dark:text-cyber-text font-bold">
                                 {price === '0' ? t('game.free', 'Free') : `${price} ₪`}
                             </Text>
                         </TouchableOpacity>
                     </View>
 
                     <View className={`flex-row items-center justify-between mb-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                        <Text className="text-gray-700 font-bold">{t('editGame.privateGame', 'Private Game')}</Text>
+                        <Text className="text-gray-700 dark:text-cyber-text font-bold">{t('editGame.privateGame', 'Private Game')}</Text>
                         <Switch value={isPrivate} onValueChange={setIsPrivate} trackColor={{ true: '#059669' }} />
                     </View>
 
@@ -774,61 +775,61 @@ export default function EditGameScreen() {
                     )}
 
                     <View className={`flex-row items-center justify-between ${isRtl ? 'flex-row-reverse' : ''}`}>
-                        <Text className="text-gray-700 font-bold">{t('editGame.requiresApproval', 'Requires Approval to Join')}</Text>
+                        <Text className="text-gray-700 dark:text-cyber-text font-bold">{t('editGame.requiresApproval', 'Requires Approval to Join')}</Text>
                         <Switch value={requiresApproval} onValueChange={setRequiresApproval} trackColor={{ true: '#059669' }} />
                     </View>
                 </View>
 
                 {/* Optional Description */}
-                <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
-                    <Text className={`text-lg font-bold mb-2 text-gray-800 ${isRtl ? 'text-right' : 'text-left'}`}>{t('editGame.extraInfo', 'Extra Info')}</Text>
+                <View className="bg-white dark:bg-cyber-card p-4 rounded-xl mb-4 shadow-sm">
+                    <Text className={`text-lg font-bold mb-2 text-gray-800 dark:text-cyber-text ${isRtl ? 'text-right' : 'text-left'}`}>{t('editGame.extraInfo', 'Extra Info')}</Text>
                     <TextInput
                         value={description}
                         onChangeText={setDescription}
                         placeholder={t('editGame.instructionsPlaceholder', 'Any special instructions?')}
                         multiline
-                        className={`bg-gray-100 p-3 rounded-lg h-24 text-top ${isRtl ? 'text-right' : 'text-left'}`}
+                        className={`text-gray-900 dark:text-cyber-text bg-gray-100 dark:bg-cyber-border p-3 rounded-lg h-24 text-top ${isRtl ? 'text-right' : 'text-left'}`}
                     />
                 </View>
 
                 {/* Auto Welcome Message */}
-                <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
-                    <Text className={`text-lg font-bold mb-2 text-gray-800 ${isRtl ? 'text-right' : 'text-left'}`}>הודעת פתיחה אוטומטית (נשלח בפרטי למצטרפים)</Text>
+                <View className="bg-white dark:bg-cyber-card p-4 rounded-xl mb-4 shadow-sm">
+                    <Text className={`text-lg font-bold mb-2 text-gray-800 dark:text-cyber-text ${isRtl ? 'text-right' : 'text-left'}`}>{t('editGame.welcomeAutoTitle', 'הודעת פתיחה אוטומטית (נשלח בפרטי למצטרפים)')}</Text>
                     <TextInput
                         value={welcomeMessage}
                         onChangeText={setWelcomeMessage}
-                        placeholder="לדוגמה: אהלן! לשלם בביט למספר 054-1234567"
+                        placeholder={t('editGame.welcomePlaceholder', 'לדוגמה: אהלן! לשלם בביט למספר 054-1234567')}
                         multiline
-                        className={`bg-gray-100 p-3 rounded-lg h-24 text-top ${isRtl ? 'text-right' : 'text-left'}`}
+                        className={`text-gray-900 dark:text-cyber-text bg-gray-100 dark:bg-cyber-border p-3 rounded-lg h-24 text-top ${isRtl ? 'text-right' : 'text-left'}`}
                     />
                 </View>
 
                 {/* Members vs guests (group games only) */}
                 {isSeriesGame && (
-                    <View className="bg-white p-4 rounded-xl mb-4 shadow-sm" testID="guest-settings">
+                    <View className="bg-white dark:bg-cyber-card p-4 rounded-xl mb-4 shadow-sm" testID="guest-settings">
                         <View className={`flex-row justify-between items-center ${isRtl ? 'flex-row-reverse' : ''}`}>
-                            <Text className="text-lg font-bold text-gray-800">עדיפות לחברי הקבוצה</Text>
+                            <Text className="text-lg font-bold text-gray-800 dark:text-cyber-text">{t('editGame.groupPriority', 'עדיפות לחברי הקבוצה')}</Text>
                             <Switch value={membersOnlyPriority} onValueChange={setMembersOnlyPriority} trackColor={{ true: '#059669' }} />
                         </View>
                         {membersOnlyPriority && (
                             <View className="mt-3">
-                                <Text className={`font-bold mb-1 text-gray-700 ${isRtl ? 'text-right' : 'text-left'}`}>הרשמה לאורחים נפתחת (שעות לפני המשחק)</Text>
-                                <TextInput value={guestHours} onChangeText={setGuestHours} keyboardType="decimal-pad" className={`bg-gray-100 p-3 rounded-lg mb-3 ${isRtl ? 'text-right' : 'text-left'}`} />
-                                <Text className={`font-bold mb-1 text-gray-700 ${isRtl ? 'text-right' : 'text-left'}`}>מחיר לאורחים (₪, להצגה בלבד)</Text>
-                                <TextInput value={guestPrice} onChangeText={setGuestPrice} keyboardType="number-pad" className={`bg-gray-100 p-3 rounded-lg mb-3 ${isRtl ? 'text-right' : 'text-left'}`} />
-                                <Text className={`font-bold mb-1 text-gray-700 ${isRtl ? 'text-right' : 'text-left'}`}>תיאור לאורחים</Text>
-                                <TextInput value={guestDescription} onChangeText={setGuestDescription} multiline className={`bg-gray-100 p-3 rounded-lg mb-3 h-20 text-top ${isRtl ? 'text-right' : 'text-left'}`} />
-                                <Text className={`font-bold mb-1 text-gray-700 ${isRtl ? 'text-right' : 'text-left'}`}>הודעת פתיחה לאורחים (נשלחת בפרטי)</Text>
-                                <TextInput value={guestWelcomeMessage} onChangeText={setGuestWelcomeMessage} multiline className={`bg-gray-100 p-3 rounded-lg h-20 text-top ${isRtl ? 'text-right' : 'text-left'}`} />
+                                <Text className={`font-bold mb-1 text-gray-700 dark:text-cyber-text ${isRtl ? 'text-right' : 'text-left'}`}>{t('editGame.guestHoursLabel', 'הרשמה לאורחים נפתחת (שעות לפני המשחק)')}</Text>
+                                <TextInput value={guestHours} onChangeText={setGuestHours} keyboardType="decimal-pad" className={`text-gray-900 dark:text-cyber-text bg-gray-100 dark:bg-cyber-border p-3 rounded-lg mb-3 ${isRtl ? 'text-right' : 'text-left'}`} />
+                                <Text className={`font-bold mb-1 text-gray-700 dark:text-cyber-text ${isRtl ? 'text-right' : 'text-left'}`}>{t('editGame.guestPriceLabel', 'מחיר לאורחים (₪, להצגה בלבד)')}</Text>
+                                <TextInput value={guestPrice} onChangeText={setGuestPrice} keyboardType="number-pad" className={`text-gray-900 dark:text-cyber-text bg-gray-100 dark:bg-cyber-border p-3 rounded-lg mb-3 ${isRtl ? 'text-right' : 'text-left'}`} />
+                                <Text className={`font-bold mb-1 text-gray-700 dark:text-cyber-text ${isRtl ? 'text-right' : 'text-left'}`}>{t('editGame.guestDescriptionLabel', 'תיאור לאורחים')}</Text>
+                                <TextInput value={guestDescription} onChangeText={setGuestDescription} multiline className={`text-gray-900 dark:text-cyber-text bg-gray-100 dark:bg-cyber-border p-3 rounded-lg mb-3 h-20 text-top ${isRtl ? 'text-right' : 'text-left'}`} />
+                                <Text className={`font-bold mb-1 text-gray-700 dark:text-cyber-text ${isRtl ? 'text-right' : 'text-left'}`}>{t('editGame.guestWelcomeLabel', 'הודעת פתיחה לאורחים (נשלחת בפרטי)')}</Text>
+                                <TextInput value={guestWelcomeMessage} onChangeText={setGuestWelcomeMessage} multiline className={`text-gray-900 dark:text-cyber-text bg-gray-100 dark:bg-cyber-border p-3 rounded-lg h-20 text-top ${isRtl ? 'text-right' : 'text-left'}`} />
                             </View>
                         )}
                     </View>
                 )}
 
                 {/* Advanced Options */}
-                <View className="bg-white p-4 rounded-xl mb-6 shadow-sm">
+                <View className="bg-white dark:bg-cyber-card p-4 rounded-xl mb-6 shadow-sm">
                     <TouchableOpacity onPress={() => setShowAdvanced(!showAdvanced)} className={`flex-row justify-between items-center py-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                        <Text className="text-lg font-bold text-gray-800">{t('editGame.advancedOptions', 'Advanced Options')}</Text>
+                        <Text className="text-lg font-bold text-gray-800 dark:text-cyber-text">{t('editGame.advancedOptions', 'Advanced Options')}</Text>
                         <FontAwesome name={showAdvanced ? "chevron-up" : "chevron-down"} size={16} color="#4b5563" />
                     </TouchableOpacity>
 
@@ -836,18 +837,18 @@ export default function EditGameScreen() {
                         <View className="mt-4">
                             
                             {/* Future Registration */}
-                            <View className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                            <View className="mb-6 p-4 bg-gray-50 dark:bg-cyber-bg rounded-lg border border-gray-100 dark:border-cyber-border">
                                 <View className={`flex-row items-center justify-between mb-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                                    <Text className="text-gray-800 font-bold text-sm">{t('editGame.futureRegistration', 'Future Registration')}</Text>
+                                    <Text className="text-gray-800 dark:text-cyber-text font-bold text-sm">{t('editGame.futureRegistration', 'Future Registration')}</Text>
                                     <Switch value={futureRegistration} onValueChange={setFutureRegistration} trackColor={{ true: '#059669' }} />
                                 </View>
                                 {futureRegistration && (
                                     <View className={`flex-row justify-between ${isRtl ? 'flex-row-reverse' : ''}`}>
-                                        <TouchableOpacity onPress={() => setActivePicker('futureRegDate')} className="flex-1 bg-white p-2 rounded-lg mx-1 border border-gray-200">
-                                            <Text className="text-center">{futureRegDate.toLocaleDateString('he-IL')}</Text>
+                                        <TouchableOpacity onPress={() => setActivePicker('futureRegDate')} className="flex-1 bg-white dark:bg-cyber-card p-2 rounded-lg mx-1 border border-gray-200 dark:border-cyber-border">
+                                            <Text className="text-center text-gray-900 dark:text-cyber-text">{formatDate(futureRegDate, i18n.language)}</Text>
                                         </TouchableOpacity>
-                                        <TouchableOpacity onPress={() => setActivePicker('futureRegTime')} className="flex-1 bg-white p-2 rounded-lg mx-1 border border-gray-200">
-                                            <Text className="text-center">{futureRegTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                                        <TouchableOpacity onPress={() => setActivePicker('futureRegTime')} className="flex-1 bg-white dark:bg-cyber-card p-2 rounded-lg mx-1 border border-gray-200 dark:border-cyber-border">
+                                            <Text className="text-center text-gray-900 dark:text-cyber-text">{formatTimeOfDay(futureRegTime, i18n.language)}</Text>
                                         </TouchableOpacity>
                                     </View>
                                 )}
@@ -862,11 +863,11 @@ export default function EditGameScreen() {
                                 {lotteryEnabled && (
                                     <>
                                         <View className={`flex-row justify-between mb-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                                            <TouchableOpacity onPress={() => setActivePicker('lotteryDate')} className="flex-1 bg-white p-2 rounded-lg mx-1 border border-orange-200">
-                                                <Text className="text-center">{lotteryDate.toLocaleDateString('he-IL')}</Text>
+                                            <TouchableOpacity onPress={() => setActivePicker('lotteryDate')} className="flex-1 bg-white dark:bg-cyber-card p-2 rounded-lg mx-1 border border-orange-200">
+                                                <Text className="text-center text-gray-900 dark:text-cyber-text">{formatDate(lotteryDate, i18n.language)}</Text>
                                             </TouchableOpacity>
-                                            <TouchableOpacity onPress={() => setActivePicker('lotteryTime')} className="flex-1 bg-white p-2 rounded-lg mx-1 border border-orange-200">
-                                                <Text className="text-center">{lotteryTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                                            <TouchableOpacity onPress={() => setActivePicker('lotteryTime')} className="flex-1 bg-white dark:bg-cyber-card p-2 rounded-lg mx-1 border border-orange-200">
+                                                <Text className="text-center text-gray-900 dark:text-cyber-text">{formatTimeOfDay(lotteryTime, i18n.language)}</Text>
                                             </TouchableOpacity>
                                         </View>
                                         <View className={`flex-row items-center justify-between ${isRtl ? 'flex-row-reverse' : ''}`}>
@@ -879,18 +880,18 @@ export default function EditGameScreen() {
 
                             {/* Public Release Later (Private games only) */}
                             {isPrivate && (
-                                <View className="mb-2 p-4 bg-green-50 rounded-lg border border-green-100">
+                                <View className="mb-2 p-4 bg-green-50 dark:bg-brand-ink rounded-lg border border-green-100">
                                     <View className={`flex-row items-center justify-between mb-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
                                         <Text className="text-green-900 font-bold text-sm">{t('editGame.makePublicLater', 'Publish to public later')}</Text>
                                         <Switch value={makePublicLater} onValueChange={setMakePublicLater} trackColor={{ true: '#22c55e' }} />
                                     </View>
                                     {makePublicLater && (
                                         <View className={`flex-row justify-between ${isRtl ? 'flex-row-reverse' : ''}`}>
-                                            <TouchableOpacity onPress={() => setActivePicker('publicDate')} className="flex-1 bg-white p-2 rounded-lg mx-1 border border-green-200">
-                                                <Text className="text-center">{publicDate.toLocaleDateString('he-IL')}</Text>
+                                            <TouchableOpacity onPress={() => setActivePicker('publicDate')} className="flex-1 bg-white dark:bg-cyber-card p-2 rounded-lg mx-1 border border-green-200">
+                                                <Text className="text-center text-gray-900 dark:text-cyber-text">{formatDate(publicDate, i18n.language)}</Text>
                                             </TouchableOpacity>
-                                            <TouchableOpacity onPress={() => setActivePicker('publicTime')} className="flex-1 bg-white p-2 rounded-lg mx-1 border border-green-200">
-                                                <Text className="text-center">{publicTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                                            <TouchableOpacity onPress={() => setActivePicker('publicTime')} className="flex-1 bg-white dark:bg-cyber-card p-2 rounded-lg mx-1 border border-green-200">
+                                                <Text className="text-center text-gray-900 dark:text-cyber-text">{formatTimeOfDay(publicTime, i18n.language)}</Text>
                                             </TouchableOpacity>
                                         </View>
                                     )}
@@ -917,25 +918,25 @@ export default function EditGameScreen() {
 
                 {/* ניהול סגל השחקנים */}
                 {game && canManage && (
-                    <View className="bg-white p-4 rounded-xl mb-6 shadow-sm">
-                        <Text className={`text-lg font-bold mb-4 text-gray-800 ${isRtl ? 'text-right' : 'text-left'}`}>
-                            ניהול סגל השחקנים
+                    <View className="bg-white dark:bg-cyber-card p-4 rounded-xl mb-6 shadow-sm">
+                        <Text className={`text-lg font-bold mb-4 text-gray-800 dark:text-cyber-text ${isRtl ? 'text-right' : 'text-left'}`}>
+                            {t('editGame.manageRoster', 'ניהול סגל השחקנים')}
                         </Text>
 
                         {/* צרף חברים */}
                         <View className="mb-4">
-                            <Text className={`text-sm font-bold mb-2 text-gray-700 ${isRtl ? 'text-right' : 'text-left'}`}>
-                                צרף חברים למשחק
+                            <Text className={`text-sm font-bold mb-2 text-gray-700 dark:text-cyber-text ${isRtl ? 'text-right' : 'text-left'}`}>
+                                {t('editGame.addFriendsTitle', 'צרף חברים למשחק')}
                             </Text>
                             <TextInput
                                 value={searchFriendQuery}
                                 onChangeText={setSearchFriendQuery}
-                                placeholder="חפש חברים..."
-                                className="bg-gray-100 p-2 rounded-lg text-right mb-3 text-sm"
+                                placeholder={t('editGame.searchFriends', 'חפש חברים...')}
+                                className="bg-gray-100 dark:bg-cyber-border p-2 rounded-lg text-right mb-3 text-sm text-gray-900 dark:text-cyber-text"
                             />
                             
                             {friends.length === 0 ? (
-                                <Text className="text-gray-400 text-xs text-center my-2">אין חברים נוספים לצירוף</Text>
+                                <Text className="text-gray-400 dark:text-cyber-muted text-xs text-center my-2">{t('editGame.noMoreFriends', 'אין חברים נוספים לצירוף')}</Text>
                             ) : (
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row mb-3">
                                     {friends
@@ -952,13 +953,13 @@ export default function EditGameScreen() {
                                                             setInvitedParticipantIds(prev => [...prev, friend.id]);
                                                         }
                                                     }}
-                                                    className={`mr-3 p-2 rounded-xl items-center w-20 border ${isSelected ? 'bg-brand-mist border-brand' : 'bg-white border-gray-200'}`}
+                                                    className={`mr-3 p-2 rounded-xl items-center w-20 border ${isSelected ? 'bg-brand-mist dark:bg-brand-ink border-brand' : 'bg-white dark:bg-cyber-card border-gray-200 dark:border-cyber-border'}`}
                                                 >
                                                     <SafeImage
                                                         source={{ uri: friend.imageUrl || "https://ui-avatars.com/api/?name=" + friend.name }}
-                                                        className="w-10 h-10 rounded-full bg-gray-200 mb-1"
+                                                        className="w-10 h-10 rounded-full bg-gray-200 dark:bg-cyber-border mb-1"
                                                     />
-                                                    <Text className="text-[10px] text-center text-gray-600" numberOfLines={1}>
+                                                    <Text className="text-[10px] text-center text-gray-600 dark:text-cyber-muted" numberOfLines={1}>
                                                         {friend.name?.split(' ')[0]}
                                                     </Text>
                                                     {isSelected && (
@@ -980,14 +981,14 @@ export default function EditGameScreen() {
                                     className="bg-brand p-2.5 rounded-lg items-center"
                                 >
                                     <Text className="text-white font-bold text-sm">
-                                        {addingFriends ? 'מצרף...' : `הוסף למשחק (${invitedParticipantIds.length})`}
+                                        {addingFriends ? t('editGame.addingFriends', 'מצרף...') : t('editGame.addToGame', 'הוסף למשחק ({{count}})', { count: invitedParticipantIds.length })}
                                     </Text>
                                 </TouchableOpacity>
                             )}
                         </View>
 
-                        <Text className={`text-sm font-bold mb-2 text-gray-700 ${isRtl ? 'text-right' : 'text-left'}`}>
-                            שחקנים רשומים ({game.participants?.length || 0})
+                        <Text className={`text-sm font-bold mb-2 text-gray-700 dark:text-cyber-text ${isRtl ? 'text-right' : 'text-left'}`}>
+                            {t('editGame.registeredPlayers', 'שחקנים רשומים ({{count}})', { count: game.participants?.length || 0 })}
                         </Text>
 
                         {/* רשימת שחקנים עם שלוש נקודות */}
@@ -1000,16 +1001,16 @@ export default function EditGameScreen() {
                             const showOptions = p.id !== user?.id && !isOrg && (isOrganizer || !isTargetMgr);
 
                             return (
-                                <View key={p.id} className={`flex-row justify-between items-center py-2.5 border-b border-gray-100 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                                <View key={p.id} className={`flex-row justify-between items-center py-2.5 border-b border-gray-100 dark:border-cyber-border ${isRtl ? 'flex-row-reverse' : ''}`}>
                                     <View className={`flex-row items-center ${isRtl ? 'flex-row-reverse' : ''}`}>
                                         <SafeImage
                                             source={{ uri: p.avatar || "https://ui-avatars.com/api/?name=" + p.name }}
-                                            className="w-9 h-9 rounded-full bg-gray-200"
+                                            className="w-9 h-9 rounded-full bg-gray-200 dark:bg-cyber-border"
                                         />
                                         <View className={`mx-3 ${isRtl ? 'items-end' : 'items-start'}`}>
-                                            <Text className="text-sm font-medium text-gray-900">{p.name || 'שחקן'}</Text>
-                                            <Text className="text-xs text-gray-500">
-                                                {isOrg ? 'מארגן' : isTargetMgr ? 'מנהל' : 'שחקן'}
+                                            <Text className="text-sm font-medium text-gray-900 dark:text-cyber-text">{p.name || t('editGame.playerFallback', 'שחקן')}</Text>
+                                            <Text className="text-xs text-gray-500 dark:text-cyber-muted">
+                                                {isOrg ? t('editGame.roleOrganizer', 'מארגן') : isTargetMgr ? t('editGame.roleManager', 'מנהל') : t('editGame.playerFallback', 'שחקן')}
                                             </Text>
                                         </View>
                                     </View>

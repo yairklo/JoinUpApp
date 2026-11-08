@@ -1,4 +1,6 @@
-import { View, Text, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { View, ScrollView, TouchableOpacity, TextInput, I18nManager } from 'react-native';
+import Text from '@/components/ui/ThemedText';
+import { usePalette } from '@/theme/palette';
 import MapView, { Marker } from 'react-native-maps';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
@@ -14,6 +16,7 @@ import { useChatLogic } from '@/hooks/useChatLogic';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuthTokenRef, useSignedOutSinceMount } from '@/hooks/useAuthTokenRef';
 import { appAlert } from '@/i18n/appAlert';
+import { formatDate, formatTimeOfDay } from '@/utils/dateLocale';
 
 type PickState = {
   gameId: string;
@@ -71,7 +74,8 @@ export default function LiveTeamManagementScreen() {
   const signedOutSinceMount = useSignedOutSinceMount();
   const { user } = useUser();
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const P = usePalette();
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -340,7 +344,7 @@ export default function LiveTeamManagementScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: P.surface }}>
       <Stack.Screen options={{ title: t('teams.live'), headerShown: true }} />
       <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
         {typeof state.game?.fieldLat === 'number' && typeof state.game?.fieldLng === 'number' && (
@@ -367,36 +371,36 @@ export default function LiveTeamManagementScreen() {
         {(isOrganizer || isManager) && (
           <TouchableOpacity
             onPress={() => router.push(`/game/teams/quick/${id}`)}
-            style={{ borderWidth: 1, borderColor: '#e8ecf1', borderRadius: 16, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff' }}
+            style={{ borderWidth: 1, borderColor: P.cardBorder, borderRadius: 16, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: P.surface }}
           >
-            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#ecfdf5', alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: P.brandBg, alignItems: 'center', justifyContent: 'center' }}>
               <FontAwesome name="users" size={18} color="#059669" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontWeight: '800', fontSize: 16, color: '#0f172a' }}>{t('teams.quickEdit')}</Text>
-              <Text style={{ color: '#6b7280', fontSize: 12 }}>{t('teams.quickEditOpen')}</Text>
+              <Text style={{ fontWeight: '800', fontSize: 16, color: P.text }}>{t('teams.quickEdit')}</Text>
+              <Text style={{ color: P.muted, fontSize: 12 }}>{t('teams.quickEditOpen')}</Text>
             </View>
-            <FontAwesome name="angle-left" size={20} color="#9ca3af" />
+            <FontAwesome name={I18nManager.isRTL ? 'angle-left' : 'angle-right'} size={20} color="#9ca3af" />
           </TouchableOpacity>
         )}
 
         {isOrganizer && (
-          <View style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 12, gap: 8 }}>
+          <View style={{ borderWidth: 1, borderColor: P.cardBorder, borderRadius: 12, padding: 12, gap: 8 }}>
             <Text style={{ fontWeight: '700', fontSize: 16 }}>{t('teams.scheduleTitle')}</Text>
-            <Text style={{ color: '#6b7280', fontSize: 12 }}>{t('teams.scheduleHint')}</Text>
+            <Text style={{ color: P.muted, fontSize: 12 }}>{t('teams.scheduleHint')}</Text>
             <Text style={{ fontSize: 12, fontWeight: '600' }}>{t('teams.drawTime')}</Text>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <TouchableOpacity
                 onPress={() => setActivePicker('drawDate')}
-                style={{ flex: 1, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10, backgroundColor: '#f9fafb' }}
+                style={{ flex: 1, borderWidth: 1, borderColor: P.inputBorder, borderRadius: 8, padding: 10, backgroundColor: P.inputBg }}
               >
-                <Text style={{ textAlign: 'center' }}>{drawDate ? drawDate.toLocaleDateString('he-IL') : t('teams.selectDate', 'בחר תאריך')}</Text>
+                <Text style={{ textAlign: 'center' }}>{drawDate ? formatDate(drawDate, i18n.language) : t('teams.selectDate', 'בחר תאריך')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setActivePicker('drawTime')}
-                style={{ flex: 1, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10, backgroundColor: '#f9fafb' }}
+                style={{ flex: 1, borderWidth: 1, borderColor: P.inputBorder, borderRadius: 8, padding: 10, backgroundColor: P.inputBg }}
               >
-                <Text style={{ textAlign: 'center' }}>{drawDate ? drawDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : t('teams.selectTime', 'בחר שעה')}</Text>
+                <Text style={{ textAlign: 'center' }}>{drawDate ? formatTimeOfDay(drawDate, i18n.language) : t('teams.selectTime', 'בחר שעה')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -404,30 +408,30 @@ export default function LiveTeamManagementScreen() {
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <TouchableOpacity
                 onPress={() => setActivePicker('pickDate')}
-                style={{ flex: 1, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10, backgroundColor: '#f9fafb' }}
+                style={{ flex: 1, borderWidth: 1, borderColor: P.inputBorder, borderRadius: 8, padding: 10, backgroundColor: P.inputBg }}
               >
-                <Text style={{ textAlign: 'center' }}>{pickDate ? pickDate.toLocaleDateString('he-IL') : t('teams.selectDate', 'בחר תאריך')}</Text>
+                <Text style={{ textAlign: 'center' }}>{pickDate ? formatDate(pickDate, i18n.language) : t('teams.selectDate', 'בחר תאריך')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setActivePicker('pickTime')}
-                style={{ flex: 1, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10, backgroundColor: '#f9fafb' }}
+                style={{ flex: 1, borderWidth: 1, borderColor: P.inputBorder, borderRadius: 8, padding: 10, backgroundColor: P.inputBg }}
               >
-                <Text style={{ textAlign: 'center' }}>{pickDate ? pickDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : t('teams.selectTime', 'בחר שעה')}</Text>
+                <Text style={{ textAlign: 'center' }}>{pickDate ? formatTimeOfDay(pickDate, i18n.language) : t('teams.selectTime', 'בחר שעה')}</Text>
               </TouchableOpacity>
             </View>
             <Text style={{ fontSize: 12, fontWeight: '600' }}>{t('teams.pickOrder', 'סדר בחירה')}</Text>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <TouchableOpacity
                 onPress={() => setPickOrderTypeLocal('CIRCULAR')}
-                style={{ flex: 1, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: pickOrderTypeLocal === 'CIRCULAR' ? '#2563eb' : '#d1d5db', backgroundColor: pickOrderTypeLocal === 'CIRCULAR' ? '#eff6ff' : 'transparent', alignItems: 'center' }}
+                style={{ flex: 1, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: pickOrderTypeLocal === 'CIRCULAR' ? '#2563eb' : '#d1d5db', backgroundColor: pickOrderTypeLocal === 'CIRCULAR' ? P.infoBg : 'transparent', alignItems: 'center' }}
               >
-                <Text style={{ color: pickOrderTypeLocal === 'CIRCULAR' ? '#2563eb' : '#374151', fontWeight: '600' }}>{t('teams.orderCircular', 'מעגלי')}</Text>
+                <Text style={{ color: pickOrderTypeLocal === 'CIRCULAR' ? '#2563eb' : P.text2, fontWeight: '600' }}>{t('teams.orderCircular', 'מעגלי')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setPickOrderTypeLocal('SNAKE')}
-                style={{ flex: 1, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: pickOrderTypeLocal === 'SNAKE' ? '#2563eb' : '#d1d5db', backgroundColor: pickOrderTypeLocal === 'SNAKE' ? '#eff6ff' : 'transparent', alignItems: 'center' }}
+                style={{ flex: 1, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: pickOrderTypeLocal === 'SNAKE' ? '#2563eb' : '#d1d5db', backgroundColor: pickOrderTypeLocal === 'SNAKE' ? P.infoBg : 'transparent', alignItems: 'center' }}
               >
-                <Text style={{ color: pickOrderTypeLocal === 'SNAKE' ? '#2563eb' : '#374151', fontWeight: '600' }}>{t('teams.orderSnake', 'נחש')}</Text>
+                <Text style={{ color: pickOrderTypeLocal === 'SNAKE' ? '#2563eb' : P.text2, fontWeight: '600' }}>{t('teams.orderSnake', 'נחש')}</Text>
               </TouchableOpacity>
             </View>
             <TouchableOpacity
@@ -451,7 +455,7 @@ export default function LiveTeamManagementScreen() {
           </View>
         )}
 
-        <View style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 12 }}>
+        <View style={{ borderWidth: 1, borderColor: P.cardBorder, borderRadius: 12, padding: 12 }}>
           <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 8 }}>{t('teams.captainsTitle', 'קפטנים (בוחרים שחקנים)')}</Text>
           {(state.managers.filter(m => m.id !== state.organizerId)).map(m => (
             <View key={m.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 }}>
@@ -464,7 +468,7 @@ export default function LiveTeamManagementScreen() {
             </View>
           ))}
           {(state.managers.length <= 1) && (
-            <Text style={{ color: '#6b7280', fontSize: 12 }}>{t('teams.noCaptainsSelected', 'לא נבחרו קפטנים')}</Text>
+            <Text style={{ color: P.muted, fontSize: 12 }}>{t('teams.noCaptainsSelected', 'לא נבחרו קפטנים')}</Text>
           )}
 
           {isOrganizer && (
@@ -476,7 +480,7 @@ export default function LiveTeamManagementScreen() {
                     key={p.id}
                     onPress={() => assignCaptain(p.id)}
                     disabled={busy}
-                    style={{ backgroundColor: '#f3f4f6', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, marginRight: 8 }}
+                    style={{ backgroundColor: P.chipBg, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, marginRight: 8 }}
                   >
                     <Text style={{ fontSize: 12 }}>{p.name || p.id}</Text>
                   </TouchableOpacity>
@@ -486,7 +490,7 @@ export default function LiveTeamManagementScreen() {
           )}
         </View>
 
-        <View style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 12 }}>
+        <View style={{ borderWidth: 1, borderColor: P.cardBorder, borderRadius: 12, padding: 12 }}>
           <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 8 }}>
             {t('teams.status', { status: pickStatusLabel(state.pickSessionStatus, t) })}
           </Text>
@@ -502,7 +506,7 @@ export default function LiveTeamManagementScreen() {
                     alignItems: 'center',
                     gap: 8,
                     paddingVertical: 8,
-                    backgroundColor: isCurrent ? '#eff6ff' : 'transparent',
+                    backgroundColor: isCurrent ? P.infoBg : 'transparent',
                     borderRadius: 8,
                     paddingHorizontal: 4,
                   }}
@@ -513,20 +517,20 @@ export default function LiveTeamManagementScreen() {
                       {idx + 1}. {managerName[mid]}
                       {isCurrent ? t('teams.currentTurn') : ''}
                     </Text>
-                    <Text style={{ color: '#6b7280', fontSize: 12 }}>
+                    <Text style={{ color: P.muted, fontSize: 12 }}>
                       {online ? t('teams.online') : t('teams.offline')}
                     </Text>
                   </View>
                   {isOrganizer && !!state.pickDrawExecutedAt && (
                     <View style={{ flexDirection: 'row', gap: 8 }}>
                       <TouchableOpacity onPress={() => moveOrder(idx, -1)} disabled={busy || idx === 0}>
-                        <FontAwesome name="arrow-up" size={16} color="#374151" />
+                        <FontAwesome name="arrow-up" size={16} color={P.text2} />
                       </TouchableOpacity>
                       <TouchableOpacity
                         onPress={() => moveOrder(idx, 1)}
                         disabled={busy || idx === state.pickTurnOrder.length - 1}
                       >
-                        <FontAwesome name="arrow-down" size={16} color="#374151" />
+                        <FontAwesome name="arrow-down" size={16} color={P.text2} />
                       </TouchableOpacity>
                     </View>
                   )}
@@ -536,7 +540,7 @@ export default function LiveTeamManagementScreen() {
           )}
 
           {showOfflineControls && (
-            <View style={{ marginTop: 10, padding: 10, backgroundColor: '#fff7ed', borderRadius: 8 }}>
+            <View style={{ marginTop: 10, padding: 10, backgroundColor: P.warnBg, borderRadius: 8 }}>
               <Text style={{ fontWeight: '600', marginBottom: 6 }}>{t('teams.managerOffline')}</Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <TouchableOpacity
@@ -552,14 +556,14 @@ export default function LiveTeamManagementScreen() {
                   <Text style={{ color: '#ea580c' }}>{t('teams.wait')}</Text>
                 </TouchableOpacity>
               </View>
-              <Text style={{ marginTop: 6, fontSize: 12, color: '#9a3412' }}>
+              <Text style={{ marginTop: 6, fontSize: 12, color: P.warnText }}>
                 {waitingOffline ? t('teams.noSkipWaiting') : t('teams.noSkipSelectBench')}
               </Text>
             </View>
           )}
         </View>
 
-        <View style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 12 }}>
+        <View style={{ borderWidth: 1, borderColor: P.cardBorder, borderRadius: 12, padding: 12 }}>
           <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 8 }}>
             {t('teams.bench', { count: pickableBench.length })}
           </Text>
@@ -575,7 +579,7 @@ export default function LiveTeamManagementScreen() {
                 style={{
                   padding: 12,
                   borderRadius: 8,
-                  backgroundColor: canPick ? '#f0fdf4' : '#f9fafb',
+                  backgroundColor: canPick ? P.okBg : P.inputBg,
                   marginBottom: 6,
                   opacity: canPick ? 1 : 0.6,
                 }}
@@ -585,11 +589,11 @@ export default function LiveTeamManagementScreen() {
             );
           })}
           {pickableBench.length === 0 && (
-            <Text style={{ color: '#6b7280' }}>{t('teams.noUnassigned')}</Text>
+            <Text style={{ color: P.muted }}>{t('teams.noUnassigned')}</Text>
           )}
         </View>
 
-        <View style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 12, gap: 10 }}>
+        <View style={{ borderWidth: 1, borderColor: P.cardBorder, borderRadius: 12, padding: 12, gap: 10 }}>
           <Text style={{ fontWeight: '700', fontSize: 16 }}>{t('teams.teamsLive')}</Text>
           {state.teams.map((team) => (
             <View key={team.id} style={{ borderLeftWidth: 4, borderLeftColor: team.color, paddingLeft: 10 }}>
@@ -597,16 +601,16 @@ export default function LiveTeamManagementScreen() {
                 {team.name}
                 {team.managerId ? ` · ${managerName[team.managerId] || ''}` : ''}
               </Text>
-              <Text style={{ color: '#4b5563', marginTop: 4 }}>
+              <Text style={{ color: P.muted2, marginTop: 4 }}>
                 {(team.players || []).map((p) => p.name || p.id).join(', ') || t('teams.noPicksYet')}
               </Text>
             </View>
           ))}
         </View>
 
-        <View style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 12, gap: 8 }}>
+        <View style={{ borderWidth: 1, borderColor: P.cardBorder, borderRadius: 12, padding: 12, gap: 8 }}>
           <Text style={{ fontWeight: '700', fontSize: 16 }}>{t('teams.playerSwaps')}</Text>
-          <Text style={{ color: '#6b7280', fontSize: 12 }}>{t('teams.swapsHint')}</Text>
+          <Text style={{ color: P.muted, fontSize: 12 }}>{t('teams.swapsHint')}</Text>
           <Text style={{ fontWeight: '600' }}>{t('teams.tradeWith')}</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             {(state.managers || [])
@@ -619,10 +623,10 @@ export default function LiveTeamManagementScreen() {
                     paddingHorizontal: 10,
                     paddingVertical: 6,
                     borderRadius: 16,
-                    backgroundColor: tradeReceiverId === m.id ? '#2563eb' : '#e5e7eb',
+                    backgroundColor: tradeReceiverId === m.id ? '#2563eb' : P.neutralBg,
                   }}
                 >
-                  <Text style={{ color: tradeReceiverId === m.id ? '#fff' : '#111' }}>{m.name || m.id}</Text>
+                  <Text style={{ color: tradeReceiverId === m.id ? '#fff' : P.text }}>{m.name || m.id}</Text>
                 </TouchableOpacity>
               ))}
           </View>
@@ -636,10 +640,10 @@ export default function LiveTeamManagementScreen() {
                   paddingHorizontal: 10,
                   paddingVertical: 6,
                   borderRadius: 16,
-                  backgroundColor: offeredId === p.id ? '#16a34a' : '#e5e7eb',
+                  backgroundColor: offeredId === p.id ? '#16a34a' : P.neutralBg,
                 }}
               >
-                <Text style={{ color: offeredId === p.id ? '#fff' : '#111' }}>{p.name || p.id}</Text>
+                <Text style={{ color: offeredId === p.id ? '#fff' : P.text }}>{p.name || p.id}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -653,23 +657,23 @@ export default function LiveTeamManagementScreen() {
                   paddingHorizontal: 10,
                   paddingVertical: 6,
                   borderRadius: 16,
-                  backgroundColor: requestedId === p.id ? '#7c3aed' : '#e5e7eb',
+                  backgroundColor: requestedId === p.id ? '#7c3aed' : P.neutralBg,
                 }}
               >
-                <Text style={{ color: requestedId === p.id ? '#fff' : '#111' }}>{p.name || p.id}</Text>
+                <Text style={{ color: requestedId === p.id ? '#fff' : P.text }}>{p.name || p.id}</Text>
               </TouchableOpacity>
             ))}
           </View>
           <TouchableOpacity
             onPress={submitTrade}
             disabled={busy}
-            style={{ backgroundColor: '#111827', padding: 12, borderRadius: 8, alignItems: 'center' }}
+            style={{ backgroundColor: P.darkBtn, padding: 12, borderRadius: 8, alignItems: 'center' }}
           >
             <Text style={{ color: '#fff', fontWeight: '700' }}>{t('teams.proposeSwap')}</Text>
           </TouchableOpacity>
 
           {(state.pendingTrades || []).map((tr) => (
-            <View key={tr.id} style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, padding: 8 }}>
+            <View key={tr.id} style={{ borderWidth: 1, borderColor: P.cardBorder, borderRadius: 8, padding: 8 }}>
               <Text>
                 {managerName[tr.proposerId]} ↔ {managerName[tr.receiverId]}
               </Text>
@@ -679,13 +683,13 @@ export default function LiveTeamManagementScreen() {
                     <TouchableOpacity onPress={() => resolve(tr.id, true)} style={{ backgroundColor: '#16a34a', padding: 8, borderRadius: 6 }}>
                       <Text style={{ color: '#fff' }}>{t('teams.approve')}</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => resolve(tr.id, false)} style={{ backgroundColor: '#e5e7eb', padding: 8, borderRadius: 6 }}>
+                    <TouchableOpacity onPress={() => resolve(tr.id, false)} style={{ backgroundColor: P.neutralBg, padding: 8, borderRadius: 6 }}>
                       <Text>{t('teams.reject')}</Text>
                     </TouchableOpacity>
                   </>
                 )}
                 {tr.proposerId === userId && (
-                  <TouchableOpacity onPress={() => resolve(tr.id, false)} style={{ backgroundColor: '#e5e7eb', padding: 8, borderRadius: 6 }}>
+                  <TouchableOpacity onPress={() => resolve(tr.id, false)} style={{ backgroundColor: P.neutralBg, padding: 8, borderRadius: 6 }}>
                     <Text>{t('teams.cancel')}</Text>
                   </TouchableOpacity>
                 )}
@@ -705,11 +709,12 @@ export default function LiveTeamManagementScreen() {
 function ManagerPickChat({ roomId }: { roomId: string }) {
   const myName = useMyName();
   const { t } = useTranslation();
+  const P = usePalette();
   const { state, actions } = useChatLogic({ roomId, chatName: t('teams.managersChatName') });
   const [text, setText] = useState('');
 
   return (
-    <View style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 12, minHeight: 220 }}>
+    <View style={{ borderWidth: 1, borderColor: P.cardBorder, borderRadius: 12, padding: 12, minHeight: 220 }}>
       <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 8 }}>{t('teams.managersChat')}</Text>
       <ScrollView style={{ maxHeight: 160, marginBottom: 8 }}>
         {(state.messages || []).slice(-30).map((m: any) => (
@@ -727,7 +732,7 @@ function ManagerPickChat({ roomId }: { roomId: string }) {
             actions.setInputValue(v);
           }}
           placeholder={t('teams.messageManagers')}
-          style={{ flex: 1, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10 }}
+          style={{ flex: 1, borderWidth: 1, borderColor: P.inputBorder, borderRadius: 8, padding: 10, color: P.text }}
         />
         <TouchableOpacity
           onPress={() => {

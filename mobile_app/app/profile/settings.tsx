@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getTokenOrThrow } from '@/utils/apiErrors';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Switch } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Switch, I18nManager } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useUser, useAuth } from '@clerk/clerk-expo';
@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { usersApi, PrivacyLevel, PrivacySettings } from '../../src/services/api/users';
 import LoadingMotif from '@/components/loading/LoadingMotif';
 import { appAlert } from '@/i18n/appAlert';
+import BackButton from '@/components/ui/BackButton';
 
 type FieldKey = 'privacyFriends' | 'privacyGames' | 'privacyMessages';
 type FieldValue = PrivacyLevel | 'DEFAULT';
@@ -96,35 +97,33 @@ export default function PrivacySettingsScreen() {
     };
 
     return (
-        <SafeAreaView className="flex-1 bg-gray-50" edges={['top', 'left', 'right']}>
-            <View className="flex-row items-center p-4 border-b border-gray-200 bg-white">
-                <TouchableOpacity onPress={() => router.back()} className="w-10 h-10 items-center justify-center">
-                    <FontAwesome name="chevron-left" size={20} color="#374151" />
-                </TouchableOpacity>
-                <Text className="flex-1 text-center font-bold text-lg mr-10">{t('privacy.settings')}</Text>
+        <SafeAreaView className="flex-1 bg-gray-50 dark:bg-cyber-bg" edges={['top', 'left', 'right']}>
+            <View className="flex-row items-center p-4 border-b border-gray-200 dark:border-cyber-border bg-white dark:bg-cyber-card">
+                <BackButton />
+                <Text className="flex-1 text-center font-bold text-lg mr-10 text-gray-900 dark:text-cyber-text">{t('privacy.settings')}</Text>
             </View>
 
             {loading ? (
                 <View className="flex-1 items-center justify-center">
-                    <LoadingMotif id="brand-pulse" label="טוען הגדרות…" />
+                    <LoadingMotif id="brand-pulse" label={t('common.loading', 'טוען…')} />
                 </View>
             ) : (
                 <ScrollView className="flex-1" contentContainerStyle={{ padding: 20 }}>
-                    <Text className="text-gray-500 mb-6">{t('privacy.description')}</Text>
+                    <Text className="text-gray-500 dark:text-cyber-muted mb-6">{t('privacy.description')}</Text>
 
                     {FIELDS.map((f) => (
                         <View key={f.key} className="mb-6">
-                            <Text className="font-bold text-gray-800 mb-3">{f.label}</Text>
-                            <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                            <Text className="font-bold text-gray-800 dark:text-cyber-text mb-3">{f.label}</Text>
+                            <View className="bg-white dark:bg-cyber-card rounded-2xl border border-gray-100 dark:border-cyber-border overflow-hidden">
                                 {optionsFor(f.key).map((opt, idx) => {
                                     const active = values[f.key] === opt.value;
                                     return (
                                         <TouchableOpacity
                                             key={opt.value}
                                             onPress={() => setValues((prev) => ({ ...prev, [f.key]: opt.value }))}
-                                            className={`flex-row items-center justify-between px-4 py-3 ${idx > 0 ? 'border-t border-gray-50' : ''}`}
+                                            className={`flex-row items-center justify-between px-4 py-3 ${idx > 0 ? 'border-t border-gray-50 dark:border-cyber-border' : ''}`}
                                         >
-                                            <Text className={`text-base ${active ? 'text-brand font-bold' : 'text-gray-700'}`}>
+                                            <Text className={`text-base ${active ? 'text-brand dark:text-brand-light font-bold' : 'text-gray-700 dark:text-cyber-text'}`}>
                                                 {opt.label}
                                             </Text>
                                             {active && <FontAwesome name="check" size={16} color="#059669" />}
@@ -135,8 +134,8 @@ export default function PrivacySettingsScreen() {
                         </View>
                     ))}
 
-                    <View className="flex-row items-center justify-between bg-white rounded-2xl border border-gray-100 px-4 py-3 mb-6">
-                        <Text className="font-bold text-gray-800 flex-1">{t('privacy.hideGroups', 'הסתר את הקבוצות שלי בפרופיל')}</Text>
+                    <View className="flex-row items-center justify-between bg-white dark:bg-cyber-card rounded-2xl border border-gray-100 dark:border-cyber-border px-4 py-3 mb-6">
+                        <Text className="font-bold text-gray-800 dark:text-cyber-text flex-1">{t('privacy.hideGroups', 'הסתר את הקבוצות שלי בפרופיל')}</Text>
                         <Switch value={hideGroups} onValueChange={setHideGroups} />
                     </View>
 
@@ -168,10 +167,10 @@ export default function PrivacySettingsScreen() {
 
                     <TouchableOpacity
                         onPress={() => router.push('/settings/feedback' as any)}
-                        className="bg-white rounded-2xl border border-gray-100 px-4 py-3 flex-row items-center justify-between mt-6"
+                        className="bg-white dark:bg-cyber-card rounded-2xl border border-gray-100 dark:border-cyber-border px-4 py-3 flex-row items-center justify-between mt-6"
                     >
-                        <Text className="text-base text-gray-800">{t('settings.feedback', 'דיווח על באג / יצירת קשר')}</Text>
-                        <FontAwesome name="chevron-left" size={14} color="#9ca3af" />
+                        <Text className="text-base text-gray-800 dark:text-cyber-text">{t('settings.feedback', 'דיווח על באג / יצירת קשר')}</Text>
+                        <FontAwesome name={I18nManager.isRTL ? 'chevron-left' : 'chevron-right'} size={14} color="#9ca3af" />
                     </TouchableOpacity>
                 </ScrollView>
             )}

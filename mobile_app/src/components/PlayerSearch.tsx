@@ -78,18 +78,18 @@ export default function PlayerSearch() {
     };
 
     return (
-        <View className="mx-4 mb-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-            <Text className="text-lg font-black text-gray-900 mb-3 text-right">
+        <View className="mx-4 mb-4 bg-white dark:bg-cyber-card rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-cyber-border">
+            <Text className="text-lg font-black text-gray-900 dark:text-cyber-text mb-3 text-right">
                 {t('friends.searchPlayers', 'חפש שחקנים')}
             </Text>
 
-            <View className="bg-gray-50 rounded-2xl px-4 py-3 flex-row items-center border border-gray-200 mb-1">
+            <View className="bg-gray-50 dark:bg-cyber-bg rounded-2xl px-4 py-3 flex-row items-center border border-gray-200 dark:border-cyber-border mb-1">
                 <FontAwesome name="search" size={16} color="#9ca3af" style={{ marginRight: 8 }} />
                 <TextInput
                     placeholder={t('profile.searchPlayersPlaceholder', 'חפש שחקנים לפי שם או אימייל...')}
                     value={query}
                     onChangeText={setQuery}
-                    className="flex-1 text-base text-gray-800 text-right"
+                    className="flex-1 text-base text-gray-800 dark:text-cyber-text text-right"
                     autoCapitalize="none"
                     autoCorrect={false}
                 />
@@ -104,7 +104,7 @@ export default function PlayerSearch() {
             {!loading && query.trim() !== '' && results.length === 0 && (
                 <View className="items-center py-6">
                     <FontAwesome name="user-times" size={32} color="#d1d5db" />
-                    <Text className="text-gray-500 text-sm mt-3">
+                    <Text className="text-gray-500 dark:text-cyber-muted text-sm mt-3">
                         {t('profile.noPlayersFound', 'לא נמצאו שחקנים תואמים')}
                     </Text>
                 </View>
@@ -122,19 +122,19 @@ export default function PlayerSearch() {
                             <TouchableOpacity
                                 key={item.id}
                                 onPress={() => router.push(`/user/${item.id}`)}
-                                className="flex-row items-center justify-between bg-gray-50 p-3 mb-2 rounded-2xl border border-gray-100"
+                                className="flex-row items-center justify-between bg-gray-50 dark:bg-cyber-bg p-3 mb-2 rounded-2xl border border-gray-100 dark:border-cyber-border"
                                 activeOpacity={0.7}
                             >
                                 <View className="flex-row items-center flex-1 mr-3">
                                     <SafeImage
                                         source={{ uri: item.imageUrl || defaultAvatar }}
-                                        className="w-11 h-11 rounded-full bg-gray-100"
+                                        className="w-11 h-11 rounded-full bg-gray-100 dark:bg-cyber-border"
                                     />
                                     <View className="ml-3 flex-1 items-start">
-                                        <Text className="text-base font-bold text-gray-800" numberOfLines={1}>
+                                        <Text className="text-base font-bold text-gray-800 dark:text-cyber-text" numberOfLines={1}>
                                             {item.name || 'Unnamed Player'}
                                         </Text>
-                                        <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={1}>
+                                        <Text className="text-xs text-gray-500 dark:text-cyber-muted mt-0.5" numberOfLines={1}>
                                             {item.city || t('profile.unknownCity', 'מיקום לא ידוע')}
                                         </Text>
                                     </View>
@@ -142,9 +142,9 @@ export default function PlayerSearch() {
 
                                 <View>
                                     {isFriend && (
-                                        <View className="bg-green-50 px-3 py-1.5 rounded-lg border border-green-100 flex-row items-center">
+                                        <View className="bg-green-50 dark:bg-brand-ink px-3 py-1.5 rounded-lg border border-green-100 flex-row items-center">
                                             <FontAwesome name="check" size={10} color="#15803d" style={{ marginRight: 4 }} />
-                                            <Text className="text-xs text-green-700 font-bold">
+                                            <Text className="text-xs text-green-700 dark:text-brand-light font-bold">
                                                 {t('profile.friends', 'חברים')}
                                             </Text>
                                         </View>

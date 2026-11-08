@@ -37,9 +37,9 @@ function currentJerusalemDay(): number {
 
 function FieldProfileHeader({ title, onBack }: { title: string; onBack: () => void }) {
     return (
-        <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100">
+        <View className="flex-row items-center px-4 py-3 bg-white dark:bg-cyber-card border-b border-gray-100 dark:border-cyber-border">
             <BackButton onPress={onBack} className="me-3" />
-            <Text className="text-xl font-bold text-gray-900 flex-1" numberOfLines={1}>{title}</Text>
+            <Text className="text-xl font-bold text-gray-900 dark:text-cyber-text flex-1" numberOfLines={1}>{title}</Text>
         </View>
     );
 }
@@ -104,7 +104,7 @@ export default function FieldProfileScreen() {
 
     if (loading) {
         return (
-            <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-gray-50">
+            <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-gray-50 dark:bg-cyber-bg">
                 <FieldProfileHeader title={t('field.profile')} onBack={() => router.back()} />
                 <View className="flex-1 justify-center items-center">
                     <LoadingMotif id="pin-drop" label={t('field.loadingField', 'טוען מגרש…')} />
@@ -115,10 +115,10 @@ export default function FieldProfileScreen() {
 
     if (!field) {
         return (
-            <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-gray-50">
+            <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-gray-50 dark:bg-cyber-bg">
                 <FieldProfileHeader title={t('field.profile')} onBack={() => router.back()} />
                 <View className="flex-1 justify-center items-center">
-                    <Text className="text-gray-500">{t('field.notFound')}</Text>
+                    <Text className="text-gray-500 dark:text-cyber-muted">{t('field.notFound')}</Text>
                 </View>
             </SafeAreaView>
         );
@@ -134,20 +134,20 @@ export default function FieldProfileScreen() {
         return (
             <TouchableOpacity
                 onPress={() => router.push(`/game/${item.id}`)}
-                className="bg-white border border-gray-200 rounded-xl p-3 mr-3 w-44"
+                className="bg-white dark:bg-cyber-card border border-gray-200 dark:border-cyber-border rounded-xl p-3 mr-3 w-44"
             >
-                <Text className="font-bold text-gray-800" numberOfLines={1}>
+                <Text className="font-bold text-gray-800 dark:text-cyber-text" numberOfLines={1}>
                     {item.title || (item.sport ? t(`sports.${item.sport.toLowerCase()}`, SPORT_MAPPING[item.sport] || item.sport) : '')}
                 </Text>
-                <Text className="text-gray-500 text-xs mt-1">
+                <Text className="text-gray-500 dark:text-cyber-muted text-xs mt-1">
                     {item.date ? item.date.split('-').reverse().join('/') : ''} · {item.time || ''}
                 </Text>
-                <Text className="text-gray-400 text-xs mt-0.5">
+                <Text className="text-gray-400 dark:text-cyber-muted text-xs mt-0.5">
                     {item.duration} {item.duration === 1 ? t('field.hour') : t('field.hours')}
                     {item.price ? ` · ₪${item.price}` : ` · ${t('field.freePrice')}`}
                 </Text>
-                <View className={`self-start mt-2 px-2 py-0.5 rounded-full ${isFull ? 'bg-gray-100' : 'bg-green-100'}`}>
-                    <Text className={`text-xs font-bold ${isFull ? 'text-gray-500' : 'text-green-700'}`}>
+                <View className={`self-start mt-2 px-2 py-0.5 rounded-full ${isFull ? 'bg-gray-100 dark:bg-cyber-border' : 'bg-green-100'}`}>
+                    <Text className={`text-xs font-bold ${isFull ? 'text-gray-500 dark:text-cyber-muted' : 'text-green-700 dark:text-brand-light'}`}>
                         {isFull ? t('field.gameFull') : t('field.slotsLeft', { count: slotsLeft })}
                     </Text>
                 </View>
@@ -156,7 +156,7 @@ export default function FieldProfileScreen() {
     };
 
     return (
-        <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-gray-50">
+        <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-gray-50 dark:bg-cyber-bg">
             <FieldProfileHeader title={field.name} onBack={() => router.back()} />
 
             <ScrollView
@@ -165,7 +165,7 @@ export default function FieldProfileScreen() {
                 showsVerticalScrollIndicator={false}
             >
                 {/* Field Header & Info */}
-                <View className="bg-white mb-4 shadow-sm">
+                <View className="bg-white dark:bg-cyber-card mb-4 shadow-sm">
                     <View style={{ position: 'relative' }}>
                         {field.image ? (
                             <SafeImage source={{ uri: field.image }} style={{ width: '100%', height: 180 }} resizeMode="cover" />
@@ -175,32 +175,32 @@ export default function FieldProfileScreen() {
                         </View>
                     </View>
                     <View className="p-4">
-                        <Text className="text-2xl font-bold text-gray-800">{field.name}</Text>
+                        <Text className="text-2xl font-bold text-gray-800 dark:text-cyber-text">{field.name}</Text>
                         {address ? (
                             <View className="flex-row items-center mt-1">
                                 <FontAwesome name="map-marker" size={14} color="#6b7280" style={{ marginRight: 6 }} />
-                                <Text className="text-gray-600 flex-1">{address}</Text>
+                                <Text className="text-gray-600 dark:text-cyber-muted flex-1">{address}</Text>
                             </View>
                         ) : null}
 
                         <View className="flex-row flex-wrap mt-3" style={{ gap: 6 }}>
-                            <View className="px-3 py-1 rounded-full bg-brand-mist border border-brand-pale">
-                                <Text className="text-brand-dark text-xs font-bold">
+                            <View className="px-3 py-1 rounded-full bg-brand-mist dark:bg-brand-ink border border-brand-pale">
+                                <Text className="text-brand-dark dark:text-brand-light text-xs font-bold">
                                     {field.type === 'closed' ? t('field.closedField') : t('field.openField')}
                                 </Text>
                             </View>
                             {sports.map(s => (
-                                <View key={s} className="px-3 py-1 rounded-full bg-gray-100 border border-gray-200">
-                                    <Text className="text-gray-700 text-xs font-bold">{SPORT_MAPPING[s] || s}</Text>
+                                <View key={s} className="px-3 py-1 rounded-full bg-gray-100 dark:bg-cyber-border border border-gray-200 dark:border-cyber-border">
+                                    <Text className="text-gray-700 dark:text-cyber-text text-xs font-bold">{SPORT_MAPPING[s] || s}</Text>
                                 </View>
                             ))}
                         </View>
 
                         {field.description ? (
-                            <Text className="text-gray-600 text-sm mt-3">{field.description}</Text>
+                            <Text className="text-gray-600 dark:text-cyber-muted text-sm mt-3">{field.description}</Text>
                         ) : null}
 
-                        <Text className="text-gray-500 text-sm mt-3">
+                        <Text className="text-gray-500 dark:text-cyber-muted text-sm mt-3">
                             {!field.price || field.price <= 0
                                 ? t('field.freePrice')
                                 : t('field.pricePerHour', { price: field.price })}
@@ -218,7 +218,7 @@ export default function FieldProfileScreen() {
                 </View>
 
                 {typeof field.lat === 'number' && typeof field.lng === 'number' && (
-                    <View className="bg-white mb-4 shadow-sm" style={{ height: 200, overflow: 'hidden' }}>
+                    <View className="bg-white dark:bg-cyber-card mb-4 shadow-sm" style={{ height: 200, overflow: 'hidden' }}>
                         <MapView
                             style={{ flex: 1 }}
                             initialRegion={{
@@ -238,10 +238,10 @@ export default function FieldProfileScreen() {
                 {analytics && (
                     <>
                         {/* JoinUp Roster Schedule */}
-                        <View className="bg-white p-4 mb-4 shadow-sm">
-                            <Text className="text-lg font-bold text-gray-800 mb-3">{t('field.upcomingGames')}</Text>
+                        <View className="bg-white dark:bg-cyber-card p-4 mb-4 shadow-sm">
+                            <Text className="text-lg font-bold text-gray-800 dark:text-cyber-text mb-3">{t('field.upcomingGames')}</Text>
                             {analytics.schedule.length === 0 ? (
-                                <Text className="text-gray-500 text-sm">{t('field.noUpcomingGames')}</Text>
+                                <Text className="text-gray-500 dark:text-cyber-muted text-sm">{t('field.noUpcomingGames')}</Text>
                             ) : (
                                 <FlatList
                                     horizontal
@@ -255,9 +255,9 @@ export default function FieldProfileScreen() {
                         </View>
 
                         {/* Visual Busy Times Chart */}
-                        <View className="bg-white p-4 mb-4 shadow-sm">
-                            <Text className="text-lg font-bold text-gray-800">{t('field.busyTimes')}</Text>
-                            <Text className="text-gray-400 text-xs mb-3">
+                        <View className="bg-white dark:bg-cyber-card p-4 mb-4 shadow-sm">
+                            <Text className="text-lg font-bold text-gray-800 dark:text-cyber-text">{t('field.busyTimes')}</Text>
+                            <Text className="text-gray-400 dark:text-cyber-muted text-xs mb-3">
                                 {t('field.busySubtitle', { count: analytics.totalReports, days: analytics.reportWindowDays })}
                             </Text>
 
@@ -266,9 +266,9 @@ export default function FieldProfileScreen() {
                                     <TouchableOpacity
                                         key={d}
                                         onPress={() => setSelectedDay(d)}
-                                        className={`mr-2 px-3 py-1.5 rounded-full border ${selectedDay === d ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
+                                        className={`mr-2 px-3 py-1.5 rounded-full border ${selectedDay === d ? 'bg-brand border-brand' : 'bg-white dark:bg-cyber-card border-gray-300 dark:border-cyber-border'}`}
                                     >
-                                        <Text className={selectedDay === d ? 'text-white font-bold text-xs' : 'text-gray-700 text-xs'}>
+                                        <Text className={selectedDay === d ? 'text-white font-bold text-xs' : 'text-gray-700 dark:text-cyber-text text-xs'}>
                                             {t(`field.day${d}`)}
                                         </Text>
                                     </TouchableOpacity>
@@ -305,7 +305,7 @@ export default function FieldProfileScreen() {
                                                     )}
                                                 </View>
                                                 {hour % 3 === 0 ? (
-                                                    <Text className="text-gray-600 mt-1" style={{ fontSize: 12 }}>{hour}</Text>
+                                                    <Text className="text-gray-600 dark:text-cyber-muted mt-1" style={{ fontSize: 12 }}>{hour}</Text>
                                                 ) : (
                                                     <Text style={{ fontSize: 12 }}> </Text>
                                                 )}
@@ -316,7 +316,7 @@ export default function FieldProfileScreen() {
                             </ScrollView>
 
                             {!hasDayData && (
-                                <Text className="text-gray-500 text-sm text-center mt-2">{t('field.noDayData')}</Text>
+                                <Text className="text-gray-500 dark:text-cyber-muted text-sm text-center mt-2">{t('field.noDayData')}</Text>
                             )}
 
                             <View className="flex-row justify-center mt-3" style={{ gap: 12 }}>
@@ -328,7 +328,7 @@ export default function FieldProfileScreen() {
                                 ].map(item => (
                                     <View key={item.label} className="flex-row items-center">
                                         <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: item.color, marginRight: 4 }} />
-                                        <Text className="text-gray-500 text-xs">{item.label}</Text>
+                                        <Text className="text-gray-500 dark:text-cyber-muted text-xs">{item.label}</Text>
                                     </View>
                                 ))}
                             </View>
@@ -342,17 +342,17 @@ export default function FieldProfileScreen() {
 
             {/* Crowdsource Feedback Widget — flex footer inside SafeAreaView, not absolute */}
             {userId && (
-                <View className="bg-white border-t border-gray-200 px-4 pt-4 pb-2 shadow-lg">
+                <View className="bg-white dark:bg-cyber-card border-t border-gray-200 dark:border-cyber-border px-4 pt-4 pb-2 shadow-lg">
                     {reportState === 'done' ? (
-                        <Text className="text-center font-bold text-gray-800 py-2">{t('field.thanks')}</Text>
+                        <Text className="text-center font-bold text-gray-800 dark:text-cyber-text py-2">{t('field.thanks')}</Text>
                     ) : (
                         <>
-                            <Text className="font-bold text-gray-800 mb-2 text-center">{t('field.busyNow')}</Text>
+                            <Text className="font-bold text-gray-800 dark:text-cyber-text mb-2 text-center">{t('field.busyNow')}</Text>
                             <View className="flex-row justify-center pb-1" style={{ gap: 10 }}>
                                 {[
-                                    { label: t('field.empty'), level: 1, bg: 'bg-green-100 border-green-300', text: 'text-green-700' },
-                                    { label: t('field.moderate'), level: 3, bg: 'bg-orange-100 border-orange-300', text: 'text-orange-700' },
-                                    { label: t('field.crowded'), level: 5, bg: 'bg-red-100 border-red-300', text: 'text-red-700' }
+                                    { label: t('field.empty'), level: 1, bg: 'bg-green-100 border-green-300 dark:bg-green-950 dark:border-green-800', text: 'text-green-700 dark:text-brand-light' },
+                                    { label: t('field.moderate'), level: 3, bg: 'bg-orange-100 border-orange-300 dark:bg-orange-950 dark:border-orange-800', text: 'text-orange-700 dark:text-orange-300' },
+                                    { label: t('field.crowded'), level: 5, bg: 'bg-red-100 border-red-300 dark:bg-red-950 dark:border-red-900', text: 'text-red-700 dark:text-red-300' }
                                 ].map(opt => (
                                     <TouchableOpacity
                                         key={opt.level}

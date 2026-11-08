@@ -1,0 +1,12 @@
+appId: com.yairklo.joinupapp
+name: consistency pr2 (settings, profile, friends) - light
+---
+# Light mode only. On the Android dev client a deep link (VIEW intent) arriving after the dark toggle
+# re-creates the activity and the app alternates between themes, so dark captures must not use openLink.
+# Run one language per run (LANG = he | en, used in file names); the app language comes from the device locale
+# on a fresh install (`adb shell pm clear` + `cmd locale set-system-locales`), not from the in-app HE/EN toggle.
+- runFlow:
+    file: subflows/consistency-session.yaml
+    env:
+      THEME: light
+- runFlow: subflows/consistency-pr2-capture.yaml

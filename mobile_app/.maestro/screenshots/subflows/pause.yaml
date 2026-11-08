@@ -1,0 +1,7 @@
+appId: com.yairklo.joinupapp
+---
+# Maestro has no sleep; waiting for text that never appears is a bounded pause.
+- extendedWaitUntil:
+    visible: 'zz-never-visible-zz'
+    timeout: ${PAUSE_MS}
+    optional: true

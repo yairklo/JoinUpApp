@@ -102,14 +102,14 @@ export default function FriendsScreen() {
 
     if (loading && !refreshing) {
         return (
-            <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
+            <SafeAreaView className="flex-1 bg-gray-50 dark:bg-cyber-bg items-center justify-center">
                 <LoadingMotif id="crowd-wave" label={t('friends.loadingFriends', 'טוען חברים…')} />
             </SafeAreaView>
         );
     }
 
     return (
-        <SafeAreaView className="flex-1 bg-gray-50" edges={['bottom']}>
+        <SafeAreaView className="flex-1 bg-gray-50 dark:bg-cyber-bg" edges={['bottom']}>
             <ScrollView
                 className="flex-1 mt-2"
                 contentContainerStyle={{ paddingBottom: 40 }}
@@ -122,19 +122,19 @@ export default function FriendsScreen() {
 
                 {/* Incoming Requests */}
                 {incomingRequests.length > 0 && (
-                    <View className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mx-4 mb-4">
-                        <Text className="font-extrabold text-gray-900 mb-3 flex-row items-center text-right">
+                    <View className="bg-white dark:bg-cyber-card rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-cyber-border mx-4 mb-4">
+                        <Text className="font-extrabold text-gray-900 dark:text-cyber-text mb-3 flex-row items-center text-right">
                             <FontAwesome name="bell" size={16} color="#eab308" style={{ marginRight: 6 }} />
                             {' '}{t('friends.incomingRequests', 'בקשות חברות נכנסות')} ({incomingRequests.length})
                         </Text>
                         {incomingRequests.map(req => (
-                            <View key={req.id} className="flex-row items-center justify-between py-2 border-b border-gray-50 last:border-b-0">
+                            <View key={req.id} className="flex-row items-center justify-between py-2 border-b border-gray-50 dark:border-cyber-border last:border-b-0">
                                 <TouchableOpacity onPress={() => router.push(`/user/${req.requester.id}`)} className="flex-row items-center flex-1">
                                     <SafeImage
                                         source={{ uri: req.requester.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(req.requester.name)}` }}
-                                        className="w-10 h-10 rounded-full bg-gray-200 mr-3"
+                                        className="w-10 h-10 rounded-full bg-gray-200 dark:bg-cyber-border mr-3"
                                     />
-                                    <Text className="text-sm font-bold text-gray-800" numberOfLines={1}>{req.requester.name}</Text>
+                                    <Text className="text-sm font-bold text-gray-800 dark:text-cyber-text" numberOfLines={1}>{req.requester.name}</Text>
                                 </TouchableOpacity>
                                 <View className="flex-row items-center ml-2">
                                     <TouchableOpacity
@@ -160,33 +160,33 @@ export default function FriendsScreen() {
                 )}
 
                 {/* Friends List */}
-                <View className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mx-4">
-                    <Text className="font-extrabold text-gray-900 mb-4 flex-row items-center text-right">
+                <View className="bg-white dark:bg-cyber-card rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-cyber-border mx-4">
+                    <Text className="font-extrabold text-gray-900 dark:text-cyber-text mb-4 flex-row items-center text-right">
                         <FontAwesome name="users" size={16} color="#059669" style={{ marginRight: 6 }} />
                         {' '}{t('friends.myFriends', 'החברים שלי')} ({friends.length})
                     </Text>
                     {friends.length === 0 ? (
                         <View className="items-center py-6">
                             <FontAwesome name="users" size={36} color="#d1d5db" />
-                            <Text className="text-gray-400 mt-2 text-center text-sm leading-5">
+                            <Text className="text-gray-400 dark:text-cyber-muted mt-2 text-center text-sm leading-5">
                                 {t('friends.noFriends', 'עדיין אין לך חברים ברשת.')}
                             </Text>
                         </View>
                     ) : (
                         friends.map(friend => (
-                            <View key={friend.id} className="flex-row items-center justify-between py-2 border-b border-gray-50 last:border-b-0">
+                            <View key={friend.id} className="flex-row items-center justify-between py-2 border-b border-gray-50 dark:border-cyber-border last:border-b-0">
                                 <TouchableOpacity onPress={() => router.push(`/user/${friend.id}`)} className="flex-row items-center flex-1">
                                     <SafeImage
                                         source={{ uri: friend.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.name)}` }}
-                                        className="w-10 h-10 rounded-full bg-gray-200 mr-3"
+                                        className="w-10 h-10 rounded-full bg-gray-200 dark:bg-cyber-border mr-3"
                                     />
-                                    <Text className="text-sm font-bold text-gray-800" numberOfLines={1}>{friend.name}</Text>
+                                    <Text className="text-sm font-bold text-gray-800 dark:text-cyber-text" numberOfLines={1}>{friend.name}</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     onPress={() => handleRemoveFriend(friend.id)}
-                                    className="bg-red-50 px-3 py-1.5 rounded-lg border border-red-100"
+                                    className="bg-red-50 dark:bg-red-950 px-3 py-1.5 rounded-lg border border-red-100 dark:border-red-900"
                                 >
-                                    <Text className="text-xs text-red-600 font-bold">{t('friends.remove', 'הסר')}</Text>
+                                    <Text className="text-xs text-red-600 dark:text-red-400 font-bold">{t('friends.remove', 'הסר')}</Text>
                                 </TouchableOpacity>
                             </View>
                         ))

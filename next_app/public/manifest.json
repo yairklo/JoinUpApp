@@ -7,19 +7,19 @@
     "theme_color": "#047857",
     "icons": [
         {
-            "src": "/icons/web-app-manifest-192x192.png?v=brand2",
+            "src": "/icons/web-app-manifest-192x192.png?v=brand3",
             "sizes": "192x192",
             "type": "image/png",
             "purpose": "any"
         },
         {
-            "src": "/icons/web-app-manifest-512x512.png?v=brand2",
+            "src": "/icons/web-app-manifest-512x512.png?v=brand3",
             "sizes": "512x512",
             "type": "image/png",
             "purpose": "any"
         },
         {
-            "src": "/icons/web-app-manifest-maskable-512x512.png?v=brand2",
+            "src": "/icons/web-app-manifest-maskable-512x512.png?v=brand3",
             "sizes": "512x512",
             "type": "image/png",
             "purpose": "maskable"
