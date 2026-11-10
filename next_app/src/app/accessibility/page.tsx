@@ -6,11 +6,7 @@ import Link from "@mui/material/Link";
 
 const PATH = "/accessibility";
 
-// TODO(owner): replace the placeholder contact details below before relying on this page publicly.
-const PLACEHOLDER = {
-  he: "[להשלים: שם רכז/ת הנגישות]",
-  en: "[TO BE FILLED: accessibility coordinator name]",
-};
+const CONTACT_EMAIL = "joinupapp.support@gmail.com";
 
 const COPY = {
   he: {
@@ -45,10 +41,7 @@ const COPY = {
     coordinator: "רכז/ת נגישות",
     name: "שם",
     email: "דוא\"ל",
-    phone: "טלפון",
-    placeholderName: PLACEHOLDER.he,
-    placeholderEmail: "[להשלים: כתובת דוא\"ל]",
-    placeholderPhone: "[להשלים: מספר טלפון]",
+    coordinatorName: "יאיר קלוזנר",
     backLabel: "חזרה לדף הבית",
   },
   en: {
@@ -83,10 +76,7 @@ const COPY = {
     coordinator: "Accessibility coordinator",
     name: "Name",
     email: "Email",
-    phone: "Phone",
-    placeholderName: PLACEHOLDER.en,
-    placeholderEmail: "[TO BE FILLED: email address]",
-    placeholderPhone: "[TO BE FILLED: phone number]",
+    coordinatorName: "Yair Klausner",
     backLabel: "Back to home",
   },
 } as const;
@@ -103,8 +93,6 @@ export default async function AccessibilityStatementPage(props: {
   const isEn = lang === "en";
   const t = isEn ? COPY.en : COPY.he;
   const listSx = { paddingInlineStart: 3, my: 0, "& li": { mb: 0.75 } };
-  // Placeholders are shown in a highlighted, clearly-marked style so they cannot be missed.
-  const placeholderSx = { bgcolor: "warning.light", color: "warning.contrastText", px: 0.5, borderRadius: 0.5 };
 
   return (
     <Container maxWidth="md" sx={{ py: 6 }} dir={isEn ? "ltr" : "rtl"} lang={isEn ? "en" : "he"}>
@@ -145,9 +133,11 @@ export default async function AccessibilityStatementPage(props: {
           <Typography variant="h6" component="h2" fontWeight={700}>{t.contactHeading}</Typography>
           <Typography>{t.contactIntro}</Typography>
           <Typography component="ul" sx={listSx}>
-            <li>{t.coordinator}: <Typography component="span" sx={placeholderSx}>{t.placeholderName}</Typography></li>
-            <li>{t.email}: <Typography component="span" sx={placeholderSx} dir="ltr">{t.placeholderEmail}</Typography></li>
-            <li>{t.phone}: <Typography component="span" sx={placeholderSx} dir="ltr">{t.placeholderPhone}</Typography></li>
+            <li>{t.coordinator}: {t.coordinatorName}</li>
+            <li>
+              {t.email}:{" "}
+              <Link href={`mailto:${CONTACT_EMAIL}`} underline="hover" dir="ltr">{CONTACT_EMAIL}</Link>
+            </li>
           </Typography>
         </Stack>
 
