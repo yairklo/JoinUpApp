@@ -32,13 +32,21 @@ const linkSx = {
 export default function OpenInMapLinks({
   location,
   variant = "button",
+  ariaLabelPrefix,
+  primaryLabel = "פתיחה במפה",
 }: {
   location: MapLocationInput;
   /** Pill buttons on the game and group pages; text links in a tight row. */
   variant?: "button" | "link";
+  /** Says what the links lead to when the visible text alone doesn't (e.g. "ניווט לחניה"). */
+  ariaLabelPrefix?: string;
+  /** Visible text of the Google Maps link. */
+  primaryLabel?: string;
 }) {
   const links = buildMapLinks(location);
   if (!links) return null;
+  const googleAria = ariaLabelPrefix ? `${ariaLabelPrefix} ב-Google Maps` : undefined;
+  const wazeAria = ariaLabelPrefix ? `${ariaLabelPrefix} ב-Waze` : undefined;
 
   if (variant === "link") {
     return (
@@ -50,8 +58,9 @@ export default function OpenInMapLinks({
           underline="hover"
           variant="body2"
           sx={linkSx}
+          aria-label={googleAria}
         >
-          פתיחה במפה
+          {primaryLabel}
         </MuiLink>
         <MuiLink
           href={links.wazeUrl}
@@ -60,6 +69,7 @@ export default function OpenInMapLinks({
           underline="hover"
           variant="body2"
           sx={linkSx}
+          aria-label={wazeAria}
         >
           Waze
         </MuiLink>
@@ -78,8 +88,9 @@ export default function OpenInMapLinks({
         target="_blank"
         rel="noopener noreferrer"
         sx={mapButtonSx}
+        aria-label={googleAria}
       >
-        פתיחה במפה
+        {primaryLabel}
       </Button>
       <Button
         component="a"
@@ -88,6 +99,7 @@ export default function OpenInMapLinks({
         target="_blank"
         rel="noopener noreferrer"
         sx={mapButtonSx}
+        aria-label={wazeAria}
       >
         Waze
       </Button>

@@ -16,6 +16,7 @@ import { alpha } from "@mui/material/styles";
 import IosShareRoundedIcon from "@mui/icons-material/IosShareRounded";
 import PlaceRoundedIcon from "@mui/icons-material/PlaceRounded";
 import OpenInMapLinks from "@/components/OpenInMapLinks";
+import ParkingInfo from "@/components/ParkingInfo";
 import { venueMapInput, type MapLocationInput } from "@joinup/shared/mapLinks";
 
 export default function GameActions({
@@ -27,6 +28,9 @@ export default function GameActions({
   customLat,
   customLng,
   customLocation,
+  parkingLat,
+  parkingLng,
+  parkingNote,
 }: {
   gameId: string;
   fieldName?: string;
@@ -36,6 +40,10 @@ export default function GameActions({
   customLat?: number | null;
   customLng?: number | null;
   customLocation?: string | null;
+  /** The field's optional parking pin (the API omits it for a custom-location game). */
+  parkingLat?: number | null;
+  parkingLng?: number | null;
+  parkingNote?: string | null;
 }) {
   const location: MapLocationInput = {
     lat,
@@ -50,6 +58,7 @@ export default function GameActions({
   const pinLat = venue?.lat;
   const pinLng = venue?.lng;
   const isLoc = typeof pinLat === "number" && typeof pinLng === "number";
+  const hasParking = typeof parkingLat === "number" && typeof parkingLng === "number";
 
   const { open, setOpen, url, copyState, copyLink, share } = useShareDialog();
   const shareText = (link: string) => `${fieldName ? `${fieldName} – ` : ""}הצטרפו למשחק: ${link}`;
@@ -96,7 +105,19 @@ export default function GameActions({
 
       {isLoc && (
         <Box sx={{ borderTop: "1px solid", borderColor: "divider" }}>
-          <GameLocationMap lat={pinLat as number} lng={pinLng as number} title={fieldName} height={200} />
+          <GameLocationMap
+            lat={pinLat as number}
+            lng={pinLng as number}
+            title={fieldName}
+            height={200}
+            parking={hasParking ? { lat: parkingLat as number, lng: parkingLng as number, note: parkingNote } : null}
+          />
+        </Box>
+      )}
+
+      {hasParking && (
+        <Box sx={{ borderTop: "1px solid", borderColor: "divider" }}>
+          <ParkingInfo lat={parkingLat} lng={parkingLng} note={parkingNote} fieldName={fieldName} />
         </Box>
       )}
 

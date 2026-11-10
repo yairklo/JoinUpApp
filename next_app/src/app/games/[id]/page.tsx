@@ -56,6 +56,9 @@ type Game = {
   customLat?: number | null;
   customLng?: number | null;
   customLocation?: string | null;
+  fieldParkingLat?: number | null;
+  fieldParkingLng?: number | null;
+  fieldParkingNote?: string | null;
   lotteryEnabled?: boolean;
   lotteryAt?: string | null;
   lotteryExecutedAt?: string | null;
@@ -269,6 +272,9 @@ export default async function GameDetails(props: {
                 customLat={game.customLat ?? null}
                 customLng={game.customLng ?? null}
                 customLocation={game.customLocation}
+                parkingLat={game.fieldParkingLat ?? null}
+                parkingLng={game.fieldParkingLng ?? null}
+                parkingNote={game.fieldParkingNote ?? null}
               />
             </SectionErrorBoundary>
 

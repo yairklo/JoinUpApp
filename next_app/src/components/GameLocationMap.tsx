@@ -24,10 +24,18 @@ function GameLocationMarker({
   lat,
   lng,
   onClick,
+  color = VENUE_PIN_COLOR,
+  glyph,
+  title,
 }: {
   lat: number;
   lng: number;
   onClick: () => void;
+  color?: string;
+  /** Letter inside the pin, e.g. "P" for the parking pin. */
+  glyph?: string;
+  /** Accessible name of the marker. */
+  title?: string;
 }) {
   const map = useMap();
   const markerLib = useMapsLibrary("marker");
@@ -45,9 +53,10 @@ function GameLocationMarker({
     if (!map || !markerLib) return;
 
     const pin = new markerLib.PinElement({
-      background: "#047857",
-      borderColor: "#047857",
+      background: color,
+      borderColor: color,
       glyphColor: "#fff",
+      ...(glyph ? { glyph } : {}),
     });
     const marker = new markerLib.AdvancedMarkerElement({
       map,
@@ -55,6 +64,7 @@ function GameLocationMarker({
       // PinElement is itself the <gmp-pin> element (`.element` is deprecated).
       content: pin,
       gmpClickable: true,
+      ...(title ? { title } : {}),
     });
     const handleClick = () => onClickRef.current();
     marker.addEventListener("gmp-click", handleClick);
@@ -63,8 +73,35 @@ function GameLocationMarker({
       marker.removeEventListener("gmp-click", handleClick);
       marker.map = null;
     };
-  }, [map, markerLib, lat, lng]);
+  }, [map, markerLib, lat, lng, color, glyph, title]);
 
+  return null;
+}
+
+const VENUE_PIN_COLOR = "#047857";
+const PARKING_PIN_COLOR = "#1d4ed8";
+
+// With a parking pin the default venue-centred view can leave it off screen, so frame both.
+function FitVenueAndParking({ lat, lng, parkingLat, parkingLng }: { lat: number; lng: number; parkingLat: number; parkingLng: number }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!map) return;
+    map.fitBounds(
+      {
+        north: Math.max(lat, parkingLat),
+        south: Math.min(lat, parkingLat),
+        east: Math.max(lng, parkingLng),
+        west: Math.min(lng, parkingLng),
+      },
+      56
+    );
+    // Two pins a few metres apart would otherwise zoom in to rooftop level.
+    const listener = map.addListener("idle", () => {
+      if ((map.getZoom() ?? 0) > 17) map.setZoom(17);
+      listener.remove();
+    });
+    return () => listener.remove();
+  }, [map, lat, lng, parkingLat, parkingLng]);
   return null;
 }
 
@@ -73,14 +110,24 @@ export default function GameLocationMap({
   lng,
   title,
   height = 240,
+  parking,
 }: {
   lat: number;
   lng: number;
   title?: string;
   height?: number;
+  /** Optional second, blue "P" pin for the field's parking. */
+  parking?: { lat: number; lng: number; note?: string | null } | null;
 }) {
   const center = useMemo(() => ({ lat, lng }), [lat, lng]);
-  const [infoOpen, setInfoOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState<"venue" | "parking" | null>(null);
+  const parkingLat = parking?.lat;
+  const parkingLng = parking?.lng;
+  const hasParking = typeof parkingLat === "number" && typeof parkingLng === "number";
+  const parkingPosition = useMemo(
+    () => (hasParking ? { lat: parkingLat as number, lng: parkingLng as number } : null),
+    [hasParking, parkingLat, parkingLng]
+  );
 
   if (!GOOGLE_MAPS_API_KEY) {
     return <div style={{ color: "#64748b", fontSize: 14 }}>מפה לא זמינה כרגע.</div>;
@@ -97,11 +144,29 @@ export default function GameLocationMap({
           disableDefaultUI={false}
           style={{ width: "100%", height: "100%" }}
         >
-          <GameLocationMarker lat={lat} lng={lng} onClick={() => setInfoOpen(true)} />
-          {infoOpen && (
-            <InfoWindow position={center} onCloseClick={() => setInfoOpen(false)}>
+          <GameLocationMarker lat={lat} lng={lng} title={title || "מיקום המשחק"} onClick={() => setInfoOpen("venue")} />
+          {infoOpen === "venue" && (
+            <InfoWindow position={center} onCloseClick={() => setInfoOpen(null)}>
               {title || "מיקום המשחק"}
             </InfoWindow>
+          )}
+          {parkingPosition && (
+            <>
+              <FitVenueAndParking lat={lat} lng={lng} parkingLat={parkingPosition.lat} parkingLng={parkingPosition.lng} />
+              <GameLocationMarker
+                lat={parkingPosition.lat}
+                lng={parkingPosition.lng}
+                color={PARKING_PIN_COLOR}
+                glyph="P"
+                title="חניה"
+                onClick={() => setInfoOpen("parking")}
+              />
+              {infoOpen === "parking" && (
+                <InfoWindow position={parkingPosition} onCloseClick={() => setInfoOpen(null)}>
+                  {parking?.note ? `חניה: ${parking.note}` : "חניה"}
+                </InfoWindow>
+              )}
+            </>
           )}
         </Map>
       </APIProvider>

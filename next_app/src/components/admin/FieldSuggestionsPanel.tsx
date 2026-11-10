@@ -29,6 +29,9 @@ function toInitialValues(s: FieldSuggestion): FieldEditorInitialValues {
     description: s.contactInfo ? `איש קשר (מהצעת משתמש): ${s.contactInfo}` : "",
     lat: s.lat ?? null,
     lng: s.lng ?? null,
+    parkingLat: s.parkingLat ?? null,
+    parkingLng: s.parkingLng ?? null,
+    parkingNote: s.parkingNote || "",
     ...(sport === "SOCCER" || sport === "BASKETBALL" || sport === "TENNIS" ? { supportedSports: [sport] } : {}),
   };
 }
