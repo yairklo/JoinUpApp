@@ -85,10 +85,13 @@ export default function RootLayout({
             <ThemeRegistry>
               <ChatProvider>
                 <NotificationCountersProvider>
+                  {/* WCAG 2.4.1: first focusable element, jumps past the navbar to the page content */}
+                  <a href="#main-content" className="skip-link">דלג לתוכן הראשי</a>
+
                   <AppNavbar />
 
                   {/* padding-bottom clears the mobile bottom navigation */}
-                  <main className="app-main">
+                  <main id="main-content" tabIndex={-1} className="app-main">
                     {children}
                   </main>
 

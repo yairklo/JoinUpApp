@@ -146,6 +146,13 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
   // Use the custom hook for all logic
   const { state, actions, refs } = useChatLogic({ roomId, chatName, suspended });
+
+  // The message log stays silent until history for THIS room has committed, so opening a chat (or
+  // switching rooms) doesn't read the whole transcript aloud; only later additions are announced.
+  const historyReady = !state.isLoading && state.loadedRoom === roomId;
+  const [liveRoom, setLiveRoom] = useState<string | null>(null);
+  useEffect(() => { setLiveRoom(historyReady ? roomId : null); }, [historyReady, roomId]);
+  const logLive = historyReady && liveRoom === roomId ? "polite" : "off";
   const { isConnected } = useSocket();
   const visibleMessages = useMemo(
     () => state.messages.filter((m: ChatMessage) => !(m.userId && blockedIds.has(m.userId))),
@@ -250,16 +257,21 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
             {/* Status Bar */}
             <Box sx={{ display: 'flex', alignItems: 'center', minHeight: '18px' }}>
-              {state.typingUsers.size > 0 ? (
-                <Typography variant="caption" sx={{
-                  color: 'secondary.light', fontWeight: 'bold', fontStyle: 'italic',
-                  animation: 'pulse 1.5s infinite', display: 'flex', alignItems: 'center', gap: 0.5,
-                  '@keyframes pulse': { '0%': { opacity: 0.6 }, '50%': { opacity: 1 }, '100%': { opacity: 0.6 } }
-                }}>
-                  <span>✎</span>
-                  {isRTL ? "מקליד/ה..." : state.typingUsers.size === 1 ? `${Array.from(state.typingUsers)[0]} is typing...` : 'Typing...'}
-                </Typography>
-              ) : (
+              {/* Only the typing indicator is a live region. Online/offline presence is deliberately
+                  outside it so it isn't announced every time a chat opens. */}
+              <Box role="status" aria-live="polite">
+                {state.typingUsers.size > 0 ? (
+                  <Typography variant="caption" sx={{
+                    color: 'secondary.light', fontWeight: 'bold', fontStyle: 'italic',
+                    animation: 'pulse 1.5s infinite', display: 'flex', alignItems: 'center', gap: 0.5,
+                    '@keyframes pulse': { '0%': { opacity: 0.6 }, '50%': { opacity: 1 }, '100%': { opacity: 0.6 } }
+                  }}>
+                    <span>✎</span>
+                    {isRTL ? "מקליד/ה..." : state.typingUsers.size === 1 ? `${Array.from(state.typingUsers)[0]} is typing...` : 'Typing...'}
+                  </Typography>
+                ) : null}
+              </Box>
+              {state.typingUsers.size === 0 && (
                 (state.isPrivate && state.otherUserId) ? (
                   state.isOtherUserOnline ? (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -284,6 +296,10 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
       <Box sx={{ position: "relative", flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
         <Box
           ref={refs.scrollContainerRef}
+          role="log"
+          aria-live={logLive}
+          aria-relevant="additions"
+          aria-label={isRTL ? "הודעות הצ'אט" : "Chat messages"}
           onScroll={handleScroll}
           sx={{ flex: 1, overflowY: "auto", p: 2, display: "flex", flexDirection: "column", bgcolor: theme.palette.mode === 'dark' ? 'background.default' : 'grey.50' }}
         >

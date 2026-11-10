@@ -18,6 +18,7 @@ export default function InlineErrorRow({
 }) {
   return (
     <Box
+      role="alert"
       sx={{
         bgcolor: (theme) => theme.palette.mode === "dark" ? "rgba(244,67,54,0.12)" : "rgba(244,67,54,0.06)",
         border: "1px solid",
