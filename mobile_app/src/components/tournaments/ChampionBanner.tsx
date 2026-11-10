@@ -8,8 +8,9 @@ import { getSportTheme } from '@/components/ui/SportCover';
 import type { TournamentDetail } from '@/types/tournament';
 import TeamBadge from './TeamBadge';
 import { deriveChampion } from './shellUtils';
+import { tournamentShareUrl } from '@/utils/shareUrl';
 
-export const tournamentLink = (id: string) => `https://join-up-app.vercel.app/tournaments/${encodeURIComponent(id)}`;
+export const tournamentLink = (id: string) => tournamentShareUrl(id);
 
 /**
  * Champion moment for a COMPLETED tournament (spec 2.4): sport deep->ink surface, champion badge, podium

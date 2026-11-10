@@ -1,4 +1,5 @@
-import { Slot, SplashScreen, Stack, useRouter, useSegments } from "expo-router";
+import { Slot, SplashScreen, Stack, usePathname, useRouter, useSegments } from "expo-router";
+import { consumeDeepLink, rememberDeepLink } from "@/utils/pendingDeepLink";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
@@ -176,6 +177,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const { isLoaded, isSignedIn, getToken, userId } = useAuth();
   const router = useRouter();
   const segments = useSegments();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -185,6 +187,8 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     if (!isSignedIn) {
       // If not signed in and not on auth pages, redirect to sign-in
       if (!inAuthGroup) {
+        // A deep link (e.g. a shared /games/<id>) is restored after sign-in.
+        rememberDeepLink(pathname);
         // Unmount screens left in the stack so they stop fetching without a session.
         if (router.canDismiss()) router.dismissAll();
         router.replace("/sign-in");
@@ -192,7 +196,10 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     } else {
       // If signed in and on auth pages, redirect to home
       if (inAuthGroup) {
+        const target = consumeDeepLink();
         router.replace("/(tabs)");
+        // Land on the home tab first so back works, then open the linked screen.
+        if (target) setTimeout(() => router.push(target as any), 0);
       }
     }
   }, [isLoaded, isSignedIn, segments]);

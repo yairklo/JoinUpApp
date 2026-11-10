@@ -317,7 +317,7 @@
     "waitlistOfferApprovalHint": "אם קיבלת הצעה מרשימת המתנה — אשר או וותר כאן. אם רק ביקשת להצטרף, המארגן צריך לאשר.",
     "waitlistOfferSpotReserved": "המקום שמור לך. עליך לאשר את ההצטרפות כדי לתפוס אותו.",
     "waitlistSubNotice": "הרשמת כמחליף. אם יתפנה מקום, תקבל הודעה ותוכל לאשר כאן.",
-    "shareMessage": "הצטרפו אלי למשחק ב-{{fieldName}} בתאריך {{date}} בשעה {{time}}!\nhttps://joinup.app/game/{{id}}",
+    "shareMessage": "הצטרפו אלי למשחק ב-{{fieldName}} בתאריך {{date}} בשעה {{time}}!\n{{url}}",
     "shareTitle": "הצטרף למשחק שלי",
     "calendarDefaultTitle": "משחק JoinUp",
     "unassignedBench": "לא שובצו",

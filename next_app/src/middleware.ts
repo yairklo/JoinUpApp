@@ -51,7 +51,8 @@ export default function middleware(request: NextRequest, event: NextFetchEvent) 
 
 export const config = {
   matcher: [
-    "/((?!.+\\.[\\w]+$|_next).*)",
+    // .well-known (app-link association files) must be served as-is: no Clerk handshake/redirect.
+    "/((?!.+\\.[\\w]+$|_next|\\.well-known).*)",
     "/(api|trpc)(.*)",
     // Explicit Clerk FAPI proxy path (Dashboard: /__clerk)
     "/__clerk/(.*)",

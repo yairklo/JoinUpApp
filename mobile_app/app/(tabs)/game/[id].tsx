@@ -27,6 +27,7 @@ import { SPORT_MAPPING } from '@/utils/sports';
 import SafeImage from '@/components/SafeImage';
 import OpenInMapButton from '@/components/OpenInMapButton';
 import { appAlert } from '@/i18n/appAlert';
+import { gameShareUrl } from '@/utils/shareUrl';
 
 const HERO_HEIGHT = 200;
 
@@ -521,11 +522,11 @@ export default function GameDetailsScreen() {
                         onPress={() => {
                             Share.share({
                                 message: t('game.shareMessage', {
-                                    defaultValue: `הצטרפו אלי למשחק ב-${game.field?.name || game.fieldName || ''} בתאריך ${game.date.split('-').reverse().join('/')} בשעה ${game.time}!\nhttps://joinup.app/game/${game.id}`,
+                                    defaultValue: `הצטרפו אלי למשחק ב-${game.field?.name || game.fieldName || ''} בתאריך ${game.date.split('-').reverse().join('/')} בשעה ${game.time}!\n${gameShareUrl(game.id)}`,
                                     fieldName: game.field?.name || game.fieldName || '',
                                     date: game.date.split('-').reverse().join('/'),
                                     time: game.time,
-                                    id: game.id,
+                                    url: gameShareUrl(game.id),
                                 }),
                                 title: t('game.shareTitle', 'הצטרף למשחק שלי')
                             });
@@ -560,7 +561,7 @@ export default function GameDetailsScreen() {
                             
                             const defaultTitle = t('game.calendarDefaultTitle', 'משחק JoinUp');
                             const title = encodeURIComponent(game.title || game.fieldName || defaultTitle);
-                            const details = encodeURIComponent(`${defaultTitle}\n\nhttps://joinup.app/game/${game.id}`);
+                            const details = encodeURIComponent(`${defaultTitle}\n\n${gameShareUrl(game.id)}`);
                             const location = encodeURIComponent(game.field?.location || game.fieldLocation || '');
                             
                             const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${formatGoogleDate(startDate)}/${formatGoogleDate(endDate)}&details=${details}&location=${location}`;
