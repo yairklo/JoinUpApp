@@ -1,4 +1,5 @@
 import { View, Text, TextInput, FlatList, TouchableOpacity, ActivityIndicator, Modal, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -22,6 +23,7 @@ import SafeImage from '@/components/SafeImage';
 type SearchMapPayload = { games: Game[] };
 
 export default function SearchScreen() {
+    const insets = useSafeAreaInsets();
     const { t, i18n } = useTranslation();
     const { getToken } = useAuth();
     const router = useRouter();
@@ -472,7 +474,7 @@ export default function SearchScreen() {
                         onRequestClose={() => setSelectedFieldGames(null)}
                     >
                         <View className="flex-1 justify-end bg-black/50">
-                            <View className="bg-white dark:bg-cyber-card rounded-t-3xl p-5 max-h-[80%]">
+                            <View className="bg-white dark:bg-cyber-card rounded-t-3xl p-5 max-h-[80%]" style={{ paddingBottom: insets.bottom + 20 }}>
                                 {/* Field header -- same visual language as the fields map's preview card */}
                                 <View className="flex-row items-center mb-4">
                                     {selectedFieldGames?.[0]?.field?.image ? (
@@ -592,7 +594,7 @@ export default function SearchScreen() {
                 onRequestClose={() => setCityModalVisible(false)}
             >
                 <View className="flex-1 justify-end bg-black/50">
-                    <View className="bg-white dark:bg-cyber-card rounded-t-3xl p-6 h-[50%]">
+                    <View className="bg-white dark:bg-cyber-card rounded-t-3xl p-6 h-[50%]" style={{ paddingBottom: insets.bottom + 24 }}>
                         <View className="flex-row justify-between items-center mb-4">
                             <Text className="text-xl font-bold text-gray-900 dark:text-cyber-text">{t('search.selectCity')}</Text>
                             <TouchableOpacity onPress={() => setCityModalVisible(false)}>
