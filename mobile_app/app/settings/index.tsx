@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView, Alert, I18nManager } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, I18nManager, Linking } from 'react-native';
 import React, { useCallback, useState } from 'react';
 import { useRouter, Stack, useFocusEffect } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
@@ -176,6 +176,15 @@ export default function SettingsScreen() {
                     >
                         <Text className="text-base text-gray-800 dark:text-cyber-text">{t('settings.termsOfService', 'Terms of Service')}</Text>
                         <FontAwesome name="angle-right" size={16} color="#9ca3af" style={chevronStyle} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        className="p-4 border-b border-gray-100 dark:border-cyber-border flex-row items-center justify-between"
+                        accessibilityRole="link"
+                        accessibilityLabel={t('settings.accessibilityStatement', 'הצהרת נגישות')}
+                        onPress={() => void Linking.openURL(`https://join-up-app.vercel.app/accessibility${i18n.language?.startsWith('he') ? '' : '?lang=en'}`)}
+                    >
+                        <Text className="text-base text-gray-800 dark:text-cyber-text">{t('settings.accessibilityStatement', 'הצהרת נגישות')}</Text>
+                        <FontAwesome name="external-link" size={14} color="#9ca3af" style={chevronStyle} />
                     </TouchableOpacity>
                     <TouchableOpacity
                         className="p-4 border-b border-gray-100 dark:border-cyber-border flex-row items-center justify-between"
