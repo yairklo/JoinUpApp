@@ -249,7 +249,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
             )}
 
             {/* Status Bar */}
-            <Box sx={{ display: 'flex', alignItems: 'center', minHeight: '18px' }}>
+            <Box role="status" aria-live="polite" sx={{ display: 'flex', alignItems: 'center', minHeight: '18px' }}>
               {state.typingUsers.size > 0 ? (
                 <Typography variant="caption" sx={{
                   color: 'secondary.light', fontWeight: 'bold', fontStyle: 'italic',
@@ -284,6 +284,10 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
       <Box sx={{ position: "relative", flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
         <Box
           ref={refs.scrollContainerRef}
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions"
+          aria-label={isRTL ? "הודעות הצ'אט" : "Chat messages"}
           onScroll={handleScroll}
           sx={{ flex: 1, overflowY: "auto", p: 2, display: "flex", flexDirection: "column", bgcolor: theme.palette.mode === 'dark' ? 'background.default' : 'grey.50' }}
         >

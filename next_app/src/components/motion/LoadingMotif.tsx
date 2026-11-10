@@ -14,7 +14,12 @@ export type MotifProps = { label?: string; size?: number };
 
 function MotifShell({ children, label }: { children: ReactNode; label?: string }) {
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1.5 }}>
+    <Box
+      role="status"
+      aria-live="polite"
+      aria-label={label ? undefined : "טוען"}
+      sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1.5 }}
+    >
       {children}
       {label ? (
         <Typography variant="body2" color="text.secondary" fontWeight={600}>

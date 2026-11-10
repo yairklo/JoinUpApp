@@ -55,6 +55,31 @@ body,
   min-height: 100%;
 }
 
+/* Skip link: off-screen until keyboard focus, then pinned top-start above the navbar */
+.skip-link {
+  position: fixed;
+  top: 8px;
+  inset-inline-start: 8px;
+  z-index: 2000;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: #047857;
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+.skip-link:focus,
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px #047857;
+}
+.app-main:focus {
+  outline: none;
+}
+
 /* Main content area – clears the fixed bottom navigation on mobile */
 .app-main {
   min-height: 100vh;
