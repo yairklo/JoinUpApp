@@ -317,7 +317,7 @@
     "waitlistOfferApprovalHint": "If you received a waitlist offer — confirm or decline here. If you requested to join, the organizer must approve.",
     "waitlistOfferSpotReserved": "The spot is reserved for you. Please confirm to take it.",
     "waitlistSubNotice": "Registered as a substitute. If a spot opens up, you'll be notified and can confirm here.",
-    "shareMessage": "Join me for a game at {{fieldName}} on {{date}} at {{time}}!\nhttps://joinup.app/game/{{id}}",
+    "shareMessage": "Join me for a game at {{fieldName}} on {{date}} at {{time}}!\n{{url}}",
     "shareTitle": "Join my game",
     "calendarDefaultTitle": "JoinUp Game",
     "unassignedBench": "Unassigned",

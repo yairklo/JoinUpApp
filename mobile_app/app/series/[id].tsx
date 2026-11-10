@@ -26,6 +26,7 @@ import SafeImage from '@/components/SafeImage';
 import OpenInMapButton from '@/components/OpenInMapButton';
 import { appAlert } from '@/i18n/appAlert';
 import { friendSuggestions, mergeFriendsFirst } from '@/utils/friendSuggestions';
+import { seriesShareUrl } from '@/utils/shareUrl';
 
 export default function SeriesScreen() {
     const insets = useSafeAreaInsets();
@@ -274,7 +275,7 @@ export default function SeriesScreen() {
     };
 
     const shareInvite = async () => {
-        const inviteUrl = `https://join-up-app.vercel.app/series/${id}`;
+        const inviteUrl = seriesShareUrl(String(id));
         const message = t('series.inviteText', 'Join my joinUp group: {{url}}', { url: inviteUrl });
         try {
             await Share.share({ message, url: inviteUrl });

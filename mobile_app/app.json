@@ -34,7 +34,10 @@
         "NSPhotoLibraryUsageDescription": "כדי לצרף תמונות למגרש שאתם מנהלים באפליקציה",
         "NSLocationWhenInUseUsageDescription": "כדי להציג משחקים ומגרשים קרובים אליכם",
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "associatedDomains": [
+        "applinks:join-up-app.vercel.app"
+      ]
     },
     "android": {
       "adaptiveIcon": {
@@ -61,7 +64,29 @@
         "googleMaps": {
           "apiKey": "AIzaSyCSkGsi2WtND71FfLA3h5o0IMje_veOPxw"
         }
-      }
+      },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "join-up-app.vercel.app",
+              "pathPrefix": "/games/"
+            },
+            {
+              "scheme": "https",
+              "host": "join-up-app.vercel.app",
+              "pathPrefix": "/series/"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "web": {
       "bundler": "metro",

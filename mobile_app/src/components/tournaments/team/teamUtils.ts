@@ -1,4 +1,5 @@
 import type { TFunction } from 'i18next';
+import { tournamentShareUrl } from '@/utils/shareUrl';
 import { isMinorsBlocked, tournamentErrorKey, tournamentErrorParams } from '@/utils/tournamentErrors';
 
 /** Same palette as the quick-teams jersey picker, kept in one place for tournament teams. */
@@ -20,4 +21,4 @@ export function describeTeamError(t: TFunction, err: any, opts: { self?: boolean
 
 /** Public link for a team's join code (spec 4.6: `/tournaments/{id}?join={code}`). */
 export const joinLink = (tournamentId: string, code: string) =>
-    `https://join-up-app.vercel.app/tournaments/${encodeURIComponent(tournamentId)}?join=${encodeURIComponent(code)}`;
+    `${tournamentShareUrl(tournamentId)}?join=${encodeURIComponent(code)}`;
