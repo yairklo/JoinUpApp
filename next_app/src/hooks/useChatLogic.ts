@@ -453,7 +453,7 @@ export function useChatLogic({ roomId, chatName, suspended = false }: UseChatLog
 
     return {
         state: {
-            messages, isLoading, inputValue, typingUsers, isOtherUserOnline,
+            messages, isLoading, loadedRoom, inputValue, typingUsers, isOtherUserOnline,
             chatDetails, replyToMessage, editingMessage, otherUserName: publicDisplayName(otherParticipant?.user?.name, "") || undefined,
             showScrollButton, unreadNewMessages,
             effectiveChatName, otherUserAvatar, isPrivate, otherUserId,
