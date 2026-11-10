@@ -932,6 +932,7 @@
     "pushNotifications": "Push Notifications",
     "privacyPolicy": "Privacy Policy",
     "termsOfService": "Terms of Service",
+    "accessibilityStatement": "Accessibility Statement",
     "version": "Version",
     "signOut": "Sign Out",
     "notificationsPermissionMessage": "To receive notifications, please allow permissions in device settings.",
