@@ -292,7 +292,7 @@ export default function AdminModerationPage() {
   return (
     <Stack spacing={2}>
       <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Typography variant="h5" fontWeight={800}>הודעות שסומנו</Typography>
+        <Typography variant="h5" component="h1" fontWeight={800}>הודעות שסומנו</Typography>
       </Stack>
       {error && <Alert severity="error">{error}</Alert>}
       {rows.length === 0 ? (

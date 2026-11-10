@@ -135,7 +135,7 @@ export default async function FieldProfilePage(props: { params: Promise<{ id: st
           <Box sx={{ p: 3 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={1}>
               <Box>
-                <Typography variant="h4" fontWeight={800}>{field.name}</Typography>
+                <Typography variant="h4" component="h1" fontWeight={800}>{field.name}</Typography>
                 {address && (
                   <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
                     {address}

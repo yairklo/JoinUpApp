@@ -122,7 +122,7 @@ export default function AdminFieldsPage() {
   return (
     <Stack spacing={3}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
-        <Typography variant="h5" fontWeight={800}>ניהול מגרשים</Typography>
+        <Typography variant="h5" component="h1" fontWeight={800}>ניהול מגרשים</Typography>
         <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
           מגרש חדש
         </Button>

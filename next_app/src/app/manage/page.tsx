@@ -23,7 +23,7 @@ export default function ManagePage() {
 
   return (
     <Container maxWidth="md" sx={{ py: 3 }}>
-      <Typography variant="h4" fontWeight={800} sx={{ mb: 3 }}>
+      <Typography variant="h4" component="h1" fontWeight={800} sx={{ mb: 3 }}>
         בניהולי
       </Typography>
 

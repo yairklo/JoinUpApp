@@ -105,7 +105,7 @@ export default async function UserPublicPage(props: {
 
                         {/* Name & Location */}
                         <Box mt={2} mb={3}>
-                            <Typography variant="h4" fontWeight="bold" gutterBottom data-testid="profile-name">
+                            <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom data-testid="profile-name">
                                 {normalizeName(u.name) || "משתמש"}
                             </Typography>
 
