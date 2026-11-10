@@ -264,6 +264,7 @@ export default function FieldEditorDialog({
           <ParkingLocationInput
             value={{ lat: form.parkingLat, lng: form.parkingLng, note: form.parkingNote }}
             onChange={(p: ParkingValue) => setForm((f) => ({ ...f, parkingLat: p.lat, parkingLng: p.lng, parkingNote: p.note }))}
+            fieldPosition={form.lat != null && form.lng != null ? { lat: form.lat, lng: form.lng } : null}
             addressForGeocoding={[form.street, form.streetNumber, form.neighborhood, form.city || form.location, "ישראל"]
               .filter(Boolean)
               .join(" ")}

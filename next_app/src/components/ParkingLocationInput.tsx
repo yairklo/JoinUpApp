@@ -33,12 +33,15 @@ export default function ParkingLocationInput({
   onChange,
   addressForGeocoding,
   disabled = false,
+  fieldPosition,
 }: {
   value: ParkingValue;
   onChange: (next: ParkingValue) => void;
   /** Lets "איתור לפי כתובת" drop the pin near the venue as a starting point. */
   addressForGeocoding: string;
   disabled?: boolean;
+  /** The field's own pin, when known, so the parking map opens next to it. */
+  fieldPosition?: { lat: number; lng: number } | null;
 }) {
   const hasPin = value.lat != null && value.lng != null;
   const [open, setOpen] = useState(hasPin);
@@ -79,6 +82,7 @@ export default function ParkingLocationInput({
         unsetHint="(לחצו על המפה כדי לסמן)"
         pinColor={PARKING_PIN_COLOR}
         pinGlyph="P"
+        fallbackCenter={fieldPosition}
         unavailableText="המפה לא זמינה כרגע, ולכן אי אפשר לסמן חניה."
       />
       <TextField

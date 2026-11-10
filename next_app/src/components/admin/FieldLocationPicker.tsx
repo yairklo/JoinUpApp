@@ -28,6 +28,8 @@ interface FieldLocationPickerProps {
   pinColor?: string;
   /** Letter drawn inside the pin (e.g. "P" for parking). */
   pinGlyph?: string;
+  /** Where the map opens while no pin is placed (e.g. the field, when picking its parking). */
+  fallbackCenter?: { lat: number; lng: number } | null;
   /** Replaces the "map unavailable" notice when there is no Maps key. */
   unavailableText?: string;
 }
@@ -48,13 +50,17 @@ function PickerInner({
   unsetHint = DEFAULT_UNSET_HINT,
   pinColor = "#047857",
   pinGlyph,
+  fallbackCenter,
 }: FieldLocationPickerProps) {
   const map = useMap();
   const [geocoding, setGeocoding] = useState(false);
   const [geocodeError, setGeocodeError] = useState<string | null>(null);
 
   const hasPosition = lat != null && lng != null;
-  const position = useMemo(() => (hasPosition ? { lat: lat as number, lng: lng as number } : DEFAULT_CENTER), [lat, lng, hasPosition]);
+  const position = useMemo(
+    () => (hasPosition ? { lat: lat as number, lng: lng as number } : fallbackCenter || DEFAULT_CENTER),
+    [lat, lng, hasPosition, fallbackCenter]
+  );
 
   // Map's own onClick uses this library's MapMouseEvent (a wrapper: the real
   // coordinates are a plain {lat, lng} literal under `.detail.latLng`) --
@@ -129,7 +135,7 @@ function PickerInner({
         <Map
           mapId="DEMO_MAP_ID"
           defaultCenter={position}
-          defaultZoom={hasPosition ? 16 : 8}
+          defaultZoom={hasPosition || fallbackCenter ? 16 : 8}
           gestureHandling="greedy"
           disableDefaultUI={false}
           onClick={handleMapClick}
