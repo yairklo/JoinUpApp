@@ -78,7 +78,7 @@ export default function AdminFeedbackPage() {
 
   return (
     <Stack spacing={2}>
-      <Typography variant="h5" fontWeight={800}>פניות ודיווחי באגים</Typography>
+      <Typography variant="h5" component="h1" fontWeight={800}>פניות ודיווחי באגים</Typography>
       {error && <Alert severity="error">{error}</Alert>}
 
       {openRows.length === 0 ? (

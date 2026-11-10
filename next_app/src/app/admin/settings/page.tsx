@@ -54,7 +54,7 @@ export default function AdminSettingsPage() {
   return (
     <Card>
       <CardContent>
-        <Typography variant="h6" gutterBottom>
+        <Typography variant="h6" component="h1" gutterBottom>
           הגדרות כלליות
         </Typography>
         {error && (

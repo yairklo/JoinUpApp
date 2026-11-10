@@ -140,7 +140,7 @@ function SearchPlayersContent() {
         <Typography color="text.primary">חיפוש שחקנים</Typography>
       </Breadcrumbs>
 
-      <Typography variant="h4" fontWeight={800} mb={3}>
+      <Typography variant="h4" component="h1" fontWeight={800} mb={3}>
         חיפוש שחקנים
       </Typography>
 

@@ -67,7 +67,7 @@ export default async function TeamManagementPage(props: {
           <Button component={Link} href={`/games/${id}`} startIcon={<ArrowForwardIcon />} size="small">
             חזרה
           </Button>
-          <Typography variant="h5" fontWeight={800}>
+          <Typography variant="h5" component="h1" fontWeight={800}>
             ניהול קבוצות חי
           </Typography>
         </Box>

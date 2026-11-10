@@ -166,7 +166,7 @@ export default function PrivacySettingsPage() {
                             >
                                 <LockIcon fontSize="small" />
                             </Box>
-                            <Typography variant="h5" fontWeight={800} sx={{ letterSpacing: "-0.02em" }}>
+                            <Typography variant="h5" component="h1" fontWeight={800} sx={{ letterSpacing: "-0.02em" }}>
                                 הגדרות פרטיות
                             </Typography>
                         </Stack>
