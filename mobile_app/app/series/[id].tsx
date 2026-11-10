@@ -6,7 +6,7 @@ import { useAuth, useUser } from '@clerk/clerk-expo';
 import { seriesApi, usersApi, chatsApi } from '@/services/api';
 import type { UpdateSeriesDTO } from '@/services/api/series';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { dateLocaleFor } from '@/utils/dateLocale';
 import LoadingMotif from '@/components/loading/LoadingMotif';
@@ -28,6 +28,7 @@ import { appAlert } from '@/i18n/appAlert';
 import { friendSuggestions, mergeFriendsFirst } from '@/utils/friendSuggestions';
 
 export default function SeriesScreen() {
+    const insets = useSafeAreaInsets();
     const { id } = useLocalSearchParams<{ id: string }>();
     const { getToken } = useAuth();
     const { user } = useUser();
@@ -1206,7 +1207,7 @@ export default function SeriesScreen() {
             />
             <Modal visible={!!memberMenu} transparent animationType="fade" onRequestClose={() => setMemberMenu(null)} accessibilityViewIsModal>
                 <Pressable className="flex-1 bg-black/40 justify-end" onPress={() => setMemberMenu(null)} accessibilityRole="button" accessibilityLabel={t('common.cancel', 'ביטול')}>
-                    <Pressable className="bg-white dark:bg-cyber-card rounded-t-2xl p-4" onPress={() => {}}>
+                    <Pressable className="bg-white dark:bg-cyber-card rounded-t-2xl p-4" style={{ paddingBottom: insets.bottom + 16 }} onPress={() => {}}>
                         <Text className="text-center text-gray-800 dark:text-cyber-text font-bold mb-3" numberOfLines={1}>{memberMenu?.name}</Text>
                         <TouchableOpacity
                             accessibilityRole="button"

@@ -881,7 +881,7 @@ export default function GameDetailsScreen() {
                 onRequestClose={() => series.actions.setOpen(false)}
             >
                 <View className="flex-1 justify-end bg-black/50">
-                    <View className="bg-white dark:bg-cyber-card rounded-t-3xl p-6 h-[70%]">
+                    <View className="bg-white dark:bg-cyber-card rounded-t-3xl p-6 h-[70%]" style={{ paddingBottom: insets.bottom + 24 }}>
                         <View className="flex-row justify-between items-center mb-6">
                             <Text className="text-xl font-bold text-gray-800 dark:text-cyber-text">{t('series.createGroup', 'צור קבוצה')}</Text>
                             <TouchableOpacity onPress={() => series.actions.setOpen(false)}>

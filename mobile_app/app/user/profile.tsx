@@ -10,7 +10,7 @@ import { Game } from '@/types/game';
 import { API_BASE } from '../../src/services/api/client';
 import LoadingMotif from '@/components/loading/LoadingMotif';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { SPORT_MAPPING } from '@/utils/sports';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
@@ -58,6 +58,7 @@ const getGenderLabels = (t: any): Record<'MALE' | 'FEMALE', string> => ({
 });
 
 export default function ProfileScreen() {
+    const insets = useSafeAreaInsets();
     const { colorMode } = useColorMode();
     // Header and close icons: gray-700 on light, cyber-text on dark.
     const iconColor = colorMode === 'dark' ? '#f1f5f9' : '#374151';
@@ -767,7 +768,7 @@ export default function ProfileScreen() {
                 onRequestClose={() => setSportModalVisible(false)}
             >
                 <View className="flex-1 justify-end bg-black/50">
-                    <View className="bg-white dark:bg-cyber-card rounded-t-3xl p-6" style={{ maxHeight: '60%' }}>
+                    <View className="bg-white dark:bg-cyber-card rounded-t-3xl p-6" style={{ maxHeight: '60%', paddingBottom: insets.bottom + 24 }}>
                         <View className="flex-row justify-between items-center mb-4">
                             <Text className="text-xl font-bold text-gray-800 dark:text-cyber-text">{t('profile.selectSportModalTitle', 'בחר ענף ספורט')}</Text>
                             <TouchableOpacity onPress={() => setSportModalVisible(false)}>
@@ -809,7 +810,7 @@ export default function ProfileScreen() {
                 onRequestClose={() => setCityModalVisible(false)}
             >
                 <View className="flex-1 justify-end bg-black/50">
-                    <View className="bg-white dark:bg-cyber-card rounded-t-3xl p-6" style={{ maxHeight: '60%' }}>
+                    <View className="bg-white dark:bg-cyber-card rounded-t-3xl p-6" style={{ maxHeight: '60%', paddingBottom: insets.bottom + 24 }}>
                         <View className="flex-row justify-between items-center mb-4">
                             <Text className="text-xl font-bold text-gray-800 dark:text-cyber-text">{t('profile.selectCityModalTitle', 'בחרו עיר')}</Text>
                             <TouchableOpacity onPress={() => setCityModalVisible(false)}>

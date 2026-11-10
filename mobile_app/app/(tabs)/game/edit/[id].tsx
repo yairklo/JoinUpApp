@@ -30,11 +30,12 @@ interface ScrollSelectionModalProps<T> {
 
 function ScrollSelectionModal<T>({ visible, onClose, title, options, selectedValue, onSelect }: ScrollSelectionModalProps<T>) {
     const { t, i18n } = useTranslation();
+    const insets = useSafeAreaInsets();
     const isRtl = i18n.language === 'he';
     return (
         <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
             <View className="flex-1 justify-end bg-black/50">
-                <View className="bg-white dark:bg-cyber-card rounded-t-3xl p-6 h-[40%]">
+                <View className="bg-white dark:bg-cyber-card rounded-t-3xl p-6 h-[40%]" style={{ paddingBottom: insets.bottom + 24 }}>
                     <View className={`flex-row justify-between items-center mb-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
                         <Text className="text-lg font-bold text-gray-800 dark:text-cyber-text">{title}</Text>
                         <TouchableOpacity onPress={onClose}>
