@@ -2,8 +2,9 @@ import React, { useMemo, useRef } from 'react';
 import { Modal, View, Text, TouchableOpacity, ScrollView, Pressable } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { buildDurationOptions, formatDurationHM } from '@/utils/gameFormInput';
+import { buildDurationOptions, formatDurationHM, splitDuration } from '@/utils/gameFormInput';
 
 interface DurationPickerModalProps {
     visible: boolean;
@@ -11,6 +12,17 @@ interface DurationPickerModalProps {
     valueHours: number;
     onSelect: (hours: number) => void;
     onClose: () => void;
+}
+
+/** "2:30" read aloud: "2 hours and 30 minutes" / "שעתיים ו-30 דקות", with zero parts left out. */
+function spokenDuration(hours: number, t: TFunction): string {
+    const { hours: h, minutes: m } = splitDuration(hours);
+    const parts: string[] = [];
+    if (h === 1) parts.push(t('newGame.durationA11yHour', 'שעה'));
+    else if (h === 2) parts.push(t('newGame.durationA11yTwoHours', 'שעתיים'));
+    else if (h > 0) parts.push(t('newGame.durationA11yHours', '{{n}} שעות', { n: h }));
+    if (m > 0) parts.push(t('newGame.durationA11yMinutes', '{{n}} דקות', { n: m }));
+    return parts.join(t('newGame.durationA11yAnd', ' ו-'));
 }
 
 /**
@@ -65,10 +77,7 @@ export default function DurationPickerModal({ visible, valueHours, onSelect, onC
                                     onLayout={isSelected ? (e) => scrollRef.current?.scrollTo({ y: Math.max(0, e.nativeEvent.layout.y - 96), animated: false }) : undefined}
                                     accessibilityRole="button"
                                     accessibilityState={{ selected: isSelected }}
-                                    accessibilityLabel={t('newGame.durationA11y', '{{hours}} שעות ו-{{minutes}} דקות', {
-                                        hours: Math.floor(totalMinutes / 60),
-                                        minutes: totalMinutes % 60,
-                                    })}
+                                    accessibilityLabel={spokenDuration(hours, t)}
                                     className={`min-h-[44px] py-3 px-4 rounded-xl mb-1 flex-row justify-between items-center ${isSelected ? 'bg-brand-mist dark:bg-brand-ink' : ''}`}
                                 >
                                     <Text

@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
     formatDurationHM,
-    parseDurationHM,
+    splitDuration,
     buildDurationOptions,
     parseDecimalInput,
-    sanitizeWholeNumberInput,
+    nextWholeNumberInput,
 } from './gameFormInput.ts';
 
 test('formatDurationHM: hours to H:MM', () => {
@@ -27,29 +27,12 @@ test('formatDurationHM: invalid values give an empty label', () => {
     assert.equal(formatDurationHM(NaN), '');
 });
 
-test('parseDurationHM: "2:30" is 2.5 hours', () => {
-    assert.equal(parseDurationHM('2:30'), 2.5);
-    assert.equal(parseDurationHM('0:30'), 0.5);
-    assert.equal(parseDurationHM('1:00'), 1);
-    assert.equal(parseDurationHM(' 1:15 '), 1.25);
-});
-
-test('parseDurationHM: accepts decimal hours with either separator', () => {
-    assert.equal(parseDurationHM('2'), 2);
-    assert.equal(parseDurationHM('2.5'), 2.5);
-    assert.equal(parseDurationHM('2,5'), 2.5);
-});
-
-test('parseDurationHM: rejects invalid input', () => {
-    for (const bad of ['', '0:00', '0', '2:60', '2:5', ':30', '2:', 'abc', '-1:30', '1:30:00']) {
-        assert.equal(parseDurationHM(bad), null, bad);
-    }
-});
-
-test('parseDurationHM round-trips every picker option', () => {
-    for (const hours of buildDurationOptions()) {
-        assert.equal(parseDurationHM(formatDurationHM(hours)), hours);
-    }
+test('splitDuration: hours and minutes', () => {
+    assert.deepEqual(splitDuration(2.5), { hours: 2, minutes: 30 });
+    assert.deepEqual(splitDuration(0.5), { hours: 0, minutes: 30 });
+    assert.deepEqual(splitDuration(1), { hours: 1, minutes: 0 });
+    assert.deepEqual(splitDuration(1.999999), { hours: 2, minutes: 0 });
+    assert.deepEqual(splitDuration(NaN), { hours: 0, minutes: 0 });
 });
 
 test('buildDurationOptions: 15-minute steps from 0:30 to 6:00', () => {
@@ -59,6 +42,14 @@ test('buildDurationOptions: 15-minute steps from 0:30 to 6:00', () => {
     assert.equal(options.length, 23);
     assert.ok(options.includes(2.5));
     assert.ok(options.includes(1.25));
+});
+
+test('buildDurationOptions: every option is a finite number of hours (what onSelect receives)', () => {
+    for (const option of buildDurationOptions(1.1)) {
+        assert.equal(typeof option, 'number');
+        assert.ok(Number.isFinite(option) && option > 0);
+    }
+    assert.equal(buildDurationOptions().find((o) => formatDurationHM(o) === '2:30'), 2.5);
 });
 
 test('buildDurationOptions: keeps an off-grid current value, in order, without duplicates', () => {
@@ -86,11 +77,64 @@ test('parseDecimalInput: rejects invalid input', () => {
     }
 });
 
-test('sanitizeWholeNumberInput: digits only, decimals dropped rather than merged', () => {
-    assert.equal(sanitizeWholeNumberInput('25'), '25');
-    assert.equal(sanitizeWholeNumberInput('12.5'), '12');
-    assert.equal(sanitizeWholeNumberInput('12,5'), '12');
-    assert.equal(sanitizeWholeNumberInput('1a2'), '12');
-    assert.equal(sanitizeWholeNumberInput('-7'), '7');
-    assert.equal(sanitizeWholeNumberInput(''), '');
+// Replays keystrokes one at a time the way a keyboard delivers them. '<' is backspace.
+// `reset` = the TextInput re-asserts the controlled value after a rejected keystroke (React Native
+// does); without it the native text keeps the rejected separator, which must still end up whole.
+function type(keys, { reset = true, ...opts } = {}) {
+    let value = '';
+    let locked = false;
+    let native = '';
+    for (const key of keys) {
+        const text = key === '<' ? native.slice(0, -1) : native + key;
+        const result = nextWholeNumberInput(text, value, locked, opts);
+        value = result.value;
+        locked = result.locked;
+        native = reset ? value : text;
+    }
+    return value;
+}
+
+test('whole number, typed key by key: a decimal never merges into the integer', () => {
+    for (const reset of [true, false]) {
+        assert.equal(type('12.5', { reset }), '12', `12.5 reset=${reset}`);
+        assert.equal(type('12,5', { reset }), '12', `12,5 reset=${reset}`);
+        assert.equal(type('1.5', { reset }), '1', `1.5 reset=${reset}`);
+        assert.equal(type('1,5', { reset }), '1', `1,5 reset=${reset}`);
+        assert.equal(type('12.50', { reset }), '12', `12.50 reset=${reset}`);
+        assert.equal(type('.5', { reset }), '', `.5 reset=${reset}`);
+    }
+});
+
+test('whole number, typed key by key: plain digits and noise', () => {
+    assert.equal(type('14'), '14');
+    assert.equal(type('1a2'), '12');
+    assert.equal(type('007'), '007');
+    assert.equal(type('1-2'), '12');
+});
+
+test('whole number, typed key by key: deleting unlocks the field', () => {
+    assert.equal(type('12<3'), '13');
+    assert.equal(type('12.<3'), '13');
+    assert.equal(type('12.5<3'), '13');
+    assert.equal(type('12.5<<3'), '3');
+    assert.equal(type('1<'), '');
+    assert.equal(type('12.<<<5'), '5');
+});
+
+test('whole number, pasted: keeps the integer part', () => {
+    assert.equal(nextWholeNumberInput('12.5', '', false).value, '12');
+    assert.equal(nextWholeNumberInput('12,5', '', false).value, '12');
+    assert.equal(nextWholeNumberInput('25', '', false).value, '25');
+    assert.equal(nextWholeNumberInput('3.75', '1', false).value, '3');
+    assert.equal(nextWholeNumberInput('₪12', '', false).value, '12');
+    assert.equal(nextWholeNumberInput('12.5', '', false).locked, false);
+});
+
+test('whole number, pasted thousands separator (price only)', () => {
+    assert.equal(nextWholeNumberInput('1,000', '', false, { allowThousands: true }).value, '1000');
+    assert.equal(nextWholeNumberInput('1,250,000', '', false, { allowThousands: true }).value, '1250000');
+    assert.equal(nextWholeNumberInput('12,50', '', false, { allowThousands: true }).value, '12');
+    assert.equal(nextWholeNumberInput('1,00', '', false, { allowThousands: true }).value, '1');
+    assert.equal(nextWholeNumberInput('1,0000', '', false, { allowThousands: true }).value, '1');
+    assert.equal(nextWholeNumberInput('1,000', '', false).value, '1');
 });

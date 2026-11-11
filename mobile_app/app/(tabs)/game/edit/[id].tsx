@@ -445,6 +445,11 @@ export default function EditGameScreen() {
             appAlert(t('editGame.error', 'Error'), t('editGame.mustFillFieldNameAndLocation', 'יש למלא שם מגרש וכתובת'));
             return;
         }
+        // Don't silently save "no guest window" for text that isn't a number ("abc", "1.2.3").
+        if (isSeriesGame && membersOnlyPriority && guestHours.trim() !== '' && parseDecimalInput(guestHours) === null) {
+            appAlert(t('editGame.error', 'Error'), t('editGame.guestHoursInvalid', 'שעות פתיחה לאורחים חייבות להיות מספר חיובי'));
+            return;
+        }
 
         setSubmitting(true);
         try {
@@ -741,7 +746,13 @@ export default function EditGameScreen() {
                     {/* Duration Selector */}
                     <View className={`flex-row items-center justify-between mb-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
                         <Text className="text-gray-700 dark:text-cyber-text">{t('newGame.durationLabel', 'משך המשחק')}</Text>
-                        <TouchableOpacity onPress={() => setShowDurationPicker(true)} className="bg-gray-100 dark:bg-cyber-border px-4 py-2 rounded-lg w-32 items-center border border-gray-200 dark:border-cyber-border">
+                        <TouchableOpacity
+                            testID="edit-game-duration"
+                            onPress={() => setShowDurationPicker(true)}
+                            accessibilityRole="button"
+                            accessibilityLabel={`${t('newGame.durationLabel', 'משך המשחק')}: ${formatDurationHM(parseFloat(duration) || 1)}`}
+                            className="bg-gray-100 dark:bg-cyber-border px-4 py-2 min-h-[44px] justify-center rounded-lg w-32 items-center border border-gray-200 dark:border-cyber-border"
+                        >
                             <Text className="text-gray-800 dark:text-cyber-text font-bold" numberOfLines={1} style={{ fontVariant: ['tabular-nums'] }}>
                                 {formatDurationHM(parseFloat(duration) || 1)}
                             </Text>

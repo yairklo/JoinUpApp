@@ -26,7 +26,8 @@ import { appAlert } from '@/i18n/appAlert';
 import { formatDate, formatTimeOfDay } from '@/utils/dateLocale';
 import { orderFieldsWithSelectedFirst } from '@/utils/orderFields';
 import DurationPickerModal from '@/components/DurationPickerModal';
-import { formatDurationHM, sanitizeWholeNumberInput } from '@/utils/gameFormInput';
+import { formatDurationHM } from '@/utils/gameFormInput';
+import { useWholeNumberInput } from '@/hooks/useWholeNumberInput';
 
 function filterFieldsWithCoords(fields: Field[]): Field[] {
     return fields.filter((f) => f.lat != null && f.lng != null);
@@ -87,6 +88,11 @@ export default function NewGameScreen() {
     const [time, setTime] = useState(getInitialGameTime);
     const [maxPlayers, setMaxPlayers] = useState('14');
     const [price, setPrice] = useState('0');
+    // Integer-only fields: a typed "." or "," is rejected and the digits after it ignored (see nextWholeNumberInput).
+    const onMaxPlayersChange = useWholeNumberInput(maxPlayers, setMaxPlayers);
+    const onTeamSizeChange = useWholeNumberInput(teamSize, setTeamSize);
+    // Price also accepts a pasted "1,000" as a thousands separator.
+    const onPriceChange = useWholeNumberInput(price, setPrice, { allowThousands: true });
     const [description, setDescription] = useState('');
     const [welcomeMessage, setWelcomeMessage] = useState('');
     const [whatsappLink, setWhatsappLink] = useState('');
@@ -852,7 +858,7 @@ export default function NewGameScreen() {
                         <Text className="text-gray-700 dark:text-cyber-text">{t('newGame.maxPlayers')}</Text>
                         <TextInput
                             value={maxPlayers}
-                            onChangeText={(v) => setMaxPlayers(sanitizeWholeNumberInput(v))}
+                            onChangeText={onMaxPlayersChange}
                             keyboardType="number-pad"
                             className="bg-gray-100 dark:bg-cyber-border p-2 rounded-lg w-20 text-center text-gray-900 dark:text-cyber-text"
                         />
@@ -862,7 +868,7 @@ export default function NewGameScreen() {
                         <Text className="text-gray-700 dark:text-cyber-text">{t('newGame.teamSize', 'גודל קבוצה (אופציונלי)')}</Text>
                         <TextInput
                             value={teamSize}
-                            onChangeText={(v) => setTeamSize(sanitizeWholeNumberInput(v))}
+                            onChangeText={onTeamSizeChange}
                             keyboardType="number-pad"
                             placeholder={t('newGame.teamSizePlaceholder', 'לדוגמה: 5')}
                             className="bg-gray-100 dark:bg-cyber-border p-2 rounded-lg w-20 text-center text-gray-900 dark:text-cyber-text"
@@ -875,7 +881,7 @@ export default function NewGameScreen() {
                             testID="new-game-price"
                             value={price}
                             // Whole shekels only: the API stores price as an integer.
-                            onChangeText={(v) => setPrice(sanitizeWholeNumberInput(v))}
+                            onChangeText={onPriceChange}
                             keyboardType="number-pad"
                             className="bg-gray-100 dark:bg-cyber-border p-2 rounded-lg w-20 text-center text-gray-900 dark:text-cyber-text"
                         />

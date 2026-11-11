@@ -14,19 +14,10 @@ export function formatDurationHM(hours: number): string {
     return `${h}:${String(m).padStart(2, '0')}`;
 }
 
-/**
- * "2:30" -> 2.5. Also accepts plain or decimal hours ("2", "2.5", "2,5").
- * Returns null for anything else (empty, negative, minutes >= 60, zero length).
- */
-export function parseDurationHM(input: string): number | null {
-    const raw = String(input ?? '').trim();
-    const hm = /^(\d{1,2}):([0-5]\d)$/.exec(raw);
-    if (hm) {
-        const minutes = Number(hm[1]) * 60 + Number(hm[2]);
-        return minutes > 0 ? minutes / 60 : null;
-    }
-    const hours = parseDecimalInput(raw);
-    return hours !== null && hours > 0 ? hours : null;
+/** Hours (2.5) -> { hours: 2, minutes: 30 }, rounded to the minute. */
+export function splitDuration(hours: number): { hours: number; minutes: number } {
+    const totalMinutes = Number.isFinite(hours) && hours > 0 ? Math.round(hours * 60) : 0;
+    return { hours: Math.floor(totalMinutes / 60), minutes: totalMinutes % 60 };
 }
 
 /**
@@ -60,10 +51,51 @@ export function parseDecimalInput(input: string): number | null {
     return Number.isFinite(value) ? value : null;
 }
 
+export interface WholeNumberInputState {
+    value: string;
+    /** True after a separator keystroke was rejected: digits are ignored until the user deletes. */
+    locked: boolean;
+}
+
+const SEPARATOR = /[.,]/;
+
 /**
- * Keeps a whole-number field whole while typing. Text after a decimal separator is dropped
- * instead of merged, so a pasted "12.5" becomes "12" and never "125".
+ * Next state of a whole-number text field, given the text the keyboard produced (`next`), the text
+ * the field held before (`prev`) and whether a separator was already rejected (`locked`).
+ *
+ * - A separator typed as a single keystroke is rejected (the value stays whole) and the field locks,
+ *   so the digits the user meant as a fraction ("12.5", "1,5") are ignored instead of being
+ *   appended to the integer ("125", "15"). Deleting unlocks it.
+ * - Multi-character input (a paste) keeps the integer part before the separator. With
+ *   `allowThousands`, "1,000" / "1,000,000" is read as a thousands separator instead.
  */
-export function sanitizeWholeNumberInput(input: string): string {
-    return String(input ?? '').split(/[.,]/)[0].replace(/[^0-9]/g, '');
+export function nextWholeNumberInput(
+    next: string,
+    prev: string,
+    locked: boolean,
+    opts: { allowThousands?: boolean } = {},
+): WholeNumberInputState {
+    const text = String(next ?? '');
+    const before = String(prev ?? '');
+    const integerPart = (s: string) => s.split(SEPARATOR)[0].replace(/[^0-9]/g, '');
+
+    if (text.length < before.length) {
+        return { value: integerPart(text), locked: false };
+    }
+
+    const inserted = text.length - before.length;
+    if (inserted > 1 || (before === '' && text.length > 1)) {
+        const trimmed = text.trim();
+        if (opts.allowThousands && /^\d{1,3}(,\d{3})+$/.test(trimmed)) {
+            return { value: trimmed.replace(/,/g, ''), locked: false };
+        }
+        return { value: integerPart(text), locked: false };
+    }
+
+    if (SEPARATOR.test(text)) return { value: before, locked: true };
+
+    const digits = text.replace(/[^0-9]/g, '');
+    if (digits === before) return { value: before, locked };
+    if (locked) return { value: before, locked: true };
+    return { value: digits, locked: false };
 }
