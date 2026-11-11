@@ -41,3 +41,26 @@ export function computeResizedDimensions(
     height: number,
     maxEdge?: number,
 ): { width: number; height: number; resized: boolean };
+
+export interface FieldPhotoBatchPlan {
+    /** Indexes to upload. */
+    accepted: number[];
+    /** Indexes with an unsupported type; they do not consume a slot. Size is checked after the resize. */
+    invalid: { index: number; error: FieldPhotoFileError }[];
+    /** Valid files beyond the slots left. */
+    skipped: number[];
+}
+export function planFieldPhotoBatch(
+    files: { mimetype?: string | null; size?: number | null }[],
+    remaining: number,
+): FieldPhotoBatchPlan;
+
+export type FieldPhotoErrorKind =
+    | FieldPhotoLimitReason
+    | FieldPhotoFileError
+    | 'NETWORK'
+    | 'AUTH'
+    | 'BLOCKED'
+    | 'RATE'
+    | 'UNKNOWN';
+export function fieldPhotoErrorKind(err: { status?: number; code?: string } | null | undefined): FieldPhotoErrorKind;

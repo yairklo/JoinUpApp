@@ -107,6 +107,44 @@ function computeResizedDimensions(width, height, maxEdge = IMAGE_RESIZE_MAX_EDGE
   };
 }
 
+/**
+ * Splits a multi-select into what to do with each file, by index, so nothing is dropped silently:
+ * `accepted` are uploaded, `invalid` have an unsupported type (shown with their error, and they do
+ * not use up a slot), `skipped` are valid files beyond the slots left.
+ *
+ * Size is deliberately not checked here: this runs before the client-side resize, and a 12MB
+ * phone photo is a few hundred KB afterwards. Check size on the resized copy instead.
+ */
+function planFieldPhotoBatch(files, remaining) {
+  const slots = count(remaining);
+  const accepted = [];
+  const invalid = [];
+  const skipped = [];
+  (files || []).forEach((file, index) => {
+    const error = validateFieldPhotoFile({ mimetype: file && file.mimetype });
+    if (error) invalid.push({ index, error });
+    else if (accepted.length < slots) accepted.push(index);
+    else skipped.push(index);
+  });
+  return { accepted, invalid, skipped };
+}
+
+/**
+ * Maps a failed upload response to one stable kind the UI has a message for. `status` 0 or
+ * missing means the request never got a response.
+ */
+function fieldPhotoErrorKind(err) {
+  const { status, code } = err || {};
+  if (FIELD_PHOTO_LIMIT_REASONS.includes(code)) return code;
+  if (!status) return 'NETWORK';
+  if (status === 413) return 'SIZE';
+  if (status === 400) return 'TYPE';
+  if (status === 401) return 'AUTH';
+  if (status === 403) return 'BLOCKED';
+  if (status === 429) return 'RATE';
+  return 'UNKNOWN';
+}
+
 module.exports = {
   MAX_IMAGE_FILE_SIZE,
   MIME_EXTENSIONS,
@@ -121,4 +159,6 @@ module.exports = {
   computeFieldPhotoAllowance,
   validateFieldPhotoFile,
   computeResizedDimensions,
+  planFieldPhotoBatch,
+  fieldPhotoErrorKind,
 };

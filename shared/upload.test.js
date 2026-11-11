@@ -8,6 +8,8 @@ const {
   computeFieldPhotoAllowance,
   validateFieldPhotoFile,
   computeResizedDimensions,
+  planFieldPhotoBatch,
+  fieldPhotoErrorKind,
 } = require('./upload');
 
 const fresh = { approvedCountForField: 0, userPendingForField: 0, userPendingTotal: 0, userUploadsLast24h: 0 };
@@ -185,5 +187,73 @@ describe('computeResizedDimensions', () => {
     expect(computeResizedDimensions(2000, 1000, 500)).toEqual({ width: 500, height: 250, resized: true });
     expect(computeResizedDimensions(0, 0)).toEqual({ width: 0, height: 0, resized: false });
     expect(computeResizedDimensions(undefined, 500)).toEqual({ width: 0, height: 500, resized: false });
+  });
+});
+
+describe('planFieldPhotoBatch', () => {
+  const ok = { mimetype: 'image/jpeg', size: 1000 };
+  const pdf = { mimetype: 'application/pdf', size: 1000 };
+  const huge = { mimetype: 'image/png', size: MAX_IMAGE_FILE_SIZE + 1 };
+
+  test('everything fits', () => {
+    expect(planFieldPhotoBatch([ok, ok], 5)).toEqual({ accepted: [0, 1], invalid: [], skipped: [] });
+  });
+
+  test('trims to the slots left and reports the rest instead of dropping them', () => {
+    expect(planFieldPhotoBatch([ok, ok, ok, ok, ok], 3)).toEqual({ accepted: [0, 1, 2], invalid: [], skipped: [3, 4] });
+  });
+
+  test('an unsupported file is reported with its error and does not use a slot', () => {
+    expect(planFieldPhotoBatch([pdf, ok, pdf, ok, ok], 2)).toEqual({
+      accepted: [1, 3],
+      invalid: [{ index: 0, error: 'TYPE' }, { index: 2, error: 'TYPE' }],
+      skipped: [4],
+    });
+  });
+
+  test('an oversized original is accepted, because the resize runs before the size check', () => {
+    expect(planFieldPhotoBatch([huge], 1)).toEqual({ accepted: [0], invalid: [], skipped: [] });
+  });
+
+  test('every file is accounted for exactly once', () => {
+    const files = [ok, pdf, ok, huge, ok, ok, ok];
+    const plan = planFieldPhotoBatch(files, 2);
+    const seen = [...plan.accepted, ...plan.skipped, ...plan.invalid.map((i) => i.index)].sort((a, b) => a - b);
+    expect(seen).toEqual(files.map((_, i) => i));
+  });
+
+  test('no slots left, or no files', () => {
+    expect(planFieldPhotoBatch([ok, ok], 0)).toEqual({ accepted: [], invalid: [], skipped: [0, 1] });
+    expect(planFieldPhotoBatch([ok], -1).accepted).toEqual([]);
+    expect(planFieldPhotoBatch([], 5)).toEqual({ accepted: [], invalid: [], skipped: [] });
+    expect(planFieldPhotoBatch(undefined, 5)).toEqual({ accepted: [], invalid: [], skipped: [] });
+  });
+});
+
+describe('fieldPhotoErrorKind', () => {
+  test.each(['FIELD_FULL', 'PENDING_PER_FIELD', 'PENDING_TOTAL', 'DAILY'])('limit code %s wins over the status', (code) => {
+    expect(fieldPhotoErrorKind({ status: 409, code })).toBe(code);
+  });
+
+  test.each([
+    [413, 'SIZE'],
+    [400, 'TYPE'],
+    [401, 'AUTH'],
+    [403, 'BLOCKED'],
+    [429, 'RATE'],
+    [500, 'UNKNOWN'],
+    [409, 'UNKNOWN'],
+  ])('status %i -> %s', (status, kind) => {
+    expect(fieldPhotoErrorKind({ status })).toBe(kind);
+  });
+
+  test('no response at all is a network error', () => {
+    expect(fieldPhotoErrorKind({ status: 0 })).toBe('NETWORK');
+    expect(fieldPhotoErrorKind({})).toBe('NETWORK');
+    expect(fieldPhotoErrorKind(undefined)).toBe('NETWORK');
+  });
+
+  test('an unknown code falls back to the status', () => {
+    expect(fieldPhotoErrorKind({ status: 429, code: 'SOMETHING_ELSE' })).toBe('RATE');
   });
 });
