@@ -128,8 +128,11 @@ describe('Field suggestions ("הצע מגרש חדש")', () => {
         post({ parkingLat: 132.07, parkingLng: 34.78 }),
         post({ parkingLat: 'x', parkingLng: 34.78 }),
         post({ parkingNote: 5 }),
+        post({ parkingLat: ' ', parkingLng: ' ' }),
+        post({ parkingLat: true, parkingLng: true }),
+        post({ parkingNote: 'note with no pin' }),
       ]);
-      expect(results.map((r) => r.statusCode)).toEqual([400, 400, 400, 400, 400]);
+      expect(results.map((r) => r.statusCode)).toEqual([400, 400, 400, 400, 400, 400, 400, 400]);
       expect(create).not.toHaveBeenCalled();
     });
 
@@ -137,7 +140,7 @@ describe('Field suggestions ("הצע מגרש חדש")', () => {
       const create = spy(prisma.fieldSuggestion, 'create')
         .mockImplementation(async ({ data }) => ({ id: 'sug_4', status: 'PENDING', ...data }));
       await member(request(app).post('/api/field-suggestions'))
-        .send({ name: 'a', address: 'b', parkingNote: 'x'.repeat(300) });
+        .send({ name: 'a', address: 'b', parkingLat: 32.07, parkingLng: 34.78, parkingNote: 'x'.repeat(300) });
       expect(create.mock.calls[0][0].data.parkingNote).toHaveLength(140);
     });
   });
