@@ -772,10 +772,32 @@ export default function NewGameScreen() {
                         ))}
                     </ScrollView>
 
-                    <TouchableOpacity onPress={() => setShowSuggestField(true)} className="flex-row items-center mt-3">
-                        <Text className="text-gray-500 dark:text-cyber-muted text-xs">{t('newGame.suggestLink', 'לא מצאת את המגרש?')} </Text>
-                        <Text className="text-brand-dark dark:text-brand-light font-bold text-xs">{t('newGame.suggestAction', 'הצע מגרש חדש')}</Text>
-                    </TouchableOpacity>
+                    {!fieldsLoading && orderedFields.length === 0 ? (
+                        // No field matches this city: the same call to action the web picker shows.
+                        // It only opens the add-field request; the game's own location is untouched.
+                        <TouchableOpacity
+                            testID="new-game-add-field-cta"
+                            onPress={() => setShowSuggestField(true)}
+                            accessibilityRole="button"
+                            className="flex-row items-center border border-brand rounded-xl px-4 py-3 mt-1"
+                            style={{ minHeight: 48, gap: 8 }}
+                        >
+                            <FontAwesome name="plus-circle" size={16} color="#059669" />
+                            <Text className="flex-1 text-brand-dark dark:text-brand-light font-bold text-sm">
+                                {t('field.addFieldCta', 'לא מצאת את המגרש שלך? הוסף אותו ונאשר בהקדם')}
+                            </Text>
+                        </TouchableOpacity>
+                    ) : (
+                        <TouchableOpacity
+                            onPress={() => setShowSuggestField(true)}
+                            accessibilityRole="button"
+                            className="flex-row flex-wrap items-center mt-3"
+                            style={{ minHeight: 44 }}
+                        >
+                            <Text className="text-gray-500 dark:text-cyber-muted text-xs">{t('newGame.suggestLink', 'לא מצאת את המגרש שלך?')} </Text>
+                            <Text className="text-brand-dark dark:text-brand-light font-bold text-xs">{t('newGame.suggestAction', 'הוסף אותו ונאשר בהקדם')}</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
 
                 {/* Date & Time */}
@@ -1118,7 +1140,6 @@ export default function NewGameScreen() {
             <SuggestFieldModal
                 visible={showSuggestField}
                 onClose={() => setShowSuggestField(false)}
-                onSubmitted={() => appAlert(t('newGame.suggestSent', 'הבקשה נשלחה! נוסיף את המגרש אחרי בדיקה'))}
             />
         </>
     );

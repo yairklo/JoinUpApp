@@ -21,6 +21,10 @@ export interface Field {
     favoritesCount?: number;
     lat?: number | null;
     lng?: number | null;
+    /** Optional parking pin (both set or both null) and its short note. */
+    parkingLat?: number | null;
+    parkingLng?: number | null;
+    parkingNote?: string | null;
     available?: boolean;
 }
 
@@ -296,4 +300,8 @@ export interface FieldSuggestionInput {
     isPaid: boolean | null;
     contactInfo?: string;
     sport?: string;
+    /** Optional parking pin (lat and lng go together) and note; build with parkingRequestFields(). */
+    parkingLat?: number;
+    parkingLng?: number;
+    parkingNote?: string;
 }

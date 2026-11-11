@@ -14,6 +14,9 @@ export interface FieldSuggestion {
     lat?: number | null;
     lng?: number | null;
     sport?: string | null;
+    parkingLat?: number | null;
+    parkingLng?: number | null;
+    parkingNote?: string | null;
     status: FieldSuggestionStatus;
     createdAt: string;
     user?: { id: string; name?: string | null; imageUrl?: string | null };
@@ -27,6 +30,10 @@ export interface FieldSuggestionInput {
     lat?: number;
     lng?: number;
     sport?: string;
+    /** Optional parking pin; lat and lng go together. */
+    parkingLat?: number;
+    parkingLng?: number;
+    parkingNote?: string;
 }
 
 // "הצע מגרש חדש": submitting only queues a request for the admins -- no Field is created

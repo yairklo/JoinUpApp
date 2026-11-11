@@ -118,6 +118,10 @@ model Field {
   street          String?
   streetNumber    String?
   supportedSports SportType[]        @default([SOCCER])
+  /// Optional parking spot for the venue (pin + short note). All nullable.
+  parkingLat      Float?
+  parkingLng      Float?
+  parkingNote     String?
   favorites       FavoriteField[]
   reports         FieldReport[]
   comments        FieldComment[]
@@ -338,6 +342,10 @@ model FieldSuggestion {
   lat            Float?
   lng            Float?
   sport          String?
+  /// Optional parking spot suggested with the venue; copied to the Field on approval.
+  parkingLat     Float?
+  parkingLng     Float?
+  parkingNote    String?
   status         FieldSuggestionStatus @default(PENDING)
   createdFieldId String?
   adminNote      String?

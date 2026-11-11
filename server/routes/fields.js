@@ -6,6 +6,7 @@ const { prisma } = require('../lib/prisma');
 const dataManager = require('../utils/dataManager');
 const { getJerusalemDayHour } = require('../utils/timezone');
 const { sqlCanonicalCityExpr } = require('../utils/cityAliases');
+const { sanitizeFreeText } = require('../utils/sanitize');
 
 function mapFieldForClient(f) {
   if (!f) return f;
@@ -62,7 +63,60 @@ function hasBoundingBox(query) {
 
 const VALID_SPORT_TYPES = ['SOCCER', 'BASKETBALL', 'TENNIS'];
 
-// Validates the 9 optional Field detail columns shared by POST/PUT. Returns
+const PARKING_NOTE_MAX_LENGTH = 140;
+
+// Strict coordinate parse: Number() alone turns '' / ' ' into 0, true into 1 and [5] into 5, all of
+// which would pass as real coordinates. Only a finite number, or a non-blank numeric string, within
+// +-max is accepted; anything else returns null.
+function parseCoordinate(value, max) {
+  let n;
+  if (typeof value === 'number') n = value;
+  else if (typeof value === 'string' && value.trim() !== '') n = Number(value);
+  else return null;
+  return Number.isFinite(n) && Math.abs(n) <= max ? n : null;
+}
+
+// Optional parking spot (pin + short note), shared by Field create/update, suggestion submit and
+// suggestion approve. Same contract as validateOptionalFieldExtras: only keys present in `body`
+// end up in { data }. The pin is a pair -- parkingLat and parkingLng must arrive together, either
+// both valid coordinates or both null/'' (which clears the pin).
+// Pin and note are independent and each optional: a note can exist without a pin, and clearing
+// one (null/'') never touches the other.
+function validateParking(body) {
+  const data = {};
+  const hasLat = body.parkingLat !== undefined;
+  const hasLng = body.parkingLng !== undefined;
+  if (hasLat !== hasLng) return { error: 'parkingLat and parkingLng must be sent together' };
+  if (hasLat) {
+    const isEmpty = (v) => v === null || v === '';
+    if (isEmpty(body.parkingLat) && isEmpty(body.parkingLng)) {
+      data.parkingLat = null;
+      data.parkingLng = null;
+    } else if (isEmpty(body.parkingLat) || isEmpty(body.parkingLng)) {
+      return { error: 'parkingLat and parkingLng must be sent together' };
+    } else {
+      const lat = parseCoordinate(body.parkingLat, 90);
+      const lng = parseCoordinate(body.parkingLng, 180);
+      if (lat === null || lng === null) {
+        return { error: 'parkingLat/parkingLng must be valid coordinates' };
+      }
+      data.parkingLat = lat;
+      data.parkingLng = lng;
+    }
+  }
+  if (body.parkingNote !== undefined) {
+    if (body.parkingNote !== null && typeof body.parkingNote !== 'string') {
+      return { error: 'parkingNote must be a string' };
+    }
+    const note = typeof body.parkingNote === 'string'
+      ? sanitizeFreeText(body.parkingNote.trim(), PARKING_NOTE_MAX_LENGTH).trim()
+      : '';
+    data.parkingNote = note || null;
+  }
+  return { data };
+}
+
+// Validates the optional Field detail columns shared by POST/PUT. Returns
 // { data } with only the keys present in `body` (so callers can spread the
 // result into a create/update payload without disturbing omitted fields), or
 // { error } if something present is invalid. Callers must check `error` and
@@ -94,6 +148,10 @@ function validateOptionalFieldExtras(body) {
     if (!Number.isFinite(lng)) return { error: 'lat/lng must be valid numbers' };
     data.lng = lng;
   }
+
+  const parking = validateParking(body);
+  if (parking.error) return { error: parking.error };
+  Object.assign(data, parking.data);
 
   return { data };
 }
@@ -1192,4 +1250,5 @@ module.exports = router;
 // Reused by routes/fieldSuggestions.js so approving a suggestion validates/shapes the new Field
 // exactly like the admin create endpoint above.
 module.exports.validateOptionalFieldExtras = validateOptionalFieldExtras;
+module.exports.validateParking = validateParking;
 module.exports.mapFieldForClient = mapFieldForClient;

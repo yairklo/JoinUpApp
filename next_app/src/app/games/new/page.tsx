@@ -49,8 +49,8 @@ import { usePaginatedFields } from "@/hooks/usePaginatedFields";
 import { formatHebrewDate } from "@/utils/hebrewDate";
 import { formatJerusalemDate, parseJerusalemTimeToUTC } from "@/utils/timezone";
 import { HebrewDateField, HebrewTimeField } from "@/components/HebrewDateTimeField";
-import SuggestFieldDialog from "@/components/SuggestFieldDialog";
-import Snackbar from "@mui/material/Snackbar";
+import SuggestFieldDialog, { ADD_FIELD_CTA_TEXT } from "@/components/SuggestFieldDialog";
+import AddFieldCta from "@/components/AddFieldCta";
 import Link from "@mui/material/Link";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -148,7 +148,6 @@ function NewGamePageInner() {
   // which is the free-form, this-game-only location and stays available as-is.
   const [suggestFieldOpen, setSuggestFieldOpen] = useState(false);
   const [suggestFieldName, setSuggestFieldName] = useState("");
-  const [suggestFieldSent, setSuggestFieldSent] = useState(false);
   const openSuggestField = (name: string) => {
     setSuggestFieldName(name);
     setSuggestFieldOpen(true);
@@ -214,11 +213,17 @@ function NewGamePageInner() {
     return () => clearTimeout(t);
   }, [fieldSearchInput]);
 
-  const { fields: fieldResults } = usePaginatedFields({ q: debouncedFieldSearch });
+  const { fields: fieldResults, loading: fieldsLoading } = usePaginatedFields({ q: debouncedFieldSearch });
   const fields: FieldOption[] = useMemo(
     () => fieldResults.map((f) => ({ id: f.id, name: f.name, location: f.location })),
     [fieldResults]
   );
+  // The typed text (once the debounced search has caught up with it) matches no listed field.
+  const fieldSearchHasNoMatch =
+    fieldSearchInput.trim() !== "" &&
+    debouncedFieldSearch === fieldSearchInput &&
+    !fieldsLoading &&
+    fields.length === 0;
 
   // Pre-fill the selected field directly from the ?fieldId= URL param.
   useEffect(() => {
@@ -625,7 +630,7 @@ function NewGamePageInner() {
                             const filtered = [...options];
                             if (trimmed !== '' && !isExisting) {
                               filtered.push({ inputValue: trimmed, name: `📍 שחק ב"${trimmed}" (מיקום חופשי למשחק הזה)`, id: CUSTOM_LOCATION_OPTION_ID });
-                              filtered.push({ inputValue: trimmed, name: "➕ הצע מגרש חדש לרשימה", id: SUGGEST_FIELD_OPTION_ID });
+                              filtered.push({ inputValue: trimmed, name: `➕ ${ADD_FIELD_CTA_TEXT}`, id: SUGGEST_FIELD_OPTION_ID });
                             }
                             return filtered;
                           }}
@@ -649,12 +654,16 @@ function NewGamePageInner() {
                           renderInput={(params) => <TextField {...params} label=" חפש מגרש" placeholder="הקלד שם מגרש לחיפוש..." dir="rtl" />}
                         />
                       )}
-                      <Typography variant="caption" color="text.secondary" display="block" align="right" mt={0.75}>
-                        לא מצאת את המגרש?{" "}
-                        <Link component="button" type="button" variant="caption" onClick={() => openSuggestField(fieldSearchInput.trim())}>
-                          הצע מגרש חדש
-                        </Link>
-                      </Typography>
+                      {fieldSearchHasNoMatch && !newFieldMode ? (
+                        <AddFieldCta onClick={() => openSuggestField(fieldSearchInput.trim())} sx={{ mt: 1, width: "100%" }} />
+                      ) : (
+                        <Typography variant="caption" color="text.secondary" display="block" align="right" mt={0.75}>
+                          לא מצאת את המגרש שלך?{" "}
+                          <Link component="button" type="button" variant="caption" onClick={() => openSuggestField(fieldSearchInput.trim())}>
+                            הוסף אותו ונאשר בהקדם
+                          </Link>
+                        </Typography>
+                      )}
                     </Grid>
                     <Grid size={{ xs: 12, sm: 3 }}>
                       <Button
@@ -1054,18 +1063,7 @@ function NewGamePageInner() {
           open={suggestFieldOpen}
           onClose={() => setSuggestFieldOpen(false)}
           initialName={suggestFieldName}
-          onSubmitted={() => setSuggestFieldSent(true)}
         />
-        <Snackbar
-          open={suggestFieldSent}
-          autoHideDuration={6000}
-          onClose={() => setSuggestFieldSent(false)}
-          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-        >
-          <Alert severity="success" variant="filled" onClose={() => setSuggestFieldSent(false)} sx={{ width: "100%" }}>
-            הבקשה נשלחה! נוסיף את המגרש אחרי בדיקה
-          </Alert>
-        </Snackbar>
 
       </SignedIn >
     </Container >

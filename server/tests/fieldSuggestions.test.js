@@ -100,6 +100,59 @@ describe('Field suggestions ("הצע מגרש חדש")', () => {
       await member(request(app).post('/api/field-suggestions')).send({ name: 'a', address: 'b' });
       expect(create.mock.calls[0][0].data.isPaid).toBeNull();
     });
+
+    test('stores an optional parking pin and note; omitted parking adds no keys', async () => {
+      const create = spy(prisma.fieldSuggestion, 'create')
+        .mockImplementation(async ({ data }) => ({ id: 'sug_3', status: 'PENDING', ...data }));
+
+      const withParking = await member(request(app).post('/api/field-suggestions')).send({
+        name: 'a', address: 'b', parkingLat: 32.07, parkingLng: 34.78, parkingNote: '  חניון <b>חינם</b> מאחור  ',
+      });
+      await member(request(app).post('/api/field-suggestions')).send({ name: 'a', address: 'b' });
+
+      expect(withParking.statusCode).toBe(201);
+      expect(create.mock.calls[0][0].data).toEqual(expect.objectContaining({
+        parkingLat: 32.07, parkingLng: 34.78, parkingNote: 'חניון חינם מאחור',
+      }));
+      expect(create.mock.calls[1][0].data).not.toHaveProperty('parkingLat');
+      expect(create.mock.calls[1][0].data).not.toHaveProperty('parkingNote');
+      expect(fieldCreate).not.toHaveBeenCalled();
+    });
+
+    test('rejects half a parking pin, out-of-range coordinates and a non-string note', async () => {
+      const create = spy(prisma.fieldSuggestion, 'create');
+      const post = (extra) => member(request(app).post('/api/field-suggestions')).send({ name: 'a', address: 'b', ...extra });
+      const results = await Promise.all([
+        post({ parkingLat: 32.07 }),
+        post({ parkingLat: 32.07, parkingLng: null }),
+        post({ parkingLat: 132.07, parkingLng: 34.78 }),
+        post({ parkingLat: 'x', parkingLng: 34.78 }),
+        post({ parkingNote: 5 }),
+        post({ parkingLat: ' ', parkingLng: ' ' }),
+        post({ parkingLat: true, parkingLng: true }),
+      ]);
+      expect(results.map((r) => r.statusCode)).toEqual([400, 400, 400, 400, 400, 400, 400]);
+      expect(create).not.toHaveBeenCalled();
+    });
+
+    test('stores a parking note on its own, without a pin', async () => {
+      const create = spy(prisma.fieldSuggestion, 'create')
+        .mockImplementation(async ({ data }) => ({ id: 'sug_5', status: 'PENDING', ...data }));
+      const res = await member(request(app).post('/api/field-suggestions'))
+        .send({ name: 'a', address: 'b', parkingNote: 'note with no pin' });
+      expect(res.statusCode).toBe(201);
+      expect(create.mock.calls[0][0].data.parkingNote).toBe('note with no pin');
+      expect(create.mock.calls[0][0].data).not.toHaveProperty('parkingLat');
+      expect(create.mock.calls[0][0].data).not.toHaveProperty('parkingLng');
+    });
+
+    test('caps the parking note at 140 characters', async () => {
+      const create = spy(prisma.fieldSuggestion, 'create')
+        .mockImplementation(async ({ data }) => ({ id: 'sug_4', status: 'PENDING', ...data }));
+      await member(request(app).post('/api/field-suggestions'))
+        .send({ name: 'a', address: 'b', parkingNote: 'x'.repeat(300) });
+      expect(create.mock.calls[0][0].data.parkingNote).toHaveLength(140);
+    });
   });
 
   describe('admin endpoints', () => {
@@ -155,6 +208,39 @@ describe('Field suggestions ("הצע מגרש חדש")', () => {
       });
       // Only the transactional client may create the Field.
       expect(fieldCreate).not.toHaveBeenCalled();
+    });
+
+    test('approve copies the parking pin and note onto the new Field', async () => {
+      const tx = mockTransaction({ id: 'sug_1', status: 'PENDING' });
+      const res = await admin(request(app).post('/api/field-suggestions/sug_1/approve')).send({
+        name: 'a', location: 'b', type: 'open', parkingLat: 32.07, parkingLng: 34.78, parkingNote: 'כניסה מרחוב הרצל',
+      });
+      expect(res.statusCode).toBe(201);
+      expect(tx.field.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ parkingLat: 32.07, parkingLng: 34.78, parkingNote: 'כניסה מרחוב הרצל' }),
+      });
+    });
+
+    test('approve can save a parking note without a pin', async () => {
+      const tx = mockTransaction({ id: 'sug_1', status: 'PENDING' });
+      const res = await admin(request(app).post('/api/field-suggestions/sug_1/approve')).send({
+        name: 'a', location: 'b', type: 'open', parkingLat: null, parkingLng: null, parkingNote: 'note only',
+      });
+      expect(res.statusCode).toBe(201);
+      expect(tx.field.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ parkingLat: null, parkingLng: null, parkingNote: 'note only' }),
+      });
+    });
+
+    test('approve without parking leaves the parking columns untouched; half a pin is a 400', async () => {
+      const tx = mockTransaction({ id: 'sug_1', status: 'PENDING' });
+      await admin(request(app).post('/api/field-suggestions/sug_1/approve')).send({ name: 'a', location: 'b', type: 'open' });
+      expect(tx.field.create.mock.calls[0][0].data).not.toHaveProperty('parkingLat');
+
+      const bad = await admin(request(app).post('/api/field-suggestions/sug_1/approve'))
+        .send({ name: 'a', location: 'b', type: 'open', parkingLng: 34.78 });
+      expect(bad.statusCode).toBe(400);
+      expect(tx.field.create).toHaveBeenCalledTimes(1);
     });
 
     test('approve validates the field payload', async () => {

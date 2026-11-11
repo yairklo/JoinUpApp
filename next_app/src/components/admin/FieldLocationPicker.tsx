@@ -20,20 +20,47 @@ interface FieldLocationPickerProps {
   lng: number | null | undefined;
   addressForGeocoding: string; // built from name/street/city -- best-effort, client-side only
   onChange: (lat: number, lng: number) => void;
+  /** Heading above the map. Defaults to the field-location copy. */
+  label?: string;
+  /** Shown next to the label while no pin is placed. Pass "" to hide it. */
+  unsetHint?: string;
+  /** Pin colour, so a second picker (e.g. parking) is told apart from the field's own pin. */
+  pinColor?: string;
+  /** Letter drawn inside the pin (e.g. "P" for parking). */
+  pinGlyph?: string;
+  /** Where the map opens while no pin is placed (e.g. the field, when picking its parking). */
+  fallbackCenter?: { lat: number; lng: number } | null;
+  /** Replaces the "map unavailable" notice when there is no Maps key. */
+  unavailableText?: string;
 }
+
+const DEFAULT_UNSET_HINT = "(לא הוגדר — המגרש לא יופיע בחיפוש לפי מפה)";
 
 // Drag-to-place picker + "locate by address" button. Both use the browser's
 // own google.maps JS APIs (Geocoder, draggable AdvancedMarker) through the
 // same client-side API key already proven to work for the read-only display
 // maps elsewhere (GameLocationMap.tsx) -- no server-side geocoding key or
 // quota is needed, and no new credentials for the user to provision.
-function PickerInner({ lat, lng, addressForGeocoding, onChange }: FieldLocationPickerProps) {
+function PickerInner({
+  lat,
+  lng,
+  addressForGeocoding,
+  onChange,
+  label = "מיקום במפה",
+  unsetHint = DEFAULT_UNSET_HINT,
+  pinColor = "#047857",
+  pinGlyph,
+  fallbackCenter,
+}: FieldLocationPickerProps) {
   const map = useMap();
   const [geocoding, setGeocoding] = useState(false);
   const [geocodeError, setGeocodeError] = useState<string | null>(null);
 
   const hasPosition = lat != null && lng != null;
-  const position = useMemo(() => (hasPosition ? { lat: lat as number, lng: lng as number } : DEFAULT_CENTER), [lat, lng, hasPosition]);
+  const position = useMemo(
+    () => (hasPosition ? { lat: lat as number, lng: lng as number } : fallbackCenter || DEFAULT_CENTER),
+    [lat, lng, hasPosition, fallbackCenter]
+  );
 
   // Map's own onClick uses this library's MapMouseEvent (a wrapper: the real
   // coordinates are a plain {lat, lng} literal under `.detail.latLng`) --
@@ -88,7 +115,7 @@ function PickerInner({ lat, lng, addressForGeocoding, onChange }: FieldLocationP
     <Box>
       <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
         <Typography variant="body2" color="text.secondary">
-          מיקום במפה {!hasPosition && "(לא הוגדר — המגרש לא יופיע בחיפוש לפי מפה)"}
+          {label} {!hasPosition && unsetHint}
         </Typography>
         <Button
           size="small"
@@ -104,11 +131,11 @@ function PickerInner({ lat, lng, addressForGeocoding, onChange }: FieldLocationP
           {geocodeError}
         </Alert>
       )}
-      <Box width="100%" height={220} borderRadius={1} overflow="hidden">
+      <Box width="100%" height={220} borderRadius={1} overflow="hidden" role="group" aria-label={label}>
         <Map
           mapId="DEMO_MAP_ID"
           defaultCenter={position}
-          defaultZoom={hasPosition ? 16 : 8}
+          defaultZoom={hasPosition || fallbackCenter ? 16 : 8}
           gestureHandling="greedy"
           disableDefaultUI={false}
           onClick={handleMapClick}
@@ -116,7 +143,7 @@ function PickerInner({ lat, lng, addressForGeocoding, onChange }: FieldLocationP
         >
           {hasPosition && (
             <AdvancedMarker position={position} draggable onDragEnd={handleMarkerDragEnd}>
-              <Pin background="#047857" borderColor="#065f46" glyphColor="#fff" />
+              <Pin background={pinColor} borderColor={pinColor} glyphColor="#fff" glyph={pinGlyph} />
             </AdvancedMarker>
           )}
         </Map>
@@ -132,7 +159,8 @@ export default function FieldLocationPicker(props: FieldLocationPickerProps) {
   if (!GOOGLE_MAPS_API_KEY) {
     return (
       <Alert severity="info">
-        מפה לא זמינה כרגע — ניתן עדיין לשמור את המגרש, אך הוא לא יופיע בחיפוש לפי מפה עד שיוגדר מיקום.
+        {props.unavailableText ??
+          "מפה לא זמינה כרגע — ניתן עדיין לשמור את המגרש, אך הוא לא יופיע בחיפוש לפי מפה עד שיוגדר מיקום."}
       </Alert>
     );
   }

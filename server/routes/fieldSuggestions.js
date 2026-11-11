@@ -5,7 +5,7 @@ const { requireAdmin } = require('../utils/admin');
 const { createRateLimiter } = require('../middleware/rateLimit');
 const { sanitizeFreeText } = require('../utils/sanitize');
 const { SPORT_KEYS } = require('../shared/sports');
-const { validateOptionalFieldExtras, mapFieldForClient } = require('./fields');
+const { validateOptionalFieldExtras, validateParking, mapFieldForClient } = require('./fields');
 
 // "הצע מגרש חדש": a user asks the team to add a venue to the public field list. Submitting
 // only records a PENDING FieldSuggestion -- it never creates a Field, so the venue can't show
@@ -52,6 +52,11 @@ router.post('/', authenticateToken, submitLimiter, async (req, res) => {
     if (sport && !SPORT_KEYS.includes(sport)) {
       return res.status(400).json({ error: 'Invalid sport' });
     }
+    // Optional parking pin + note, validated exactly like on a real Field.
+    const parking = validateParking(body);
+    if (parking.error) {
+      return res.status(400).json({ error: parking.error });
+    }
 
     const suggestion = await prisma.fieldSuggestion.create({
       data: {
@@ -63,6 +68,7 @@ router.post('/', authenticateToken, submitLimiter, async (req, res) => {
         lat: lat.value,
         lng: lng.value,
         sport,
+        ...parking.data,
       },
     });
     res.status(201).json({ id: suggestion.id, status: suggestion.status });

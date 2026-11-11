@@ -1,16 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
 import Chip from "@mui/material/Chip";
 import Typography from "@mui/material/Typography";
 import { alpha } from "@mui/material/styles";
 import SearchIcon from "@mui/icons-material/Search";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
 
 import FieldCard from "@/components/FieldCard";
 import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
+import SuggestFieldDialog from "@/components/SuggestFieldDialog";
+import AddFieldCta from "@/components/AddFieldCta";
 import { usePaginatedFields } from "@/hooks/usePaginatedFields";
 import type { FieldListItem } from "@/services/api/fields";
 import { SportFilter, SPORT_MAPPING, SPORT_EMOJI } from "@/utils/sports";
@@ -34,6 +40,21 @@ export default function FieldsBrowser({
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sportFilter, setSportFilter] = useState<SportFilter>("ALL");
+  const router = useRouter();
+  const { isSignedIn } = useAuth();
+  const [addFieldOpen, setAddFieldOpen] = useState(false);
+  const [addFieldName, setAddFieldName] = useState("");
+
+  // Adding a field only sends it for admin approval (no game is created). It needs an account,
+  // so a signed-out visitor is sent to sign in and comes back to this page.
+  const openAddField = (prefillName = "") => {
+    if (!isSignedIn) {
+      router.push("/sign-in?redirect_url=/fields");
+      return;
+    }
+    setAddFieldName(prefillName);
+    setAddFieldOpen(true);
+  };
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 400);
@@ -55,12 +76,14 @@ export default function FieldsBrowser({
   return (
     <Box>
       <Box sx={{ mb: { xs: 2.5, md: 3 } }}>
+        <Box display="flex" gap={1} alignItems="flex-start" sx={{ mb: 1.5 }}>
         <TextField
           fullWidth
           size="small"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="חיפוש לפי שם מגרש או מיקום..."
+          slotProps={{ htmlInput: { "aria-label": "חיפוש מגרש לפי שם או מיקום" } }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -69,8 +92,18 @@ export default function FieldsBrowser({
             ),
             sx: { borderRadius: 3, bgcolor: "background.paper" },
           }}
-          sx={{ mb: 1.5 }}
         />
+        <Button
+          variant="contained"
+          disableElevation
+          startIcon={<AddRoundedIcon />}
+          onClick={() => openAddField()}
+          data-testid="add-field-button"
+          sx={{ borderRadius: 3, fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0, height: 40 }}
+        >
+          הוסף מגרש
+        </Button>
+        </Box>
 
         <Box
           display="flex"
@@ -136,6 +169,7 @@ export default function FieldsBrowser({
           sx={{
             textAlign: "center",
             py: 8,
+            px: 2,
             borderRadius: 4,
             bgcolor: "action.hover",
           }}
@@ -145,6 +179,7 @@ export default function FieldsBrowser({
               ? "לא נמצאו מגרשים התואמים לחיפוש. נסו מילות חיפוש אחרות או סננון שונה."
               : "לא נמצאו מגרשים כרגע. נסו שוב מאוחר יותר."}
           </Typography>
+          <AddFieldCta onClick={() => openAddField(debouncedSearch.trim())} sx={{ mt: 2 }} />
         </Box>
       ) : (
         <>
@@ -169,6 +204,8 @@ export default function FieldsBrowser({
           <InfiniteScrollSentinel hasMore={hasMore} loading={loadingMore} onVisible={loadMore} />
         </>
       )}
+
+      <SuggestFieldDialog open={addFieldOpen} onClose={() => setAddFieldOpen(false)} initialName={addFieldName} />
     </Box>
   );
 }
