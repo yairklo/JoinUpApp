@@ -37,13 +37,10 @@ describe('Field parking on POST/PUT /api/fields', () => {
   };
   let update;
   let create;
-  let findUnique;
 
   beforeEach(() => {
     update = spy(prisma.field, 'update').mockImplementation(async ({ data }) => ({ ...STORED, ...data }));
-    create = spy(prisma.field, 'create').mockImplementation(async ({ data }) => ({ id: FIELD_ID, ...data }));
-    findUnique = spy(prisma.field, 'findUnique').mockResolvedValue(STORED);
-  });
+    create = spy(prisma.field, 'create').mockImplementation(async ({ data }) => ({ id: FIELD_ID, ...data }));  });
 
   afterEach(() => {
     while (spies.length) spies.pop().mockRestore();
@@ -66,14 +63,25 @@ describe('Field parking on POST/PUT /api/fields', () => {
     expect(res.body).toEqual(expect.objectContaining({ parkingLat: null, parkingLng: null, parkingNote: null }));
   });
 
-  test('PUT clearing the pin drops the note even when the note is omitted or still sent', async () => {
-    await put({ parkingLat: null, parkingLng: null });
-    await put({ parkingLat: '', parkingLng: '', parkingNote: 'leftover note' });
+  test('PUT clearing the pin leaves the note alone', async () => {
+    const omitted = await put({ parkingLat: null, parkingLng: null });
+    await put({ parkingLat: '', parkingLng: '', parkingNote: 'still here' });
 
-    expect(update).toHaveBeenCalledTimes(2);
-    for (const call of update.mock.calls) {
-      expect(call[0].data).toEqual({ parkingLat: null, parkingLng: null, parkingNote: null });
-    }
+    // No parkingNote key at all, so the stored note is not touched.
+    expect(update.mock.calls[0][0].data).toEqual({ parkingLat: null, parkingLng: null });
+    expect(omitted.body).toEqual(expect.objectContaining({
+      parkingLat: null, parkingLng: null, parkingNote: 'behind the hall',
+    }));
+    expect(update.mock.calls[1][0].data).toEqual({ parkingLat: null, parkingLng: null, parkingNote: 'still here' });
+  });
+
+  test('PUT clearing the note (null or empty) leaves the pin alone', async () => {
+    const res = await put({ parkingNote: null });
+    await put({ parkingNote: '   ' });
+
+    expect(update.mock.calls[0][0].data).toEqual({ parkingNote: null });
+    expect(update.mock.calls[1][0].data).toEqual({ parkingNote: null });
+    expect(res.body).toEqual(expect.objectContaining({ parkingLat: 32.07, parkingLng: 34.78, parkingNote: null }));
   });
 
   test('PUT without any parking fields leaves the existing parking untouched', async () => {
@@ -86,27 +94,49 @@ describe('Field parking on POST/PUT /api/fields', () => {
     }));
   });
 
-  test('PUT with only a note needs a pin already on the field', async () => {
-    const withPin = await put({ parkingNote: 'enter from Herzl St' });
-    expect(withPin.statusCode).toBe(200);
+  test('PUT with only a note saves it, whether or not the field has a pin', async () => {
+    const res = await put({ parkingNote: '  enter from <b>Herzl</b> St  ' });
+    expect(res.statusCode).toBe(200);
     expect(update.mock.calls[0][0].data).toEqual({ parkingNote: 'enter from Herzl St' });
 
-    findUnique.mockResolvedValue({ ...STORED, parkingLat: null, parkingLng: null });
-    const withoutPin = await put({ parkingNote: 'enter from Herzl St' });
-    expect(withoutPin.statusCode).toBe(400);
-    expect(update).toHaveBeenCalledTimes(1);
+    update.mockImplementation(async ({ data }) => ({ ...STORED, parkingLat: null, parkingLng: null, ...data }));
+    const noPin = await put({ parkingNote: 'enter from Herzl St' });
+    expect(noPin.statusCode).toBe(200);
+    expect(noPin.body).toEqual(expect.objectContaining({
+      parkingLat: null, parkingLng: null, parkingNote: 'enter from Herzl St',
+    }));
   });
 
-  test('POST never saves a note without a pin', async () => {
+  test('POST saves a note on its own, without a pin', async () => {
     const noteOnly = await post({ parkingNote: 'behind the hall' });
-    expect(noteOnly.statusCode).toBe(400);
+    expect(noteOnly.statusCode).toBe(201);
+    expect(create.mock.calls[0][0].data.parkingNote).toBe('behind the hall');
+    expect(create.mock.calls[0][0].data).not.toHaveProperty('parkingLat');
+
+    // What the web form sends for a note-only field: an explicit empty pin next to the note.
+    const emptyPin = await post({ parkingLat: null, parkingLng: null, parkingNote: 'behind the hall' });
+    expect(emptyPin.statusCode).toBe(201);
+    expect(create.mock.calls[1][0].data).toEqual(expect.objectContaining({
+      parkingLat: null, parkingLng: null, parkingNote: 'behind the hall',
+    }));
+  });
+
+  test('rejects half a pin and caps the note at 140 characters', async () => {
+    const half = [
+      { parkingLat: 32.07 },
+      { parkingLng: 34.78 },
+      { parkingLat: 32.07, parkingLng: null },
+      { parkingLat: '', parkingLng: 34.78 },
+    ];
+    for (const body of half) {
+      expect((await put(body)).statusCode).toBe(400);
+      expect((await post(body)).statusCode).toBe(400);
+    }
+    expect(update).not.toHaveBeenCalled();
     expect(create).not.toHaveBeenCalled();
 
-    const cleared = await post({ parkingLat: null, parkingLng: null, parkingNote: 'behind the hall' });
-    expect(cleared.statusCode).toBe(201);
-    expect(create.mock.calls[0][0].data).toEqual(expect.objectContaining({
-      parkingLat: null, parkingLng: null, parkingNote: null,
-    }));
+    await put({ parkingNote: 'x'.repeat(300) });
+    expect(update.mock.calls[0][0].data.parkingNote).toHaveLength(140);
   });
 
   test('rejects coordinates that only look valid after Number() coercion', async () => {

@@ -278,7 +278,8 @@ function fieldParkingForGame(game) {
   return {
     fieldParkingLat: hasPin ? f.parkingLat : null,
     fieldParkingLng: hasPin ? f.parkingLng : null,
-    fieldParkingNote: hasPin ? (f.parkingNote || null) : null,
+    // The note stands on its own -- a field can describe its parking without a pin.
+    fieldParkingNote: atCustomLocation ? null : (f?.parkingNote || null),
   };
 }
 

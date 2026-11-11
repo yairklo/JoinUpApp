@@ -187,10 +187,11 @@ export default function FieldEditorDialog({
         supportedSports: form.supportedSports,
         lat: form.lat ?? undefined,
         lng: form.lng ?? undefined,
-        // Always sent as a pair: both null clears a parking pin an admin removed.
+        // Pin always sent as a pair: both null clears a parking pin an admin removed. The note is
+        // independent of the pin and is cleared only when its own text is emptied.
         parkingLat: hasParkingPin ? form.parkingLat : null,
         parkingLng: hasParkingPin ? form.parkingLng : null,
-        parkingNote: hasParkingPin ? form.parkingNote.trim() || null : null,
+        parkingNote: form.parkingNote.trim() || null,
       };
 
       if (activeField) {

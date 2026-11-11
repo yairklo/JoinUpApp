@@ -115,7 +115,7 @@ export default function GameActions({
         </Box>
       )}
 
-      {hasParking && (
+      {(hasParking || !!parkingNote) && (
         <Box sx={{ borderTop: "1px solid", borderColor: "divider" }}>
           <ParkingInfo lat={parkingLat} lng={parkingLng} note={parkingNote} fieldName={fieldName} />
         </Box>

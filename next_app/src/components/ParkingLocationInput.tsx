@@ -25,8 +25,8 @@ export const EMPTY_PARKING: ParkingValue = { lat: null, lng: null, note: "" };
 
 /**
  * Optional parking spot for a field: a pin picked on the map plus a short note. Collapsed
- * behind a button until someone wants it. The note is only sent together with a pin (see
- * parkingPayload), since on its own it has nothing to point at.
+ * behind a button until someone wants it. Pin and note are independent: either can be set,
+ * saved and removed without the other.
  */
 export default function ParkingLocationInput({
   value,
@@ -44,11 +44,13 @@ export default function ParkingLocationInput({
   fieldPosition?: { lat: number; lng: number } | null;
 }) {
   const hasPin = value.lat != null && value.lng != null;
-  const [open, setOpen] = useState(hasPin);
+  const hasParking = hasPin || value.note !== "";
+  const [open, setOpen] = useState(hasParking);
   const sectionId = useId();
-  const expanded = open || hasPin;
+  // Latch open once there is something to show, so emptying the note mid-edit doesn't collapse it.
+  if (hasParking && !open) setOpen(true);
 
-  if (!expanded) {
+  if (!open && !hasParking) {
     return (
       <Box>
         <Button
@@ -62,7 +64,7 @@ export default function ParkingLocationInput({
           aria-controls={sectionId}
           sx={{ minHeight: 44 }}
         >
-          הוספת מיקום חניה (אופציונלי)
+          הוספת פרטי חניה (אופציונלי)
         </Button>
       </Box>
     );
@@ -92,11 +94,23 @@ export default function ParkingLocationInput({
         fullWidth
         value={value.note}
         onChange={(e) => onChange({ ...value, note: e.target.value })}
-        disabled={disabled || !hasPin}
-        helperText={hasPin ? `${value.note.length}/${PARKING_NOTE_MAX_LENGTH}` : "סמנו קודם את החניה על המפה"}
+        disabled={disabled}
+        helperText={`${value.note.length}/${PARKING_NOTE_MAX_LENGTH}`}
         slotProps={{ htmlInput: { maxLength: PARKING_NOTE_MAX_LENGTH, dir: "rtl" } }}
       />
-      <Box>
+      <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+        {hasPin && (
+          <Button
+            type="button"
+            size="small"
+            color="inherit"
+            onClick={() => onChange({ ...value, lat: null, lng: null })}
+            disabled={disabled}
+            sx={{ minHeight: 44 }}
+          >
+            הסרת הסימון מהמפה
+          </Button>
+        )}
         <Button
           type="button"
           size="small"
@@ -108,16 +122,18 @@ export default function ParkingLocationInput({
           disabled={disabled}
           sx={{ minHeight: 44 }}
         >
-          {hasPin ? "הסרת החניה" : "ביטול"}
+          {hasParking ? "הסרת החניה" : "ביטול"}
         </Button>
-      </Box>
+      </Stack>
     </Stack>
   );
 }
 
-/** Request fields for a create/suggest call: nothing at all when no pin was placed. */
+/** Request fields for a create/suggest call: only what was actually filled in, pin and note independently. */
 export function parkingPayload(value: ParkingValue): { parkingLat?: number; parkingLng?: number; parkingNote?: string } {
-  if (value.lat == null || value.lng == null) return {};
   const note = value.note.trim();
-  return { parkingLat: value.lat, parkingLng: value.lng, ...(note ? { parkingNote: note } : {}) };
+  return {
+    ...(value.lat != null && value.lng != null ? { parkingLat: value.lat, parkingLng: value.lng } : {}),
+    ...(note ? { parkingNote: note } : {}),
+  };
 }

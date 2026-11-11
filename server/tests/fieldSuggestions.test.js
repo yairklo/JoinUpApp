@@ -130,17 +130,27 @@ describe('Field suggestions ("הצע מגרש חדש")', () => {
         post({ parkingNote: 5 }),
         post({ parkingLat: ' ', parkingLng: ' ' }),
         post({ parkingLat: true, parkingLng: true }),
-        post({ parkingNote: 'note with no pin' }),
       ]);
-      expect(results.map((r) => r.statusCode)).toEqual([400, 400, 400, 400, 400, 400, 400, 400]);
+      expect(results.map((r) => r.statusCode)).toEqual([400, 400, 400, 400, 400, 400, 400]);
       expect(create).not.toHaveBeenCalled();
+    });
+
+    test('stores a parking note on its own, without a pin', async () => {
+      const create = spy(prisma.fieldSuggestion, 'create')
+        .mockImplementation(async ({ data }) => ({ id: 'sug_5', status: 'PENDING', ...data }));
+      const res = await member(request(app).post('/api/field-suggestions'))
+        .send({ name: 'a', address: 'b', parkingNote: 'note with no pin' });
+      expect(res.statusCode).toBe(201);
+      expect(create.mock.calls[0][0].data.parkingNote).toBe('note with no pin');
+      expect(create.mock.calls[0][0].data).not.toHaveProperty('parkingLat');
+      expect(create.mock.calls[0][0].data).not.toHaveProperty('parkingLng');
     });
 
     test('caps the parking note at 140 characters', async () => {
       const create = spy(prisma.fieldSuggestion, 'create')
         .mockImplementation(async ({ data }) => ({ id: 'sug_4', status: 'PENDING', ...data }));
       await member(request(app).post('/api/field-suggestions'))
-        .send({ name: 'a', address: 'b', parkingLat: 32.07, parkingLng: 34.78, parkingNote: 'x'.repeat(300) });
+        .send({ name: 'a', address: 'b', parkingNote: 'x'.repeat(300) });
       expect(create.mock.calls[0][0].data.parkingNote).toHaveLength(140);
     });
   });
@@ -208,6 +218,17 @@ describe('Field suggestions ("הצע מגרש חדש")', () => {
       expect(res.statusCode).toBe(201);
       expect(tx.field.create).toHaveBeenCalledWith({
         data: expect.objectContaining({ parkingLat: 32.07, parkingLng: 34.78, parkingNote: 'כניסה מרחוב הרצל' }),
+      });
+    });
+
+    test('approve can save a parking note without a pin', async () => {
+      const tx = mockTransaction({ id: 'sug_1', status: 'PENDING' });
+      const res = await admin(request(app).post('/api/field-suggestions/sug_1/approve')).send({
+        name: 'a', location: 'b', type: 'open', parkingLat: null, parkingLng: null, parkingNote: 'note only',
+      });
+      expect(res.statusCode).toBe(201);
+      expect(tx.field.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ parkingLat: null, parkingLng: null, parkingNote: 'note only' }),
       });
     });
 

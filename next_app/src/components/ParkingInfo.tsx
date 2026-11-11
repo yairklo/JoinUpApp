@@ -5,8 +5,9 @@ import LocalParkingRoundedIcon from "@mui/icons-material/LocalParkingRounded";
 import OpenInMapLinks from "@/components/OpenInMapLinks";
 
 /**
- * "חניה" row for a field or game: the optional note plus navigate links that open the parking
- * pin itself (not the venue). Renders nothing when the field has no parking pin.
+ * "חניה" row for a field or game: the optional note plus, when there is a parking pin, navigate
+ * links that open the pin itself (not the venue). Pin and note are independent -- a note alone
+ * shows as plain text. Renders nothing when the field has neither.
  */
 export default function ParkingInfo({
   lat,
@@ -19,7 +20,8 @@ export default function ParkingInfo({
   note?: string | null;
   fieldName?: string | null;
 }) {
-  if (typeof lat !== "number" || typeof lng !== "number") return null;
+  const hasPin = typeof lat === "number" && typeof lng === "number";
+  if (!hasPin && !note) return null;
 
   return (
     <Stack
@@ -57,12 +59,14 @@ export default function ParkingInfo({
           </Typography>
         )}
       </Box>
-      <OpenInMapLinks
-        variant="link"
-        location={{ lat, lng, name: fieldName ? `חניה – ${fieldName}` : "חניה" }}
-        ariaLabelPrefix="ניווט לחניה"
-        primaryLabel="ניווט לחניה"
-      />
+      {hasPin && (
+        <OpenInMapLinks
+          variant="link"
+          location={{ lat, lng, name: fieldName ? `חניה – ${fieldName}` : "חניה" }}
+          ariaLabelPrefix="ניווט לחניה"
+          primaryLabel="ניווט לחניה"
+        />
+      )}
     </Stack>
   );
 }
