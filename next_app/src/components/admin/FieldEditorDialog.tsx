@@ -7,6 +7,7 @@ import { SPORT_MAPPING } from "@/utils/sports";
 import ImageUploadField from "@/components/ImageUploadField";
 import FieldPhotoGallery from "@/components/admin/FieldPhotoGallery";
 import FieldLocationPicker from "@/components/admin/FieldLocationPicker";
+import ParkingLocationInput, { type ParkingValue } from "@/components/ParkingLocationInput";
 
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -60,6 +61,9 @@ interface FormState {
   supportedSports: SportKey[];
   lat: number | null;
   lng: number | null;
+  parkingLat: number | null;
+  parkingLng: number | null;
+  parkingNote: string;
 }
 
 export type FieldEditorInitialValues = Partial<FormState>;
@@ -79,6 +83,9 @@ const EMPTY_FORM: FormState = {
   supportedSports: ["SOCCER"],
   lat: null,
   lng: null,
+  parkingLat: null,
+  parkingLng: null,
+  parkingNote: "",
 };
 
 function fieldToForm(field: Field): FormState {
@@ -97,6 +104,9 @@ function fieldToForm(field: Field): FormState {
     supportedSports: (field.supportedSports?.length ? field.supportedSports : ["SOCCER"]) as SportKey[],
     lat: field.lat ?? null,
     lng: field.lng ?? null,
+    parkingLat: field.parkingLat ?? null,
+    parkingLng: field.parkingLng ?? null,
+    parkingNote: field.parkingNote || "",
   };
 }
 
@@ -157,6 +167,7 @@ export default function FieldEditorDialog({
     }
     setSaving(true);
     setError(null);
+    const hasParkingPin = form.parkingLat != null && form.parkingLng != null;
     try {
       const token = await getToken();
       if (!token) throw new Error("נדרש להתחבר מחדש");
@@ -176,6 +187,11 @@ export default function FieldEditorDialog({
         supportedSports: form.supportedSports,
         lat: form.lat ?? undefined,
         lng: form.lng ?? undefined,
+        // Pin always sent as a pair: both null clears a parking pin an admin removed. The note is
+        // independent of the pin and is cleared only when its own text is emptied.
+        parkingLat: hasParkingPin ? form.parkingLat : null,
+        parkingLng: hasParkingPin ? form.parkingLng : null,
+        parkingNote: form.parkingNote.trim() || null,
       };
 
       if (activeField) {
@@ -244,6 +260,15 @@ export default function FieldEditorDialog({
               .filter(Boolean)
               .join(" ")}
             onChange={(lat, lng) => setForm((f) => ({ ...f, lat, lng }))}
+          />
+
+          <ParkingLocationInput
+            value={{ lat: form.parkingLat, lng: form.parkingLng, note: form.parkingNote }}
+            onChange={(p: ParkingValue) => setForm((f) => ({ ...f, parkingLat: p.lat, parkingLng: p.lng, parkingNote: p.note }))}
+            fieldPosition={form.lat != null && form.lng != null ? { lat: form.lat, lng: form.lng } : null}
+            addressForGeocoding={[form.street, form.streetNumber, form.neighborhood, form.city || form.location, "ישראל"]
+              .filter(Boolean)
+              .join(" ")}
           />
 
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>

@@ -20,6 +20,10 @@ export interface Field {
     favoritesCount?: number;
     lat?: number | null;
     lng?: number | null;
+    /** Optional parking pin (both set or both null) and its short note. */
+    parkingLat?: number | null;
+    parkingLng?: number | null;
+    parkingNote?: string | null;
     available?: boolean;
 }
 
@@ -296,4 +300,8 @@ export interface FieldWriteData {
     streetNumber?: string;
     lat?: number;
     lng?: number;
+    /** Parking pin: send both, or both null to clear it. */
+    parkingLat?: number | null;
+    parkingLng?: number | null;
+    parkingNote?: string | null;
 }

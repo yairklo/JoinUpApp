@@ -9,6 +9,7 @@ import GameLocationMap from "@/components/GameLocationMap";
 import FieldNewGameButton from "@/components/FieldNewGameButton";
 import FieldCommentsSection from "@/components/FieldCommentsSection";
 import FieldIssueReportSection from "@/components/FieldIssueReportSection";
+import ParkingInfo from "@/components/ParkingInfo";
 
 // MUI Imports
 import Container from "@mui/material/Container";
@@ -39,6 +40,9 @@ type Field = {
   favoritesCount?: number;
   lat?: number | null;
   lng?: number | null;
+  parkingLat?: number | null;
+  parkingLng?: number | null;
+  parkingNote?: string | null;
 };
 
 type BusyCell = { avg: number | null; samples: number };
@@ -117,6 +121,8 @@ export default async function FieldProfilePage(props: { params: Promise<{ id: st
   const address = buildAddress(field);
   const imgSrc = field.image && field.image.trim().length > 0 ? field.image : "/images/default-field.jpg";
   const sports = field.supportedSports || [];
+  const hasFieldPin = typeof field.lat === "number" && typeof field.lng === "number";
+  const hasParking = typeof field.parkingLat === "number" && typeof field.parkingLng === "number";
 
   return (
     <main dir="rtl">
@@ -183,9 +189,22 @@ export default async function FieldProfilePage(props: { params: Promise<{ id: st
           </Box>
         </Card>
 
-        {typeof field.lat === "number" && typeof field.lng === "number" && (
+        {(hasFieldPin || hasParking || !!field.parkingNote) && (
           <Card sx={{ mb: 3, overflow: "hidden" }}>
-            <GameLocationMap lat={field.lat} lng={field.lng} title={field.name} height={280} />
+            {hasFieldPin && (
+              <GameLocationMap
+                lat={field.lat as number}
+                lng={field.lng as number}
+                title={field.name}
+                height={280}
+                parking={
+                  hasParking
+                    ? { lat: field.parkingLat as number, lng: field.parkingLng as number, note: field.parkingNote }
+                    : null
+                }
+              />
+            )}
+            <ParkingInfo lat={field.parkingLat} lng={field.parkingLng} note={field.parkingNote} fieldName={field.name} />
           </Card>
         )}
 

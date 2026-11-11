@@ -222,6 +222,9 @@ function mapGameForClient(game, viewerId, { anonymous = false } = {}) {
     customLat: typeof game.customLat === 'number' ? game.customLat : null,
     customLng: typeof game.customLng === 'number' ? game.customLng : null,
     customLocation: game.customLocation || null,
+    // The field's optional parking pin. Not sent for a game played at a custom location, where
+    // the field row is not the real venue.
+    ...fieldParkingForGame(game),
     start: game.start.toISOString(),
     date: formatJerusalemDate(game.start),
     time: formatJerusalemTime(game.start),
@@ -268,12 +271,25 @@ function mapGameForClient(game, viewerId, { anonymous = false } = {}) {
   };
 }
 
+function fieldParkingForGame(game) {
+  const f = game.field;
+  const atCustomLocation = typeof game.customLat === 'number' || !!game.customLocation;
+  const hasPin = !atCustomLocation && typeof f?.parkingLat === 'number' && typeof f?.parkingLng === 'number';
+  return {
+    fieldParkingLat: hasPin ? f.parkingLat : null,
+    fieldParkingLng: hasPin ? f.parkingLng : null,
+    // The note stands on its own -- a field can describe its parking without a pin.
+    fieldParkingNote: atCustomLocation ? null : (f?.parkingNote || null),
+  };
+}
+
 // Fields a signed-out viewer may see on a public game. An allow-list, so a field added to
 // mapGameForClient later stays hidden from guests until someone adds it here on purpose.
 const GUEST_GAME_FIELDS = [
   'id', 'title', 'seriesId', 'fieldId', 'fieldName', 'fieldLocation', 'fieldImage', 'imageUrl',
   'seriesImageUrl', 'joinPolicy', 'lotteryEnabled', 'lotteryAt', 'lotteryPending', 'overbooked',
-  'fieldLat', 'fieldLng', 'customLat', 'customLng', 'customLocation', 'start', 'date', 'time',
+  'fieldLat', 'fieldLng', 'customLat', 'customLng', 'customLocation',
+  'fieldParkingLat', 'fieldParkingLng', 'fieldParkingNote', 'start', 'date', 'time',
   'duration', 'maxPlayers', 'teamSize', 'price', 'currentPlayers', 'totalSignups', 'confirmedCount',
   'waitlistCount', 'description', 'isOpenToJoin', 'organizerId', 'sport', 'city',
   'registrationOpensAt', 'status', 'membersOnlyPriority', 'guestRegistrationOpensAt',
