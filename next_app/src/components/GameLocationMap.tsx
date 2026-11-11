@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { APIProvider, Map, InfoWindow, useMap, useMapsLibrary } from "@vis.gl/react-google-maps";
+import { PARKING_PIN_COLOR } from "@/lib/parkingPin";
 
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
@@ -79,7 +80,6 @@ function GameLocationMarker({
 }
 
 const VENUE_PIN_COLOR = "#047857";
-const PARKING_PIN_COLOR = "#1d4ed8";
 
 // With a parking pin the default venue-centred view can leave it off screen, so frame both.
 function FitVenueAndParking({ lat, lng, parkingLat, parkingLng }: { lat: number; lng: number; parkingLat: number; parkingLng: number }) {

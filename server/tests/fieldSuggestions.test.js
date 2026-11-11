@@ -128,14 +128,11 @@ describe('Field suggestions ("הצע מגרש חדש")', () => {
         post({ parkingLat: 132.07, parkingLng: 34.78 }),
         post({ parkingLat: 'x', parkingLng: 34.78 }),
         post({ parkingNote: 5 }),
-        // Blank text must not be read as latitude/longitude 0.
-        post({ parkingLat: '', parkingLng: '' }),
-        post({ parkingLat: ' ', parkingLng: 34.78 }),
-        post({ parkingLat: true, parkingLng: 34.78 }),
-        // A note has nothing to point at without a pin.
-        post({ parkingNote: 'חניון מאחור' }),
+        post({ parkingLat: ' ', parkingLng: ' ' }),
+        post({ parkingLat: true, parkingLng: true }),
+        post({ parkingNote: 'note with no pin' }),
       ]);
-      expect(results.map((r) => r.statusCode)).toEqual([400, 400, 400, 400, 400, 400, 400, 400, 400]);
+      expect(results.map((r) => r.statusCode)).toEqual([400, 400, 400, 400, 400, 400, 400, 400]);
       expect(create).not.toHaveBeenCalled();
     });
 

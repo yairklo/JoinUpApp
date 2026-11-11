@@ -1,12 +1,5 @@
 export const PARKING_NOTE_MAX_LENGTH: 140;
 
-export const PARKING_ERRORS: {
-  PAIR: string;
-  COORDINATES: string;
-  NOTE_TYPE: string;
-  NOTE_WITHOUT_PIN: string;
-};
-
 /** Client form state: no pin is `lat: null, lng: null` with an empty note. */
 export interface ParkingValue {
   lat: number | null;
@@ -18,18 +11,6 @@ export const EMPTY_PARKING: Readonly<ParkingValue>;
 
 /** A finite, in-range coordinate from a number or plain decimal string; null for anything else (blank included). */
 export function parseCoordinate(value: unknown, limit: number): number | null;
-
-export interface ParkingData {
-  parkingLat?: number | null;
-  parkingLng?: number | null;
-  parkingNote?: string | null;
-}
-
-/** Validates the parking part of a request body. See parking.js for the rules. */
-export function validateParking(
-  body: Record<string, unknown> | null | undefined,
-  options?: { sanitizeNote?: (note: string) => string },
-): { data: ParkingData; error?: undefined } | { error: string; data?: undefined };
 
 export function hasParkingPin(value: Partial<ParkingValue> | null | undefined): boolean;
 

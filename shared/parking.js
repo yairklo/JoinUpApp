@@ -1,6 +1,6 @@
 // Optional parking spot of a field: a map pin (lat + lng) plus a short note.
-// One set of rules for the server (request validation) and both clients (form state and the
-// request they send), so web, mobile and the API cannot drift apart:
+// Client-side form state and the request a client sends, mirroring what the API accepts
+// (validateParking in server/routes/fields.js), so a form can never produce a rejected combination:
 //   - the pin is a pair: lat and lng are set together or not at all;
 //   - a note only exists next to a pin: no pin means no note, and removing the pin drops the note;
 //   - a coordinate is a finite number in range. Blank text, booleans, arrays and anything
@@ -8,13 +8,6 @@
 //     point in the Gulf of Guinea).
 
 const PARKING_NOTE_MAX_LENGTH = 140;
-
-const PARKING_ERRORS = {
-  PAIR: 'parkingLat and parkingLng must be sent together',
-  COORDINATES: 'parkingLat/parkingLng must be valid coordinates',
-  NOTE_TYPE: 'parkingNote must be a string',
-  NOTE_WITHOUT_PIN: 'parkingNote requires a parking location (parkingLat and parkingLng)',
-};
 
 const DECIMAL = /^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$/;
 
@@ -37,67 +30,6 @@ function parseCoordinate(value, limit) {
   }
   if (!Number.isFinite(n) || Math.abs(n) > limit) return null;
   return n;
-}
-
-function defaultSanitizeNote(note) {
-  return note.trim().slice(0, PARKING_NOTE_MAX_LENGTH);
-}
-
-/**
- * Validates the parking part of a request body. Only keys present in `body` end up in `data`,
- * so the result can be spread into a create or a partial update.
- *   - pin absent, note absent            -> {}
- *   - both coordinates valid             -> the pin, plus the note when one was sent
- *   - both coordinates null              -> clears the pin AND the note
- *   - a non-empty note without a pin in the same body -> error
- * @param {Record<string, unknown> | null | undefined} body
- * @param {{ sanitizeNote?: (note: string) => string }} [options] server passes its HTML-stripping sanitizer
- * @returns {{ data: { parkingLat?: number | null, parkingLng?: number | null, parkingNote?: string | null } } | { error: string }}
- */
-function validateParking(body, options) {
-  const src = body || {};
-  const sanitizeNote = (options && options.sanitizeNote) || defaultSanitizeNote;
-  const data = {};
-
-  const hasLat = src.parkingLat !== undefined;
-  const hasLng = src.parkingLng !== undefined;
-  if (hasLat !== hasLng) return { error: PARKING_ERRORS.PAIR };
-
-  let note; // undefined = not sent, '' = sent empty
-  if (src.parkingNote !== undefined) {
-    if (src.parkingNote !== null && typeof src.parkingNote !== 'string') {
-      return { error: PARKING_ERRORS.NOTE_TYPE };
-    }
-    note = typeof src.parkingNote === 'string' ? String(sanitizeNote(src.parkingNote) || '').trim() : '';
-  }
-
-  let pin = 'absent';
-  if (hasLat) {
-    if (src.parkingLat === null && src.parkingLng === null) {
-      pin = 'cleared';
-    } else if (src.parkingLat === null || src.parkingLng === null) {
-      return { error: PARKING_ERRORS.PAIR };
-    } else {
-      const lat = parseCoordinate(src.parkingLat, 90);
-      const lng = parseCoordinate(src.parkingLng, 180);
-      if (lat === null || lng === null) return { error: PARKING_ERRORS.COORDINATES };
-      data.parkingLat = lat;
-      data.parkingLng = lng;
-      pin = 'set';
-    }
-  }
-
-  if (pin !== 'set' && note) return { error: PARKING_ERRORS.NOTE_WITHOUT_PIN };
-
-  if (pin === 'cleared') {
-    data.parkingLat = null;
-    data.parkingLng = null;
-    data.parkingNote = null;
-  } else if (note !== undefined) {
-    data.parkingNote = note || null;
-  }
-
-  return { data };
 }
 
 /** Form state the clients keep: `{ lat, lng, note }`, with no pin as nulls and an empty note. */
@@ -145,10 +77,8 @@ function parkingRequestFields(value) {
 
 module.exports = {
   PARKING_NOTE_MAX_LENGTH,
-  PARKING_ERRORS,
   EMPTY_PARKING,
   parseCoordinate,
-  validateParking,
   hasParkingPin,
   setParkingPin,
   clearParkingPin,

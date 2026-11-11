@@ -7,8 +7,6 @@ const dataManager = require('../utils/dataManager');
 const { getJerusalemDayHour } = require('../utils/timezone');
 const { sqlCanonicalCityExpr } = require('../utils/cityAliases');
 const { sanitizeFreeText } = require('../utils/sanitize');
-// server/shared/ is the vendored copy of shared/ (see scripts/sync-shared.js).
-const sharedParking = require('../shared/parking');
 
 function mapFieldForClient(f) {
   if (!f) return f;
@@ -65,16 +63,64 @@ function hasBoundingBox(query) {
 
 const VALID_SPORT_TYPES = ['SOCCER', 'BASKETBALL', 'TENNIS'];
 
+const PARKING_NOTE_MAX_LENGTH = 140;
+
+// Strict coordinate parse: Number() alone turns '' / ' ' into 0, true into 1 and [5] into 5, all of
+// which would pass as real coordinates. Only a finite number, or a non-blank numeric string, within
+// +-max is accepted; anything else returns null.
+function parseCoordinate(value, max) {
+  let n;
+  if (typeof value === 'number') n = value;
+  else if (typeof value === 'string' && value.trim() !== '') n = Number(value);
+  else return null;
+  return Number.isFinite(n) && Math.abs(n) <= max ? n : null;
+}
+
 // Optional parking spot (pin + short note), shared by Field create/update, suggestion submit and
 // suggestion approve. Same contract as validateOptionalFieldExtras: only keys present in `body`
-// end up in { data }. The rules themselves live in shared/parking.js so the web and mobile
-// clients enforce exactly what this accepts: the pin is a lat/lng pair, a note needs a pin in
-// the same request, clearing the pin (both null) clears the note, and blank or non-numeric
-// input is never coerced into a coordinate.
-function validateParking(body) {
-  return sharedParking.validateParking(body, {
-    sanitizeNote: (note) => sanitizeFreeText(note.trim(), sharedParking.PARKING_NOTE_MAX_LENGTH),
-  });
+// end up in { data }. The pin is a pair -- parkingLat and parkingLng must arrive together, either
+// both valid coordinates or both null/'' (which clears the pin).
+// A note never exists without a pin: clearing the pin clears the note too, and a note sent with
+// no pin in the request is rejected unless the row already has one (`hasExistingPin`, PUT only).
+function validateParking(body, { hasExistingPin = false } = {}) {
+  const data = {};
+  const hasLat = body.parkingLat !== undefined;
+  const hasLng = body.parkingLng !== undefined;
+  if (hasLat !== hasLng) return { error: 'parkingLat and parkingLng must be sent together' };
+  let pinCleared = false;
+  if (hasLat) {
+    const isEmpty = (v) => v === null || v === '';
+    if (isEmpty(body.parkingLat) && isEmpty(body.parkingLng)) {
+      data.parkingLat = null;
+      data.parkingLng = null;
+      pinCleared = true;
+    } else if (isEmpty(body.parkingLat) || isEmpty(body.parkingLng)) {
+      return { error: 'parkingLat and parkingLng must be sent together' };
+    } else {
+      const lat = parseCoordinate(body.parkingLat, 90);
+      const lng = parseCoordinate(body.parkingLng, 180);
+      if (lat === null || lng === null) {
+        return { error: 'parkingLat/parkingLng must be valid coordinates' };
+      }
+      data.parkingLat = lat;
+      data.parkingLng = lng;
+    }
+  }
+  if (body.parkingNote !== undefined) {
+    if (body.parkingNote !== null && typeof body.parkingNote !== 'string') {
+      return { error: 'parkingNote must be a string' };
+    }
+    const note = typeof body.parkingNote === 'string'
+      ? sanitizeFreeText(body.parkingNote.trim(), PARKING_NOTE_MAX_LENGTH).trim()
+      : '';
+    if (note && !hasLat && !hasExistingPin) {
+      return { error: 'parkingNote requires a parking pin' };
+    }
+    data.parkingNote = note || null;
+  }
+  // No pin, no note -- drop whatever note was sent alongside the cleared pin, or was left on the row.
+  if (pinCleared) data.parkingNote = null;
+  return { data };
 }
 
 // Validates the optional Field detail columns shared by POST/PUT. Returns
@@ -83,7 +129,7 @@ function validateParking(body) {
 // { error } if something present is invalid. Callers must check `error` and
 // bail out (400) before touching the database, so an invalid field never lets
 // other valid fields in the same request partially commit.
-function validateOptionalFieldExtras(body) {
+function validateOptionalFieldExtras(body, parkingOptions) {
   const data = {};
   const stringFields = ['description', 'phone', 'email', 'neighborhood', 'street', 'streetNumber'];
   for (const field of stringFields) {
@@ -110,7 +156,7 @@ function validateOptionalFieldExtras(body) {
     data.lng = lng;
   }
 
-  const parking = validateParking(body);
+  const parking = validateParking(body, parkingOptions);
   if (parking.error) return { error: parking.error };
   Object.assign(data, parking.data);
 
@@ -1090,7 +1136,18 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Type must be "open" or "closed"' });
     }
 
-    const extras = validateOptionalFieldExtras(req.body);
+    // A note-only edit is fine only when the field already has a parking pin to attach it to.
+    let hasExistingPin = false;
+    if (req.body.parkingNote && req.body.parkingLat === undefined && req.body.parkingLng === undefined) {
+      const existing = await prisma.field.findUnique({
+        where: { id: req.params.id },
+        select: { parkingLat: true, parkingLng: true },
+      });
+      if (!existing) return res.status(404).json({ error: 'Field not found' });
+      hasExistingPin = existing.parkingLat != null && existing.parkingLng != null;
+    }
+
+    const extras = validateOptionalFieldExtras(req.body, { hasExistingPin });
     if (extras.error) {
       return res.status(400).json({ error: extras.error });
     }

@@ -1,9 +1,7 @@
 const {
   PARKING_NOTE_MAX_LENGTH,
-  PARKING_ERRORS,
   EMPTY_PARKING,
   parseCoordinate,
-  validateParking,
   hasParkingPin,
   setParkingPin,
   clearParkingPin,
@@ -31,66 +29,6 @@ describe('parseCoordinate', () => {
     expect(parseCoordinate(90.0001, 90)).toBeNull();
     expect(parseCoordinate(-181, 180)).toBeNull();
     expect(parseCoordinate(180, 180)).toBe(180);
-  });
-});
-
-describe('validateParking', () => {
-  test('nothing sent adds no keys', () => {
-    expect(validateParking({})).toEqual({ data: {} });
-    expect(validateParking(null)).toEqual({ data: {} });
-    expect(validateParking({ name: 'x' })).toEqual({ data: {} });
-  });
-
-  test('a valid pin, with and without a note', () => {
-    expect(validateParking({ parkingLat: 32.07, parkingLng: 34.78 })).toEqual({ data: { parkingLat: 32.07, parkingLng: 34.78 } });
-    expect(validateParking({ parkingLat: '32.07', parkingLng: '34.78', parkingNote: '  free lot  ' }))
-      .toEqual({ data: { parkingLat: 32.07, parkingLng: 34.78, parkingNote: 'free lot' } });
-    expect(validateParking({ parkingLat: 32.07, parkingLng: 34.78, parkingNote: '   ' }).data.parkingNote).toBeNull();
-    expect(validateParking({ parkingLat: 32.07, parkingLng: 34.78, parkingNote: null }).data.parkingNote).toBeNull();
-  });
-
-  test('half a pin is rejected', () => {
-    expect(validateParking({ parkingLat: 32.07 })).toEqual({ error: PARKING_ERRORS.PAIR });
-    expect(validateParking({ parkingLng: 34.78 })).toEqual({ error: PARKING_ERRORS.PAIR });
-    expect(validateParking({ parkingLat: 32.07, parkingLng: null })).toEqual({ error: PARKING_ERRORS.PAIR });
-    expect(validateParking({ parkingLat: null, parkingLng: 34.78 })).toEqual({ error: PARKING_ERRORS.PAIR });
-  });
-
-  test('blank and non-numeric coordinates are rejected, not read as 0', () => {
-    for (const bad of ['', ' ', 'x', true, [1], {}, '1e1']) {
-      expect(validateParking({ parkingLat: bad, parkingLng: 34.78 })).toEqual({ error: PARKING_ERRORS.COORDINATES });
-      expect(validateParking({ parkingLat: 32.07, parkingLng: bad })).toEqual({ error: PARKING_ERRORS.COORDINATES });
-    }
-    expect(validateParking({ parkingLat: '', parkingLng: '' })).toEqual({ error: PARKING_ERRORS.COORDINATES });
-    expect(validateParking({ parkingLat: 132, parkingLng: 34.78 })).toEqual({ error: PARKING_ERRORS.COORDINATES });
-  });
-
-  test('a note without a pin is rejected; an empty note alone just clears the note', () => {
-    expect(validateParking({ parkingNote: 'behind the hall' })).toEqual({ error: PARKING_ERRORS.NOTE_WITHOUT_PIN });
-    expect(validateParking({ parkingLat: null, parkingLng: null, parkingNote: 'behind the hall' }))
-      .toEqual({ error: PARKING_ERRORS.NOTE_WITHOUT_PIN });
-    expect(validateParking({ parkingNote: '' })).toEqual({ data: { parkingNote: null } });
-    expect(validateParking({ parkingNote: null })).toEqual({ data: { parkingNote: null } });
-  });
-
-  test('clearing the pin clears the note with it', () => {
-    expect(validateParking({ parkingLat: null, parkingLng: null }))
-      .toEqual({ data: { parkingLat: null, parkingLng: null, parkingNote: null } });
-    expect(validateParking({ parkingLat: null, parkingLng: null, parkingNote: null }))
-      .toEqual({ data: { parkingLat: null, parkingLng: null, parkingNote: null } });
-  });
-
-  test('the note must be a string and is capped at the max length', () => {
-    expect(validateParking({ parkingLat: 1, parkingLng: 1, parkingNote: 5 })).toEqual({ error: PARKING_ERRORS.NOTE_TYPE });
-    const long = validateParking({ parkingLat: 1, parkingLng: 1, parkingNote: 'x'.repeat(300) });
-    expect(long.data.parkingNote).toHaveLength(PARKING_NOTE_MAX_LENGTH);
-  });
-
-  test('uses the caller sanitizer, and a note that sanitizes to nothing does not count as a note', () => {
-    const strip = (s) => s.replace(/<[^>]*>/g, '');
-    expect(validateParking({ parkingLat: 1, parkingLng: 1, parkingNote: ' <b>free</b> lot ' }, { sanitizeNote: strip }).data.parkingNote)
-      .toBe('free lot');
-    expect(validateParking({ parkingNote: '<b></b>' }, { sanitizeNote: strip })).toEqual({ data: { parkingNote: null } });
   });
 });
 
@@ -147,11 +85,12 @@ describe('parkingRequestFields', () => {
     expect(parkingRequestFields({ lat: 32.07, lng: 34.78, note: ' free lot ' }))
       .toEqual({ parkingLat: 32.07, parkingLng: 34.78, parkingNote: 'free lot' });
   });
-
-  test('what the client sends always passes the server validator', () => {
+  test('a long note is trimmed to the max length before sending', () => {
     const sent = parkingRequestFields({ lat: 32.07, lng: 34.78, note: 'x'.repeat(200) });
-    expect(validateParking(sent)).toEqual({
-      data: { parkingLat: 32.07, parkingLng: 34.78, parkingNote: 'x'.repeat(PARKING_NOTE_MAX_LENGTH) },
-    });
+    expect(sent.parkingNote).toHaveLength(PARKING_NOTE_MAX_LENGTH);
+  });
+
+  test('string coordinates from older state are sent as numbers', () => {
+    expect(parkingRequestFields({ lat: '32.07', lng: '34.78', note: '' })).toEqual({ parkingLat: 32.07, parkingLng: 34.78 });
   });
 });
