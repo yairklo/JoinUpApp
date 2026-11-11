@@ -84,6 +84,10 @@
       "types": "./mapLinks.d.ts",
       "default": "./mapLinks.js"
     },
+    "./parking": {
+      "types": "./parking.d.ts",
+      "default": "./parking.js"
+    },
     "./tournament/*": {
       "types": "./tournament/*.d.ts",
       "default": "./tournament/*.js"

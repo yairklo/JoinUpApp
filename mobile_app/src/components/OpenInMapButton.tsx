@@ -43,15 +43,18 @@ function openChooser(links: MapLinks, title: string, cancel: string, t: (key: st
 export default function OpenInMapButton({
     location,
     variant = 'inline',
+    label: labelOverride,
 }: {
     location: MapLocationInput;
+    /** Replaces "Open in map" as the visible text and accessible name (e.g. "Navigate to parking"). */
+    label?: string;
     /** Circle action on the game page; a text row everywhere else. */
     variant?: 'utility' | 'inline';
 }) {
     const { t } = useTranslation();
     const links = buildMapLinks(location);
     if (!links) return null;
-    const label = t('map.openInMap');
+    const label = labelOverride || t('map.openInMap');
     const open = () => openChooser(links, label, t('common.cancel'), t);
 
     if (variant === 'utility') {
