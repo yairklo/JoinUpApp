@@ -189,7 +189,7 @@ export default async function FieldProfilePage(props: { params: Promise<{ id: st
           </Box>
         </Card>
 
-        {(hasFieldPin || hasParking) && (
+        {(hasFieldPin || hasParking || !!field.parkingNote) && (
           <Card sx={{ mb: 3, overflow: "hidden" }}>
             {hasFieldPin && (
               <GameLocationMap
