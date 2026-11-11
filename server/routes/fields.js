@@ -162,6 +162,8 @@ const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFil
 
 const router = express.Router();
 const fieldImageUpload = createImageUpload('fields');
+const { nextSortOrder, syncFieldCover } = require('../utils/fieldPhotos');
+const { MAX_FIELD_PHOTOS } = require('../shared/upload');
 
 // Adds the browse/admin pages' free-text (name/location/city/neighborhood/
 // street) and sport filters on top of a base where-clause. Only touches the
@@ -1162,7 +1164,29 @@ router.post('/:id/image', authenticateToken, requireAdmin, handleSingleUpload(fi
     }
 
     const imageUrl = absoluteUrlFor(req, 'fields', req.file.filename);
-    const updated = await prisma.field.update({ where: { id: req.params.id }, data: { image: imageUrl } });
+    // Legacy "replace the cover" (older admin clients). The gallery lives in FieldPhoto now, so
+    // mirror it there: the old cover's row goes, the new image becomes the first approved photo.
+    const fieldId = req.params.id;
+    const updated = await prisma.$transaction(async (tx) => {
+      if (existing.image) await tx.fieldPhoto.deleteMany({ where: { fieldId, url: existing.image } });
+      const first = await tx.fieldPhoto.findFirst({
+        where: { fieldId, status: 'APPROVED' },
+        orderBy: { sortOrder: 'asc' },
+        select: { sortOrder: true },
+      });
+      await tx.fieldPhoto.create({
+        data: {
+          fieldId,
+          url: imageUrl,
+          status: 'APPROVED',
+          sortOrder: first ? first.sortOrder - 1 : 0,
+          uploadedById: req.user.id,
+          reviewedAt: new Date(),
+          reviewedById: req.user.id,
+        },
+      });
+      return tx.field.update({ where: { id: fieldId }, data: { image: imageUrl } });
+    });
     if (existing.image) deleteUploadedFile(existing.image);
 
     res.json(mapFieldForClient(updated));
@@ -1178,9 +1202,14 @@ router.delete('/:id/image', authenticateToken, requireAdmin, async (req, res) =>
   try {
     const existing = await prisma.field.findUnique({ where: { id: req.params.id }, select: { image: true } });
     if (!existing) return res.status(404).json({ error: 'Field not found' });
-    await prisma.field.update({ where: { id: req.params.id }, data: { image: null } });
+    // Removing the cover removes that gallery photo; the next approved photo (if any) takes over.
+    const fieldId = req.params.id;
+    const image = await prisma.$transaction(async (tx) => {
+      if (existing.image) await tx.fieldPhoto.deleteMany({ where: { fieldId, url: existing.image } });
+      return syncFieldCover(tx, fieldId);
+    });
     if (existing.image) deleteUploadedFile(existing.image);
-    res.json({ image: null });
+    res.json({ image });
   } catch (error) {
     console.error('Remove field image error:', error);
     res.status(500).json({ error: 'Failed to remove field image' });
@@ -1200,10 +1229,32 @@ router.post('/:id/photos', authenticateToken, requireAdmin, handleSingleUpload(f
     }
 
     const photoUrl = absoluteUrlFor(req, 'fields', req.file.filename);
-    const updated = await prisma.field.update({
-      where: { id: req.params.id },
-      data: { photos: { push: photoUrl } },
+    // Legacy admin "add to gallery" (older admin clients; new ones use routes/fieldPhotos.js).
+    // Still appends to the old array for those clients' response, and mirrors into FieldPhoto,
+    // which is what the gallery actually reads.
+    const fieldId = req.params.id;
+    const updated = await prisma.$transaction(async (tx) => {
+      const approved = await tx.fieldPhoto.count({ where: { fieldId, status: 'APPROVED' } });
+      if (approved >= MAX_FIELD_PHOTOS) return null;
+      await tx.fieldPhoto.create({
+        data: {
+          fieldId,
+          url: photoUrl,
+          status: 'APPROVED',
+          sortOrder: await nextSortOrder(tx, fieldId),
+          uploadedById: req.user.id,
+          reviewedAt: new Date(),
+          reviewedById: req.user.id,
+        },
+      });
+      await tx.field.update({ where: { id: fieldId }, data: { photos: { push: photoUrl } } });
+      await syncFieldCover(tx, fieldId);
+      return tx.field.findUnique({ where: { id: fieldId } });
     });
+    if (!updated) {
+      // 4xx: handleSingleUpload discards the stored file.
+      return res.status(409).json({ error: 'This field already has the maximum number of photos', code: 'FIELD_FULL' });
+    }
     res.status(201).json(mapFieldForClient(updated));
   } catch (error) {
     console.error('Add field photo error:', error);
@@ -1223,11 +1274,14 @@ router.delete('/:id/photos', authenticateToken, requireAdmin, async (req, res) =
     if (!existing) return res.status(404).json({ error: 'Field not found' });
 
     const remaining = existing.photos.filter((p) => p !== url);
-    const updated = await prisma.field.update({
-      where: { id: req.params.id },
-      data: { photos: { set: remaining } },
+    const fieldId = req.params.id;
+    const { updated, removedRows } = await prisma.$transaction(async (tx) => {
+      await tx.field.update({ where: { id: fieldId }, data: { photos: { set: remaining } } });
+      const { count } = await tx.fieldPhoto.deleteMany({ where: { fieldId, url } });
+      if (count > 0) await syncFieldCover(tx, fieldId);
+      return { updated: await tx.field.findUnique({ where: { id: fieldId } }), removedRows: count };
     });
-    if (remaining.length !== existing.photos.length) deleteUploadedFile(url);
+    if (remaining.length !== existing.photos.length || removedRows > 0) deleteUploadedFile(url);
     res.json(mapFieldForClient(updated));
   } catch (error) {
     console.error('Remove field photo error:', error);

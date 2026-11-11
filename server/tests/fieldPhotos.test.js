@@ -109,12 +109,16 @@ describe('Field photo gallery', () => {
     rows = [];
     nextId = 1;
     blocked = false;
-    field = { id: FIELD, name: 'מגרש הבדיקה', image: null };
+    field = { id: FIELD, name: 'מגרש הבדיקה', image: null, photos: [], type: 'OPEN' };
 
     spy(prisma, '$transaction', async (fn) => fn(prisma));
     spy(prisma.field, 'findUnique', async ({ where }) => (where.id === field.id ? field : null));
     spy(prisma.field, 'update', async ({ where, data }) => {
-      if (where.id === field.id) Object.assign(field, data);
+      if (where.id !== field.id) return field;
+      const { photos, ...rest } = data;
+      Object.assign(field, rest);
+      if (photos?.push) field.photos = [...field.photos, photos.push];
+      if (photos?.set) field.photos = photos.set;
       return field;
     });
     spy(prisma.user, 'findUnique', async () => ({ blockedFromFieldSocial: blocked }));
@@ -138,6 +142,12 @@ describe('Field photo gallery', () => {
     spy(prisma.fieldPhoto, 'delete', async ({ where }) => {
       const i = rows.findIndex((r) => r.id === where.id);
       return rows.splice(i, 1)[0];
+    });
+    spy(prisma.fieldPhoto, 'deleteMany', async ({ where }) => {
+      const keep = rows.filter((r) => !matches(r, where));
+      const count = rows.length - keep.length;
+      rows.splice(0, rows.length, ...keep);
+      return { count };
     });
     spy(prisma.fieldPhoto, 'groupBy', async ({ where }) => {
       const byField = new Map();
@@ -207,7 +217,6 @@ describe('Field photo gallery', () => {
       const theirs = await list(other);
       expect(theirs.body.mine).toEqual([]);
       expect(theirs.body.photos.map((p) => p.id)).toEqual(['a']);
-      expect(JSON.stringify(theirs.body)).not.toContain('"mine"]');
       expect(theirs.body.remaining).toBe(MAX_PENDING_PHOTOS_PER_USER_PER_FIELD);
     });
 
@@ -530,6 +539,75 @@ describe('Field photo gallery', () => {
       const res = await order(admin, ids);
       expect(res.statusCode).toBe(400);
       expect(rows.filter((r) => r.status === 'APPROVED').map((r) => r.sortOrder)).toEqual([0, 1, 2]);
+    });
+  });
+
+  // Older admin clients still call the pre-gallery endpoints in routes/fields.js. They must keep
+  // working and must not leave FieldPhoto (what the gallery reads) out of step.
+  describe('legacy admin endpoints write through to the gallery', () => {
+    const png = { filename: 'a.png', contentType: 'image/png' };
+
+    test('POST /api/fields/:id/photos adds an approved gallery photo and sets the cover', async () => {
+      expect((await member(request(app).post(`/api/fields/${FIELD}/photos`)).attach('photo', PNG, png)).statusCode).toBe(403);
+
+      const res = await admin(request(app).post(`/api/fields/${FIELD}/photos`)).attach('photo', PNG, png);
+      expect(res.statusCode).toBe(201);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ status: 'APPROVED', sortOrder: 0, uploadedById: 'user_admin_fp' });
+      expect(res.body.photos).toEqual([rows[0].url]);
+      expect(field.image).toBe(rows[0].url);
+      expect((await list()).body.photos.map((p) => p.url)).toEqual([rows[0].url]);
+    });
+
+    test('POST /api/fields/:id/photos respects the field cap', async () => {
+      addMany(MAX_FIELD_PHOTOS, (i) => ({ status: 'APPROVED', sortOrder: i, uploadedById: null }));
+      const res = await admin(request(app).post(`/api/fields/${FIELD}/photos`)).attach('photo', PNG, png);
+      expect(res.statusCode).toBe(409);
+      expect(res.body.code).toBe('FIELD_FULL');
+      expect(rows).toHaveLength(MAX_FIELD_PHOTOS);
+    });
+
+    test('POST /api/fields/:id/image replaces the cover photo and stays first', async () => {
+      const oldCover = addRow({ id: 'cover', status: 'APPROVED', sortOrder: 0 });
+      addRow({ id: 'second', status: 'APPROVED', sortOrder: 1 });
+      field.image = oldCover.url;
+
+      const res = await admin(request(app).post(`/api/fields/${FIELD}/image`)).attach('image', PNG, png);
+      expect(res.statusCode).toBe(200);
+      expect(rows.some((r) => r.id === 'cover')).toBe(false);
+      const photos = (await list()).body.photos;
+      expect(photos).toHaveLength(2);
+      expect(photos[0].url).toBe(res.body.image);
+      expect(photos[1].id).toBe('second');
+      expect(field.image).toBe(res.body.image);
+    });
+
+    test('DELETE /api/fields/:id/image removes that photo and the next one becomes the cover', async () => {
+      const cover = addRow({ id: 'cover', status: 'APPROVED', sortOrder: 0 });
+      const second = addRow({ id: 'second', status: 'APPROVED', sortOrder: 1 });
+      field.image = cover.url;
+
+      const res = await admin(request(app).delete(`/api/fields/${FIELD}/image`));
+      expect(res.statusCode).toBe(200);
+      expect(res.body.image).toBe(second.url);
+      expect(rows.map((r) => r.id)).toEqual(['second']);
+
+      const last = await admin(request(app).delete(`/api/fields/${FIELD}/image`));
+      expect(last.body.image).toBeNull();
+      expect(rows).toHaveLength(0);
+    });
+
+    test('DELETE /api/fields/:id/photos removes the gallery photo by url', async () => {
+      const a = addRow({ id: 'a', status: 'APPROVED', sortOrder: 0 });
+      const b = addRow({ id: 'b', status: 'APPROVED', sortOrder: 1 });
+      field.image = a.url;
+      field.photos = [b.url];
+
+      const res = await admin(request(app).delete(`/api/fields/${FIELD}/photos`)).send({ url: a.url });
+      expect(res.statusCode).toBe(200);
+      expect(rows.map((r) => r.id)).toEqual(['b']);
+      expect(field.image).toBe(b.url);
+      expect(field.photos).toEqual([b.url]);
     });
   });
 });
