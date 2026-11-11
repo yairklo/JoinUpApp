@@ -8,12 +8,12 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import LocalParkingRoundedIcon from "@mui/icons-material/LocalParkingRounded";
+import { PARKING_PIN_COLOR } from "@/lib/parkingPin";
 
 // The Google Maps picker is only needed once someone opens the parking section.
 const FieldLocationPicker = dynamic(() => import("@/components/admin/FieldLocationPicker"), { ssr: false });
 
 export const PARKING_NOTE_MAX_LENGTH = 140;
-export const PARKING_PIN_COLOR = "#1d4ed8";
 
 export interface ParkingValue {
   lat: number | null;
