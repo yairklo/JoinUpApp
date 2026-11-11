@@ -32,10 +32,7 @@ export interface AddAssetsResult {
 /** Turns a picked asset into the file to upload. `size` is reported when known. */
 export type ResizeFn = (asset: PickedAsset) => Promise<LocalPhoto & { size?: number }>;
 
-/**
- * Pass-through used until the real resize (utils/resizeImage, backed by expo-image-manipulator)
- * is installed with the next native build. The server's 5MB limit still applies.
- */
+/** Pass-through default; callers pass utils/resizeImage (expo-image-manipulator) for the real thing. */
 const noResize: ResizeFn = async (asset) => ({ uri: asset.uri, name: asset.name, type: asset.mimeType, size: asset.size });
 
 /** Errors where trying the same photo again can succeed. A limit or a bad type will not change. */

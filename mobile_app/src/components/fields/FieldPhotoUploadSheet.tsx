@@ -11,6 +11,7 @@ import {
 } from '@joinup/shared/upload';
 import { useFieldPhotoUpload, isRetryable, type UploadItem } from '@/hooks/useFieldPhotoUpload';
 import { pickFieldPhotos } from '@/utils/pickFieldPhotos';
+import { resizeImage } from '@/utils/resizeImage';
 
 type T = ReturnType<typeof useTranslation>['t'];
 
@@ -158,7 +159,7 @@ export default function FieldPhotoUploadSheet({
     const { t } = useTranslation();
     const insets = useSafeAreaInsets();
     const { height: windowHeight } = useWindowDimensions();
-    const { items, busy, doneCount, addAssets, retry, dismiss, clearSettled } = useFieldPhotoUpload(fieldId, onUploaded);
+    const { items, busy, doneCount, addAssets, retry, dismiss, clearSettled } = useFieldPhotoUpload(fieldId, onUploaded, resizeImage);
     const [trimNotice, setTrimNotice] = useState<string | null>(null);
     const [picking, setPicking] = useState(false);
 
