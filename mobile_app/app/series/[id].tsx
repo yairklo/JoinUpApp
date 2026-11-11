@@ -218,7 +218,7 @@ export default function SeriesScreen() {
             if (nextTeamSize !== (series.teamSize ?? null)) changes.teamSize = nextTeamSize;
             if (welcomeMessage !== (series.welcomeMessage || '')) changes.welcomeMessage = welcomeMessage || null;
             if (membersOnlyPriority !== !!series.membersOnlyPriority) changes.membersOnlyPriority = membersOnlyPriority;
-            const nextGuestHours = guestHours.trim() === '' ? null : Number(guestHours);
+            const nextGuestHours = guestHours.trim() === '' ? null : Number(guestHours.trim().replace(',', '.'));
             if (nextGuestHours !== null && !(Number.isFinite(nextGuestHours) && nextGuestHours >= 0)) {
                 appAlert(t('common.error', 'שגיאה'), t('series.guestHoursInvalid', 'שעות פתיחה לאורחים חייבות להיות מספר חיובי'));
                 return;
