@@ -8,8 +8,8 @@
       "shared/upload.d.ts",
       "shared/upload.test.js"
     ],
-    "description": "[Phase A (no overlap with #542/#543/#544)] Add constants to shared/upload.js (keep existing exports untouched): MAX_FIELD_PHOTOS=10 (approved per field), MAX_PENDING_PHOTOS_PER_USER_PER_FIELD=5, MAX_PENDING_PHOTOS_PER_USER=15, MAX_PHOTO_UPLOADS_PER_DAY=20, IMAGE_RESIZE_MAX_EDGE=1600, IMAGE_RESIZE_JPEG_QUALITY=0.82. Add a pure function computeFieldPhotoAllowance({ isAdmin, approvedCountForField, userPendingForField, userPendingTotal, userUploadsLast24h, requested }) returning { allowed, remaining, reason } where reason is one of null | 'FIELD_FULL' | 'PENDING_PER_FIELD' | 'PENDING_TOTAL' | 'DAILY'. Rules: admins skip the three per-user limits; the 10-approved-per-field cap is a hard cap for everyone (admin uploads are auto-approved so remaining = 10 - approved; for users, FIELD_FULL when approved >= 10); remaining for users = min(5 - pendingForField, 15 - pendingTotal, 20 - uploadsLast24h), floored at 0; allowed = min(requested, remaining); reason names the binding limit when allowed < requested. Also add validateFieldPhotoFile({ mimetype, size }) returning null | 'TYPE' | 'SIZE' using the existing MIME_EXTENSIONS / MAX_IMAGE_FILE_SIZE. Add types to upload.d.ts. Jest tests (same style as the other shared/*.test.js): each limit binding on its own, combined limits, admin exemption, field-full for users and admins, trimming a multi-select (requested 6, remaining 3 -> allowed 3), zero/negative guards, type and size validation. Then run `node server/scripts/sync-shared.js` so the generated server/shared/upload.js is regenerated (generated file, commit it; do not hand-edit). Do NOT touch shared/package.json or sync-shared.js (both are in #543) - upload.js is already exported and synced.",
-    "status": "todo"
+    "description": "[Phase A (no overlap with #542/#543/#544)] Add constants to shared/upload.js (keep existing exports untouched): MAX_FIELD_PHOTOS=10 (approved per field), MAX_PENDING_PHOTOS_PER_USER_PER_FIELD=5, MAX_PENDING_PHOTOS_PER_USER=15, MAX_PHOTO_UPLOADS_PER_DAY=20, IMAGE_RESIZE_MAX_EDGE=1600, IMAGE_RESIZE_JPEG_QUALITY=0.82. Add a pure function computeFieldPhotoAllowance({ isAdmin, approvedCountForField, userPendingForField, userPendingTotal, userUploadsLast24h, requested }) returning { allowed, remaining, reason } where reason is one of null | 'FIELD_FULL' | 'PENDING_PER_FIELD' | 'PENDING_TOTAL' | 'DAILY'. Rules: admins skip the three per-user limits; the 10-approved-per-field cap is a hard cap for everyone (admin uploads are auto-approved so remaining = 10 - approved; for users, FIELD_FULL when approved >= 10); remaining for users = min(5 - pendingForField, 15 - pendingTotal, 20 - uploadsLast24h), floored at 0; allowed = min(requested, remaining); reason names the binding limit when allowed < requested. Also add validateFieldPhotoFile({ mimetype, size }) returning null | 'TYPE' | 'SIZE' using the existing MIME_EXTENSIONS / MAX_IMAGE_FILE_SIZE. Add types to upload.d.ts. Jest tests (same style as the other shared/*.test.js): each limit binding on its own, combined limits, admin exemption, field-full for users and admins, trimming a multi-select (requested 6, remaining 3 -> allowed 3), zero/negative guards, type and size validation. Then run `node server/scripts/sync-shared.js` so the generated server/shared/upload.js is regenerated (generated file, commit it; do not hand-edit). Do NOT touch shared/package.json or sync-shared.js (both are in #543) - upload.js is already exported and synced. [As built: computeResizedDimensions, planFieldPhotoBatch and fieldPhotoErrorKind also live in shared/upload.js so web and mobile share one tested copy. planFieldPhotoBatch checks type only - file size is checked on the resized copy, because a 12MB phone photo is well under 5MB after the resize.]",
+    "status": "verify"
   },
   {
     "id": 2,
@@ -20,7 +20,7 @@
       "next_app/src/utils/resizeImage.test.ts"
     ],
     "description": "[Phase A] New util. computeResizedDimensions(width, height, maxEdge) is pure (never upscales, keeps aspect ratio, rounds to integers) and is what the Jest test covers (landscape, portrait, square, already-small, extreme aspect). resizeImageFile(file: File): Promise<File> decodes with createImageBitmap(file, { imageOrientation: 'from-image' }) (fallback: HTMLImageElement), draws to a canvas at the computed size, exports JPEG at IMAGE_RESIZE_JPEG_QUALITY via canvas.toBlob, and returns a File named <original>.jpg. Constants come from @joinup/shared/upload. GIFs are flattened to their first frame (acceptable for field photos). If decoding fails, or the result is larger than the original and the original is already within the max edge, return the original file unchanged so the server check stays the single gate.",
-    "status": "todo"
+    "status": "verify"
   },
   {
     "id": 3,
@@ -31,7 +31,7 @@
       "next_app/src/hooks/useFieldPhotoUpload.ts"
     ],
     "description": "[Phase A] New API client in its own file (next_app/src/services/api/fields.ts is in #542 - do not touch). Types: FieldPhoto { id, url, status: 'PENDING'|'APPROVED'|'REJECTED', sortOrder, isMine?, createdAt }, FieldPhotosResponse { photos: FieldPhoto[] (approved, ordered), mine: FieldPhoto[] (viewer's own pending, empty for guests), remaining: number | null (null for guests), fieldFull: boolean }. Methods: list(fieldId, token?) - with a token it must send `cache: 'no-store'`; upload(fieldId, file, token, onProgress) using XMLHttpRequest so per-file upload progress is real (fetch has no upload progress); removeMine(fieldId, photoId, token); admin: listPending(token), approve(photoId, token), reject(photoId, token), remove(photoId, token), reorder(fieldId, orderedIds, token). Follow the existing multipart pattern in services/api/fields.ts addPhoto (form field name 'photo'). Hook useFieldPhotoUpload(fieldId, remaining): takes a FileList, runs validateFieldPhotoFile per file, trims to `remaining` and reports how many were not sent (never silently drops: returns { skippedCount } and per-file items), then for each file sequentially: resizeImageFile -> upload, exposing items [{ id, name, previewUrl, status: 'queued'|'resizing'|'uploading'|'done'|'error', progress 0-100, errorKind }], plus retry(itemId) and dismiss(itemId). Map server 409/429 limit responses (error code in body) to errorKind so the UI can show the specific message. Revoke object URLs on cleanup.",
-    "status": "todo"
+    "status": "verify"
   },
   {
     "id": 4,
@@ -42,7 +42,7 @@
       "next_app/src/components/fields/FieldPhotoViewer.tsx"
     ],
     "description": "[Phase A] New client components in MUI, matching the existing field page card (Card with overflow hidden, 220px hero that grows to ~320px at md+). FieldGallery props: { fieldId, fieldName, initialPhotos: string[] (SSR approved urls so the first image paints without a client fetch), signedIn }. Layout: horizontal scroll container with CSS scroll-snap (scroll-snap-type: x mandatory; each slide 100% width, snap-align: center), dir inherited so RTL works natively; compute the active index with an IntersectionObserver on the slides (do NOT derive it from scrollLeft - its sign differs across browsers in RTL). Overlay: dots (max 10) plus an 'n / total' counter chip; previous/next IconButtons shown on hover/focus at md+, using scrollIntoView on the target slide, with mirrored icons in RTL. Images: first slide eager, the rest loading='lazy' decoding='async', MUI Skeleton placeholder until onLoad, SafeImage fallback on error; request Cloudinary-transformed URLs (insert f_auto,q_auto,w_1200 after /image/upload/ only when the URL is on res.cloudinary.com; leave other URLs untouched). Alt text: '<fieldName> - תמונה n מתוך total'. The viewer's own pending photos appear after the approved ones with a 'ממתינה לאישור' badge and reduced opacity, and a small remove button. Single photo: no dots/arrows. Empty state (no approved, no pending): the default-field image dimmed with a centered 'עדיין אין תמונות למגרש' line and a contained 'הוסיפו תמונה ראשונה' button (signed-in) or a sign-in prompt (guest). Tap/Enter on a slide opens FieldPhotoViewer: fullScreen MUI Dialog, black background, same scroll-snap strip starting at the tapped index, object-fit contain, close button, counter, ArrowLeft/ArrowRight (direction-aware) and Esc; aria-label 'גלריית תמונות - <fieldName>'; focus returns to the opening slide. Carousel region: role='region', aria-roledescription='carousel', aria-label; slides role='group' aria-label 'n מתוך total'. Respect prefers-reduced-motion (scroll-behavior auto). Web is Hebrew-only today (no i18n layer exists in next_app), so strings are Hebrew literals like the rest of the page.",
-    "status": "todo"
+    "status": "verify"
   },
   {
     "id": 5,
@@ -53,7 +53,7 @@
       "next_app/src/components/fields/FieldGallery.tsx"
     ],
     "description": "[Phase A] New FieldPhotoUploader: button 'הוספת תמונות' + hidden <input type='file' multiple accept={ACCEPTED_IMAGE_TYPES}>; on select calls useFieldPhotoUpload. Shows a compact list (inside a Dialog on mobile widths, inline under the gallery at md+) with one row per file: thumbnail, name, LinearProgress (determinate while uploading, indeterminate while resizing), a success tick, or an error line with 'נסו שוב' / dismiss. Messages: before picking, a helper line 'אפשר להוסיף עוד N תמונות' from `remaining`; when a selection is trimmed, an Alert 'נבחרו X תמונות, אפשר להוסיף עוד N. Y לא נשלחו' (nothing silently dropped); per-file errors for wrong type, over 5MB, daily limit, pending limit, gallery full, network. After all finish: 'התמונות נשלחו לאישור' (or 'התמונות נוספו' for admins) and the gallery refetches so the uploader's pending photos appear with the badge. Button disabled with an explanatory tooltip when remaining is 0. aria-live='polite' on the status region; every icon button labelled. Wire the uploader into FieldGallery (header action + empty-state button).",
-    "status": "todo"
+    "status": "verify"
   },
   {
     "id": 6,
@@ -64,7 +64,7 @@
       "next_app/src/app/admin/fields/page.tsx"
     ],
     "description": "[Phase A] New panel modelled on FieldSuggestionsPanel (read it for layout/behaviour, do NOT edit it - it is in #542). Lists pending photos grouped by field: thumbnail (click to enlarge), field name linking to /fields/<id>, uploader name, date, and the field's current approved count 'n/10'. Actions: approve, reject (both optimistic with rollback and a snackbar on failure); approve is disabled with a reason when the field already has 10 approved. Count badge in the panel heading; empty state 'אין תמונות שממתינות לאישור'. Mount it in next_app/src/app/admin/fields/page.tsx next to the existing suggestions panel (this page is not in any open PR).",
-    "status": "todo"
+    "status": "verify"
   },
   {
     "id": 7,
@@ -76,7 +76,7 @@
       "mobile_app/src/components/fields/FieldPhotoViewer.tsx"
     ],
     "description": "[Phase A] New API client in its own file (mobile_app/src/services/api/fields.ts is in #543 - do not touch; reuse its exported uploadMultipart/PickedImage if exported, otherwise replicate the small multipart helper locally). Same response shape as the web client in step 3. FieldGallery: horizontal FlatList with pagingEnabled, item width = container width from onLayout, getItemLayout, initialNumToRender 1, windowSize 3 (off-screen photos are not loaded); images via expo-image (already installed) with contentFit='cover', a neutral placeholder colour and transition={150}, recyclingKey per url, Cloudinary f_auto,q_auto,w_1080 transform on res.cloudinary.com URLs only. Height 220. Dots + 'n / total' counter overlay; active index from onViewableItemsChanged (not from scroll offset, which is unreliable under RTL). RTL: let FlatList follow I18nManager.isRTL - do not use `inverted`; verify order visually on the emulator. Own pending photos appended with a 'pending review' badge. Empty state: tinted panel with a camera icon, t('fieldPhotos.emptyTitle') and a primary 'add first photo' button (sign-in prompt for guests) - styled with the existing NativeWind tokens used on the field screen (bg-white dark:bg-cyber-card, brand-* colours). Tap opens FieldPhotoViewer: full-screen Modal, black background, paged FlatList at the tapped index, contentFit='contain', close button respecting safe-area insets, counter, Android back closes. Accessibility: each image accessibilityLabel t('fieldPhotos.photoAlt', { name, index, total }), accessibilityRole='image'; buttons labelled; the list has accessibilityRole='adjustable' with a label. All strings via t('fieldPhotos.*', '<Hebrew default>') - the existing fallback-default pattern - so this step does not touch he.json/en.json (both are in #543 and #544); locale entries are added in step 15.",
-    "status": "todo"
+    "status": "verify"
   },
   {
     "id": 8,
@@ -88,7 +88,7 @@
       "mobile_app/src/components/fields/FieldPhotoUploadSheet.tsx"
     ],
     "description": "[Phase A] pickFieldPhotos(remaining): same permission handling as utils/pickImage.ts (iOS asks, Android system picker needs none) but launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, selectionLimit: Math.min(remaining, 10), quality: 1 }) - quality 1 because resize/compression now happens in the resize step, not the picker. Returns all picked assets plus per-asset validation results (type/size via validateFieldPhotoFile) instead of alerting and returning null, so one bad file does not cancel the batch. Hook mirrors the web hook from step 3: trim to remaining and report skippedCount, then per file resize -> upload sequentially with status and progress (use XMLHttpRequest upload.onprogress, which React Native supports, for real per-file progress), retry and dismiss. The resize call goes through an injected `resize` function imported from '@/utils/resizeImage' - that module is created in step 12 (it needs the expo-image-manipulator install, which touches mobile_app/package.json, currently in #544). So in this step do not import that module: give the hook an optional `resize` parameter that defaults to identity, and step 12 wires the real one. FieldPhotoUploadSheet: bottom-sheet style Modal consistent with existing sheets in the app, rows with thumbnail, progress bar, tick or error + retry; header line t('fieldPhotos.remaining', { count }); trimmed-selection notice; final 'sent for review' confirmation. accessibilityLiveRegion='polite' on the status text.",
-    "status": "todo"
+    "status": "verify"
   },
   {
     "id": 9,
@@ -100,7 +100,7 @@
       "mobile_app/app/admin/_layout.tsx"
     ],
     "description": "[Phase A] New admin screen listing pending field photos (thumbnail, field name, uploader, date, approved count n/10) with approve / reject buttons, optimistic with rollback, pull-to-refresh, empty state. Add an entry row with a pending-count badge on mobile_app/app/admin/index.tsx and register the route in _layout.tsx if the layout lists screens explicitly. None of these files are in an open PR.",
-    "status": "todo"
+    "status": "verify"
   },
   {
     "id": 10,
