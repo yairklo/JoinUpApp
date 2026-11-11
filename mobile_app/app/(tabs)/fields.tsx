@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, TextInput, FlatList, ActivityIndicator, S
 import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '@clerk/clerk-expo';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as Location from 'expo-location';
 import { fieldsApi, Field } from '@/services/api';
@@ -17,6 +18,7 @@ import { getFieldSportTags } from '@/utils/mapSport';
 import { SPORT_KEYS, SPORT_MAPPING, SPORT_EMOJI } from '@/utils/sports';
 import { useMapFields } from '@/hooks/useMapFields';
 import SafeImage from '@/components/SafeImage';
+import SuggestFieldModal from '@/components/SuggestFieldModal';
 
 const PAGE_SIZE = 24;
 
@@ -30,6 +32,20 @@ function coordKey(lat: number, lng: number): string {
 export default function FieldsDirectoryScreen() {
     const { t } = useTranslation();
     const router = useRouter();
+    const { isSignedIn } = useAuth();
+
+    // "Add field": sends a venue for admin approval through the same modal the create-game
+    // picker uses. It never creates a game. Submitting needs an account.
+    const [addFieldVisible, setAddFieldVisible] = useState(false);
+    const [addFieldName, setAddFieldName] = useState('');
+    const openAddField = useCallback((prefillName = '') => {
+        if (!isSignedIn) {
+            router.push('/sign-in');
+            return;
+        }
+        setAddFieldName(prefillName);
+        setAddFieldVisible(true);
+    }, [isSignedIn, router]);
 
     // View mode: map view or list view
     const [isMapView, setIsMapView] = useState(true);
@@ -288,8 +304,8 @@ export default function FieldsDirectoryScreen() {
             <MapListToggle isMapView={isMapView} onChange={setIsMapView} />
 
             {/* Search Input with Debounce */}
-            <View className="px-4 py-2 border-b border-gray-100 dark:border-cyber-border bg-white dark:bg-cyber-card">
-                <View className="flex-row items-center bg-gray-50 dark:bg-cyber-bg border border-gray-200 dark:border-cyber-border rounded-xl px-3.5 py-2.5">
+            <View className="flex-row items-center px-4 py-2 border-b border-gray-100 dark:border-cyber-border bg-white dark:bg-cyber-card" style={{ gap: 8 }}>
+                <View className="flex-1 flex-row items-center bg-gray-50 dark:bg-cyber-bg border border-gray-200 dark:border-cyber-border rounded-xl px-3.5 py-2.5">
                     <FontAwesome name="search" size={15} color="#9ca3af" />
                     <TextInput
                         value={query}
@@ -304,6 +320,17 @@ export default function FieldsDirectoryScreen() {
                         </TouchableOpacity>
                     )}
                 </View>
+                <TouchableOpacity
+                    testID="fields-add-field"
+                    onPress={() => openAddField()}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('field.addField', 'הוסף מגרש')}
+                    className="flex-row items-center bg-brand rounded-xl px-3"
+                    style={{ minHeight: 44, gap: 6 }}
+                >
+                    <FontAwesome name="plus" size={12} color="#fff" />
+                    <Text className="text-white font-bold text-sm">{t('field.addField', 'הוסף מגרש')}</Text>
+                </TouchableOpacity>
             </View>
 
             {/* Sport Filter Pills */}
@@ -386,6 +413,18 @@ export default function FieldsDirectoryScreen() {
                     <Text className="text-gray-500 dark:text-cyber-muted mt-3 text-center">
                         {t('field.emptyDirectory', 'לא נמצאו מגרשים')}
                     </Text>
+                    <TouchableOpacity
+                        testID="fields-empty-add-field"
+                        onPress={() => openAddField(debouncedQuery.trim())}
+                        accessibilityRole="button"
+                        className="flex-row items-center border border-brand rounded-xl px-4 py-3 mt-4"
+                        style={{ minHeight: 48, gap: 8 }}
+                    >
+                        <FontAwesome name="plus-circle" size={16} color="#059669" />
+                        <Text className="flex-shrink text-brand-dark dark:text-brand-light font-bold text-sm text-center">
+                            {t('field.addFieldCta', 'לא מצאת את המגרש שלך? הוסף אותו ונאשר בהקדם')}
+                        </Text>
+                    </TouchableOpacity>
                 </View>
             ) : (
                 <FlatList
@@ -403,6 +442,12 @@ export default function FieldsDirectoryScreen() {
                     ) : null}
                 />
             )}
+
+            <SuggestFieldModal
+                visible={addFieldVisible}
+                onClose={() => setAddFieldVisible(false)}
+                initialName={addFieldName}
+            />
         </View>
     );
 }

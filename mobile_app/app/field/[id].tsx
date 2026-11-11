@@ -15,6 +15,8 @@ import FieldIssueReportSection from '@/components/FieldIssueReportSection';
 import FavoriteButton from '@/components/FavoriteButton';
 import BackButton from '@/components/ui/BackButton';
 import SafeImage from '@/components/SafeImage';
+import OpenInMapButton from '@/components/OpenInMapButton';
+import { parseCoordinate } from '@joinup/shared/parking';
 
 const CHART_MAX_HEIGHT = 120;
 
@@ -127,6 +129,10 @@ export default function FieldProfileScreen() {
     const streetPart = [field.street, field.streetNumber].filter(Boolean).join(' ');
     const address = [streetPart, field.neighborhood, field.city].filter(Boolean).join(', ') || field.location || '';
     const sports = field.supportedSports || [];
+    // The field's optional parking pin: shown only when both coordinates are real numbers.
+    const parkingLat = parseCoordinate(field.parkingLat, 90);
+    const parkingLng = parseCoordinate(field.parkingLng, 180);
+    const parking = parkingLat !== null && parkingLng !== null ? { latitude: parkingLat, longitude: parkingLng } : null;
 
     const renderScheduleItem = ({ item }: { item: FieldScheduleGame }) => {
         const slotsLeft = Math.max(0, item.maxPlayers - item.confirmedCount);
@@ -221,7 +227,13 @@ export default function FieldProfileScreen() {
                     <View className="bg-white dark:bg-cyber-card mb-4 shadow-sm" style={{ height: 200, overflow: 'hidden' }}>
                         <MapView
                             style={{ flex: 1 }}
-                            initialRegion={{
+                            // With a parking pin, frame both pins instead of centring on the field alone.
+                            initialRegion={parking ? {
+                                latitude: (field.lat + parking.latitude) / 2,
+                                longitude: (field.lng + parking.longitude) / 2,
+                                latitudeDelta: Math.max(0.01, Math.abs(field.lat - parking.latitude) * 2.2),
+                                longitudeDelta: Math.max(0.01, Math.abs(field.lng - parking.longitude) * 2.2),
+                            } : {
                                 latitude: field.lat,
                                 longitude: field.lng,
                                 latitudeDelta: 0.01,
@@ -231,7 +243,43 @@ export default function FieldProfileScreen() {
                             zoomEnabled={false}
                         >
                             <Marker coordinate={{ latitude: field.lat, longitude: field.lng }} title={field.name} />
+                            {parking && (
+                                <Marker
+                                    coordinate={parking}
+                                    title={t('field.parkingTitle', 'חניה')}
+                                    description={field.parkingNote || undefined}
+                                    pinColor="blue"
+                                />
+                            )}
                         </MapView>
+                    </View>
+                )}
+
+                {parking && (
+                    <View testID="field-parking" className="bg-white dark:bg-cyber-card p-4 mb-4 shadow-sm">
+                        <View className="flex-row items-center">
+                            <View className="w-8 h-8 rounded-full bg-blue-700 items-center justify-center" style={{ marginEnd: 10 }}>
+                                <Text className="text-white font-bold">P</Text>
+                            </View>
+                            <View className="flex-1">
+                                <Text className="text-lg font-bold text-gray-800 dark:text-cyber-text" accessibilityRole="header">
+                                    {t('field.parkingTitle', 'חניה')}
+                                </Text>
+                                {field.parkingNote ? (
+                                    <Text className="text-gray-600 dark:text-cyber-muted text-sm mt-0.5">{field.parkingNote}</Text>
+                                ) : null}
+                            </View>
+                        </View>
+                        <View className="mt-2">
+                            <OpenInMapButton
+                                label={t('field.parkingNavigate', 'ניווט לחניה')}
+                                location={{
+                                    lat: parking.latitude,
+                                    lng: parking.longitude,
+                                    name: `${t('field.parkingTitle', 'חניה')} – ${field.name}`,
+                                }}
+                            />
+                        </View>
                     </View>
                 )}
 
