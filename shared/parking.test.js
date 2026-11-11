@@ -3,9 +3,12 @@ const {
   EMPTY_PARKING,
   parseCoordinate,
   hasParkingPin,
+  hasParkingNote,
+  hasParking,
   setParkingPin,
   clearParkingPin,
   setParkingNote,
+  clearParkingNote,
   parkingRequestFields,
 } = require('./parking');
 
@@ -32,38 +35,65 @@ describe('parseCoordinate', () => {
   });
 });
 
-describe('client form state', () => {
-  test('a note cannot be typed before a pin exists', () => {
-    expect(setParkingNote(EMPTY_PARKING, 'free lot')).toEqual({ lat: null, lng: null, note: '' });
-    expect(setParkingNote(null, 'free lot')).toEqual({ lat: null, lng: null, note: '' });
+describe('client form state: pin and note are independent', () => {
+  test('a note can be typed with no pin, and it does not create one', () => {
+    const noted = setParkingNote(EMPTY_PARKING, 'street parking only');
+    expect(noted).toEqual({ lat: null, lng: null, note: 'street parking only' });
+    expect(hasParkingPin(noted)).toBe(false);
+    expect(hasParkingNote(noted)).toBe(true);
+    expect(hasParking(noted)).toBe(true);
+    expect(setParkingNote(null, 'x')).toEqual({ lat: null, lng: null, note: 'x' });
   });
 
-  test('placing a pin keeps an existing note; moving it too', () => {
+  test('a pin can exist with no note', () => {
     const pinned = setParkingPin(EMPTY_PARKING, 32.07, 34.78);
     expect(pinned).toEqual({ lat: 32.07, lng: 34.78, note: '' });
-    const noted = setParkingNote(pinned, 'free lot');
-    expect(setParkingPin(noted, 32.08, 34.79)).toEqual({ lat: 32.08, lng: 34.79, note: 'free lot' });
+    expect(hasParkingPin(pinned)).toBe(true);
+    expect(hasParkingNote(pinned)).toBe(false);
+    expect(hasParking(pinned)).toBe(true);
   });
 
-  test('an invalid point never becomes a pin', () => {
-    expect(setParkingPin(EMPTY_PARKING, '', '')).toEqual(EMPTY_PARKING);
-    expect(setParkingPin(EMPTY_PARKING, 'abc', 34.78)).toEqual(EMPTY_PARKING);
-    expect(setParkingPin(EMPTY_PARKING, 132, 34.78)).toEqual(EMPTY_PARKING);
+  test('placing or moving the pin keeps the note', () => {
+    const noted = setParkingNote(EMPTY_PARKING, 'free lot');
+    const pinned = setParkingPin(noted, 32.07, 34.78);
+    expect(pinned).toEqual({ lat: 32.07, lng: 34.78, note: 'free lot' });
+    expect(setParkingPin(pinned, 32.08, 34.79)).toEqual({ lat: 32.08, lng: 34.79, note: 'free lot' });
+  });
+
+  test('removing the pin does NOT clear the note', () => {
+    const both = setParkingNote(setParkingPin(EMPTY_PARKING, 32.07, 34.78), 'free lot');
+    const unpinned = clearParkingPin(both);
+    expect(unpinned).toEqual({ lat: null, lng: null, note: 'free lot' });
+    expect(hasParkingPin(unpinned)).toBe(false);
+    expect(hasParking(unpinned)).toBe(true);
+    expect(clearParkingPin(null)).toEqual({ lat: null, lng: null, note: '' });
+  });
+
+  test('the note is cleared only by clearing the note, and that keeps the pin', () => {
+    const both = setParkingNote(setParkingPin(EMPTY_PARKING, 32.07, 34.78), 'free lot');
+    expect(clearParkingNote(both)).toEqual({ lat: 32.07, lng: 34.78, note: '' });
+    expect(setParkingNote(both, '')).toEqual({ lat: 32.07, lng: 34.78, note: '' });
+    expect(hasParking(clearParkingNote(clearParkingPin(both)))).toBe(false);
+  });
+
+  test('an invalid point never becomes a pin and leaves the state alone', () => {
+    const noted = setParkingNote(EMPTY_PARKING, 'free lot');
+    expect(setParkingPin(noted, '', '')).toEqual(noted);
+    expect(setParkingPin(noted, 'abc', 34.78)).toEqual(noted);
+    expect(setParkingPin(noted, 132, 34.78)).toEqual(noted);
     const pinned = setParkingPin(EMPTY_PARKING, 32.07, 34.78);
     expect(setParkingPin(pinned, NaN, 34.78)).toEqual(pinned);
   });
 
-  test('removing the pin clears the note', () => {
-    const noted = setParkingNote(setParkingPin(EMPTY_PARKING, 32.07, 34.78), 'free lot');
-    expect(hasParkingPin(noted)).toBe(true);
-    const cleared = clearParkingPin();
-    expect(cleared).toEqual({ lat: null, lng: null, note: '' });
-    expect(hasParkingPin(cleared)).toBe(false);
+  test('typing a note never leaves half a pin behind', () => {
+    expect(setParkingNote({ lat: 32.07, lng: null, note: '' }, 'x')).toEqual({ lat: null, lng: null, note: 'x' });
   });
 
-  test('the note is capped while typing', () => {
-    const pinned = setParkingPin(EMPTY_PARKING, 32.07, 34.78);
-    expect(setParkingNote(pinned, 'x'.repeat(200)).note).toHaveLength(PARKING_NOTE_MAX_LENGTH);
+  test('the note is capped while typing; a blank note does not count as parking', () => {
+    expect(setParkingNote(EMPTY_PARKING, 'x'.repeat(200)).note).toHaveLength(PARKING_NOTE_MAX_LENGTH);
+    expect(hasParkingNote({ lat: null, lng: null, note: '   ' })).toBe(false);
+    expect(hasParking(EMPTY_PARKING)).toBe(false);
+    expect(hasParking(null)).toBe(false);
   });
 
   test('EMPTY_PARKING cannot be mutated by accident', () => {
@@ -72,25 +102,37 @@ describe('client form state', () => {
 });
 
 describe('parkingRequestFields', () => {
-  test('no pin sends nothing, even if a note is somehow present', () => {
+  test('nothing set sends nothing', () => {
     expect(parkingRequestFields(EMPTY_PARKING)).toEqual({});
     expect(parkingRequestFields(null)).toEqual({});
-    expect(parkingRequestFields({ lat: null, lng: null, note: 'orphan' })).toEqual({});
-    expect(parkingRequestFields({ lat: 32.07, lng: null, note: 'orphan' })).toEqual({});
+    expect(parkingRequestFields({ lat: null, lng: null, note: '   ' })).toEqual({});
   });
 
-  test('a pin sends the pair, and the note only when non-empty', () => {
+  test('note only: the note is sent and no coordinates at all', () => {
+    expect(parkingRequestFields({ lat: null, lng: null, note: ' street parking ' })).toEqual({ parkingNote: 'street parking' });
+  });
+
+  test('pin only: the pair is sent and no note', () => {
     expect(parkingRequestFields({ lat: 32.07, lng: 34.78, note: '' })).toEqual({ parkingLat: 32.07, parkingLng: 34.78 });
     expect(parkingRequestFields({ lat: 32.07, lng: 34.78, note: '  ' })).toEqual({ parkingLat: 32.07, parkingLng: 34.78 });
+  });
+
+  test('pin and note: both are sent', () => {
     expect(parkingRequestFields({ lat: 32.07, lng: 34.78, note: ' free lot ' }))
       .toEqual({ parkingLat: 32.07, parkingLng: 34.78, parkingNote: 'free lot' });
   });
+
+  test('half a pin is never sent, but its note still is', () => {
+    expect(parkingRequestFields({ lat: 32.07, lng: null, note: 'kept' })).toEqual({ parkingNote: 'kept' });
+    expect(parkingRequestFields({ lat: '', lng: '', note: '' })).toEqual({});
+  });
+
   test('a long note is trimmed to the max length before sending', () => {
     const sent = parkingRequestFields({ lat: 32.07, lng: 34.78, note: 'x'.repeat(200) });
     expect(sent.parkingNote).toHaveLength(PARKING_NOTE_MAX_LENGTH);
   });
 
-  test('string coordinates from older state are sent as numbers', () => {
+  test('string coordinates are sent as numbers', () => {
     expect(parkingRequestFields({ lat: '32.07', lng: '34.78', note: '' })).toEqual({ parkingLat: 32.07, parkingLng: 34.78 });
   });
 });

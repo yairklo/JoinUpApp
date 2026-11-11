@@ -5,6 +5,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTranslation } from 'react-i18next';
 import {
     PARKING_NOTE_MAX_LENGTH,
+    clearParkingNote,
     clearParkingPin,
     hasParkingPin,
     setParkingNote,
@@ -28,11 +29,12 @@ interface ParkingPinFieldProps {
 }
 
 /**
- * Optional parking spot for a field: a pin placed by tapping the map, plus a short note.
+ * Optional parking info for a field: a pin placed by tapping the map, and a short note.
+ * The two are independent and each is optional -- a note can be given without a pin, and
+ * removing the pin leaves the note alone (the note has its own clear button).
  * The pin is only ever set from a map tap -- coordinates are never typed, so there is no
  * numeric keyboard to get wrong and no way to enter a blank or malformed value. All state
- * changes go through @joinup/shared/parking, the same rules the server validates with:
- * no note without a pin, and removing the pin clears the note.
+ * changes go through @joinup/shared/parking.
  */
 export default function ParkingPinField({ value, onChange, disabled = false, fieldPosition, onNoteFocus }: ParkingPinFieldProps) {
     const { t } = useTranslation();
@@ -74,7 +76,7 @@ export default function ParkingPinField({ value, onChange, disabled = false, fie
                             {t('parking.pinSet', 'מיקום החניה סומן במפה')}
                         </Text>
                     </View>
-                    <View className="flex-row mt-2" style={{ gap: 8 }}>
+                    <View className="flex-row flex-wrap mt-2" style={{ gap: 8 }}>
                         <TouchableOpacity
                             onPress={openPicker}
                             disabled={disabled}
@@ -87,36 +89,17 @@ export default function ParkingPinField({ value, onChange, disabled = false, fie
                         </TouchableOpacity>
                         <TouchableOpacity
                             testID="parking-remove"
-                            onPress={() => onChange(clearParkingPin())}
+                            // Removes the pin only: the note below is a separate field and stays.
+                            onPress={() => onChange(clearParkingPin(value))}
                             disabled={disabled}
                             accessibilityRole="button"
-                            accessibilityLabel={t('parking.removePinA11y', 'הסרת החניה וההערה שלה')}
+                            accessibilityLabel={t('parking.removePinA11y', 'הסרת סימון החניה מהמפה')}
                             className="px-4 rounded-full bg-white border border-gray-300 items-center justify-center"
                             style={{ minHeight: 44 }}
                         >
-                            <Text className="text-gray-700 font-bold text-sm">{t('parking.removePin', 'הסרת החניה')}</Text>
+                            <Text className="text-gray-700 font-bold text-sm">{t('parking.removePin', 'הסרת הסימון')}</Text>
                         </TouchableOpacity>
                     </View>
-
-                    <Text className="text-gray-700 font-medium mt-3 mb-1" style={{ textAlign }}>
-                        {t('parking.noteLabel', 'הערה לחניה (אופציונלי)')}
-                    </Text>
-                    <TextInput
-                        testID="parking-note"
-                        value={value.note}
-                        onChangeText={(text) => onChange(setParkingNote(value, text))}
-                        onFocus={onNoteFocus}
-                        editable={!disabled}
-                        maxLength={PARKING_NOTE_MAX_LENGTH}
-                        placeholder={t('parking.notePlaceholder', 'למשל: חניון חינם מאחורי האולם')}
-                        accessibilityLabel={t('parking.noteLabel', 'הערה לחניה (אופציונלי)')}
-                        returnKeyType="done"
-                        className="bg-white border border-gray-200 p-3 rounded-lg"
-                        style={{ textAlign }}
-                    />
-                    <Text className="text-gray-400 text-xs mt-1" style={{ textAlign }} accessibilityElementsHidden importantForAccessibility="no">
-                        {value.note.length}/{PARKING_NOTE_MAX_LENGTH}
-                    </Text>
                 </View>
             ) : (
                 <TouchableOpacity
@@ -132,6 +115,42 @@ export default function ParkingPinField({ value, onChange, disabled = false, fie
                     <Text className="flex-1 text-gray-700" style={{ textAlign }}>{t('parking.addPin', 'סימון מיקום החניה במפה')}</Text>
                 </TouchableOpacity>
             )}
+
+            {/* The note is its own optional field: it can be filled with or without a pin. */}
+            <Text className="text-gray-700 font-medium mt-3 mb-1" style={{ textAlign }}>
+                {t('parking.noteLabel', 'הערה לחניה (אופציונלי)')}
+            </Text>
+            <View className="flex-row items-center bg-gray-100 rounded-lg">
+                <TextInput
+                    testID="parking-note"
+                    value={value.note}
+                    onChangeText={(text) => onChange(setParkingNote(value, text))}
+                    onFocus={onNoteFocus}
+                    editable={!disabled}
+                    maxLength={PARKING_NOTE_MAX_LENGTH}
+                    placeholder={t('parking.notePlaceholder', 'למשל: חניון חינם מאחורי האולם')}
+                    accessibilityLabel={t('parking.noteLabel', 'הערה לחניה (אופציונלי)')}
+                    returnKeyType="done"
+                    className="flex-1 p-3"
+                    style={{ textAlign }}
+                />
+                {value.note.length > 0 && (
+                    <TouchableOpacity
+                        testID="parking-note-clear"
+                        onPress={() => onChange(clearParkingNote(value))}
+                        disabled={disabled}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('parking.clearNote', 'ניקוי ההערה')}
+                        className="items-center justify-center"
+                        style={{ minWidth: 44, minHeight: 44 }}
+                    >
+                        <FontAwesome name="times-circle" size={16} color="#9ca3af" />
+                    </TouchableOpacity>
+                )}
+            </View>
+            <Text className="text-gray-400 text-xs mt-1" style={{ textAlign }} accessibilityElementsHidden importantForAccessibility="no">
+                {value.note.length}/{PARKING_NOTE_MAX_LENGTH}
+            </Text>
 
             <Modal visible={pickerOpen} animationType="slide" onRequestClose={() => setPickerOpen(false)}>
                 <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-white">

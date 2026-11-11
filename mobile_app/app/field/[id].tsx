@@ -129,10 +129,12 @@ export default function FieldProfileScreen() {
     const streetPart = [field.street, field.streetNumber].filter(Boolean).join(' ');
     const address = [streetPart, field.neighborhood, field.city].filter(Boolean).join(', ') || field.location || '';
     const sports = field.supportedSports || [];
-    // The field's optional parking pin: shown only when both coordinates are real numbers.
+    // Parking is a pin, a note, or both -- each optional on its own. The pin counts only when
+    // both coordinates are real numbers; the note only when it is not blank.
     const parkingLat = parseCoordinate(field.parkingLat, 90);
     const parkingLng = parseCoordinate(field.parkingLng, 180);
     const parking = parkingLat !== null && parkingLng !== null ? { latitude: parkingLat, longitude: parkingLng } : null;
+    const parkingNote = typeof field.parkingNote === 'string' ? field.parkingNote.trim() : '';
 
     const renderScheduleItem = ({ item }: { item: FieldScheduleGame }) => {
         const slotsLeft = Math.max(0, item.maxPlayers - item.confirmedCount);
@@ -247,7 +249,7 @@ export default function FieldProfileScreen() {
                                 <Marker
                                     coordinate={parking}
                                     title={t('field.parkingTitle', 'חניה')}
-                                    description={field.parkingNote || undefined}
+                                    description={parkingNote || undefined}
                                     pinColor="blue"
                                 />
                             )}
@@ -255,7 +257,7 @@ export default function FieldProfileScreen() {
                     </View>
                 )}
 
-                {parking && (
+                {(parking || parkingNote) ? (
                     <View testID="field-parking" className="bg-white dark:bg-cyber-card p-4 mb-4 shadow-sm">
                         <View className="flex-row items-center">
                             <View className="w-8 h-8 rounded-full bg-blue-700 items-center justify-center" style={{ marginEnd: 10 }}>
@@ -265,23 +267,26 @@ export default function FieldProfileScreen() {
                                 <Text className="text-lg font-bold text-gray-800 dark:text-cyber-text" accessibilityRole="header">
                                     {t('field.parkingTitle', 'חניה')}
                                 </Text>
-                                {field.parkingNote ? (
-                                    <Text className="text-gray-600 dark:text-cyber-muted text-sm mt-0.5">{field.parkingNote}</Text>
+                                {parkingNote ? (
+                                    <Text testID="field-parking-note" className="text-gray-600 dark:text-cyber-muted text-sm mt-0.5">{parkingNote}</Text>
                                 ) : null}
                             </View>
                         </View>
-                        <View className="mt-2">
-                            <OpenInMapButton
-                                label={t('field.parkingNavigate', 'ניווט לחניה')}
-                                location={{
-                                    lat: parking.latitude,
-                                    lng: parking.longitude,
-                                    name: `${t('field.parkingTitle', 'חניה')} – ${field.name}`,
-                                }}
-                            />
-                        </View>
+                        {/* Navigation needs a pin: a note-only parking has nowhere to navigate to. */}
+                        {parking ? (
+                            <View className="mt-2" testID="field-parking-navigate">
+                                <OpenInMapButton
+                                    label={t('field.parkingNavigate', 'ניווט לחניה')}
+                                    location={{
+                                        lat: parking.latitude,
+                                        lng: parking.longitude,
+                                        name: `${t('field.parkingTitle', 'חניה')} – ${field.name}`,
+                                    }}
+                                />
+                            </View>
+                        ) : null}
                     </View>
-                )}
+                ) : null}
 
                 {analytics && (
                     <>
