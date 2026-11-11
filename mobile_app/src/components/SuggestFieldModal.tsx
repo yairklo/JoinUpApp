@@ -246,10 +246,15 @@ export default function SuggestFieldModal({ visible, onClose, initialName = '', 
                             className={`px-5 rounded-xl justify-center ${submitting ? 'bg-gray-400' : 'bg-brand'}`}
                             style={{ minHeight: 48 }}
                         >
-                            {submitting ? (
-                                <ActivityIndicator color="#fff" />
-                            ) : (
-                                <Text className="text-white font-bold">{t('newGame.suggestSubmit', 'שליחת בקשה')}</Text>
+                            {/* The label stays in the layout (hidden while submitting) and the spinner is drawn
+                                over it, so the button keeps its width and the cancel button does not shift. */}
+                            <Text className="text-white font-bold" style={{ opacity: submitting ? 0 : 1 }}>
+                                {t('newGame.suggestSubmit', 'שליחת בקשה')}
+                            </Text>
+                            {submitting && (
+                                <View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, alignItems: 'center', justifyContent: 'center' }}>
+                                    <ActivityIndicator color="#fff" />
+                                </View>
                             )}
                         </TouchableOpacity>
                     </View>
