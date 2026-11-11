@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { Modal, View, Text, TouchableOpacity, ScrollView, Pressable } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTranslation } from 'react-i18next';
@@ -22,6 +22,7 @@ export default function DurationPickerModal({ visible, valueHours, onSelect, onC
     const insets = useSafeAreaInsets();
     const options = useMemo(() => buildDurationOptions(valueHours), [valueHours]);
     const selectedMinutes = Math.round(valueHours * 60);
+    const scrollRef = useRef<ScrollView>(null);
 
     return (
         <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -47,7 +48,7 @@ export default function DurationPickerModal({ visible, valueHours, onSelect, onC
                     <Text className="text-xs text-gray-500 dark:text-cyber-muted mb-3">
                         {t('newGame.durationPickerHint', 'שעות:דקות')}
                     </Text>
-                    <ScrollView className="flex-1">
+                    <ScrollView ref={scrollRef} className="flex-1">
                         {options.map((hours) => {
                             const totalMinutes = Math.round(hours * 60);
                             const isSelected = totalMinutes === selectedMinutes;
@@ -60,6 +61,8 @@ export default function DurationPickerModal({ visible, valueHours, onSelect, onC
                                         onSelect(hours);
                                         onClose();
                                     }}
+                                    // Open with the current value in view instead of at 0:30.
+                                    onLayout={isSelected ? (e) => scrollRef.current?.scrollTo({ y: Math.max(0, e.nativeEvent.layout.y - 96), animated: false }) : undefined}
                                     accessibilityRole="button"
                                     accessibilityState={{ selected: isSelected }}
                                     accessibilityLabel={t('newGame.durationA11y', '{{hours}} שעות ו-{{minutes}} דקות', {
