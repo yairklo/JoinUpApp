@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Modal, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, useWindowDimensions, I18nManager } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Modal, ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, ScrollView, useWindowDimensions, I18nManager } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
@@ -29,6 +29,11 @@ export default function SuggestFieldModal({ visible, onClose, initialName = '', 
     const insets = useSafeAreaInsets();
     const { height: windowHeight } = useWindowDimensions();
     const scrollRef = useRef<ScrollView>(null);
+    const noteFocusedRef = useRef(false);
+    // Android: this modal is drawn edge-to-edge, so the window does not resize for the keyboard
+    // and KeyboardAvoidingView has nothing to react to. Track the keyboard height and lift and
+    // shrink the sheet by it, so the last inputs and the buttons stay visible.
+    const [kbHeight, setKbHeight] = useState(0);
     const [name, setName] = useState(initialName);
     const [address, setAddress] = useState('');
     const [paid, setPaid] = useState<PaidChoice>('unknown');
@@ -37,10 +42,24 @@ export default function SuggestFieldModal({ visible, onClose, initialName = '', 
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    // Text views align to the paragraph start on their own (right for Hebrew in RTL); only TextInput
+    // needs an explicit alignment.
     const textAlign = I18nManager.isRTL ? 'right' : 'left';
+
+    // The note is the last input. Focusing it opens the keyboard and the sheet then shrinks, so
+    // scroll to the end once the keyboard is actually up (not at focus time, which is too early).
+    useEffect(() => {
+        const show = Keyboard.addListener('keyboardDidShow', (e) => {
+            if (Platform.OS === 'android') setKbHeight(e.endCoordinates.height);
+            if (noteFocusedRef.current) setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
+        });
+        const hide = Keyboard.addListener('keyboardDidHide', () => setKbHeight(0));
+        return () => { show.remove(); hide.remove(); };
+    }, []);
 
     useEffect(() => {
         if (!visible) return;
+        noteFocusedRef.current = false;
         setName(initialName);
         setAddress('');
         setPaid('unknown');
@@ -95,10 +114,17 @@ export default function SuggestFieldModal({ visible, onClose, initialName = '', 
             navigationBarTranslucent
             onRequestClose={submitting ? undefined : onClose}
         >
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 justify-end bg-black/50">
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                className="flex-1 justify-end bg-black/50"
+                style={{ paddingBottom: kbHeight }}
+            >
                 <View
                     className="bg-white rounded-t-3xl px-5 pt-5"
-                    style={{ maxHeight: windowHeight - insets.top - 24, paddingBottom: Math.max(insets.bottom, 16) + 4 }}
+                    style={{
+                        maxHeight: windowHeight - insets.top - 24 - kbHeight,
+                        paddingBottom: kbHeight > 0 ? 8 : Math.max(insets.bottom, 16) + 4,
+                    }}
                 >
                     {submitted ? (
                         <View testID="suggest-field-pending" className="items-center py-4" accessibilityLiveRegion="polite">
@@ -120,15 +146,22 @@ export default function SuggestFieldModal({ visible, onClose, initialName = '', 
                             </TouchableOpacity>
                         </View>
                     ) : (
-                    <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled" bounces={false} showsVerticalScrollIndicator={false}>
-                    <Text className="text-xl font-bold text-gray-800 mb-1" style={{ textAlign }} accessibilityRole="header">
+                    <ScrollView
+                        ref={scrollRef}
+                        keyboardShouldPersistTaps="handled"
+                        bounces={false}
+                        showsVerticalScrollIndicator={false}
+                        // The sheet resizes when the keyboard opens: re-pin to the end once it has.
+                        onLayout={() => { if (noteFocusedRef.current) scrollRef.current?.scrollToEnd({ animated: false }); }}
+                    >
+                    <Text className="text-xl font-bold text-gray-800 mb-1" accessibilityRole="header">
                         {t('newGame.suggestTitle', 'הוספת מגרש')}
                     </Text>
-                    <Text className="text-gray-500 text-sm mb-4" style={{ textAlign }}>
+                    <Text className="text-gray-500 text-sm mb-4">
                         {t('newGame.suggestExplainer', 'הבקשה תישלח לצוות JoinUp. אחרי אישור המגרש יתווסף לרשימה וכולם יוכלו לבחור בו.')}
                     </Text>
 
-                    <Text className="text-gray-700 font-medium mb-1" style={{ textAlign }}>{t('newGame.suggestName', 'שם המגרש')} *</Text>
+                    <Text className="text-gray-700 font-medium mb-1">{t('newGame.suggestName', 'שם המגרש')} *</Text>
                     <TextInput
                         testID="suggest-field-name"
                         value={name}
@@ -139,7 +172,7 @@ export default function SuggestFieldModal({ visible, onClose, initialName = '', 
                         style={{ textAlign }}
                     />
 
-                    <Text className="text-gray-700 font-medium mb-1" style={{ textAlign }}>{t('newGame.suggestAddress', 'כתובת')} *</Text>
+                    <Text className="text-gray-700 font-medium mb-1">{t('newGame.suggestAddress', 'כתובת')} *</Text>
                     <TextInput
                         testID="suggest-field-address"
                         value={address}
@@ -151,7 +184,7 @@ export default function SuggestFieldModal({ visible, onClose, initialName = '', 
                         style={{ textAlign }}
                     />
 
-                    <Text className="text-gray-700 font-medium mb-1" style={{ textAlign }}>{t('newGame.suggestIsPaid', 'האם המגרש בתשלום?')}</Text>
+                    <Text className="text-gray-700 font-medium mb-1">{t('newGame.suggestIsPaid', 'האם המגרש בתשלום?')}</Text>
                     <View className="flex-row flex-wrap mb-3" style={{ gap: 8 }} accessibilityRole="radiogroup">
                         {paidOptions.map((opt) => {
                             const selected = paid === opt.value;
@@ -170,7 +203,7 @@ export default function SuggestFieldModal({ visible, onClose, initialName = '', 
                         })}
                     </View>
 
-                    <Text className="text-gray-700 font-medium mb-1" style={{ textAlign }}>{t('newGame.suggestContact', 'איש קשר (אופציונלי)')}</Text>
+                    <Text className="text-gray-700 font-medium mb-1">{t('newGame.suggestContact', 'איש קשר (אופציונלי)')}</Text>
                     <TextInput
                         value={contactInfo}
                         onChangeText={setContactInfo}
@@ -186,10 +219,14 @@ export default function SuggestFieldModal({ visible, onClose, initialName = '', 
                         onChange={setParking}
                         disabled={submitting}
                         // The note is the last input: bring it (and the buttons) above the keyboard.
-                        onNoteFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 250)}
+                        onNoteFocus={() => {
+                            noteFocusedRef.current = true;
+                            setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 250);
+                        }}
+                        onNoteBlur={() => { noteFocusedRef.current = false; }}
                     />
 
-                    {error && <Text className="text-red-600 text-sm mb-3" style={{ textAlign }} accessibilityLiveRegion="assertive">{error}</Text>}
+                    {error && <Text className="text-red-600 text-sm mb-3" accessibilityLiveRegion="assertive">{error}</Text>}
 
                     <View className="flex-row justify-end mt-1" style={{ gap: 8 }}>
                         <TouchableOpacity

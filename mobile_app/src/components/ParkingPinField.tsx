@@ -26,6 +26,7 @@ interface ParkingPinFieldProps {
     fieldPosition?: MapCoordinate | null;
     /** Called when the note input gains focus, so the host can scroll it above the keyboard. */
     onNoteFocus?: () => void;
+    onNoteBlur?: () => void;
 }
 
 /**
@@ -36,11 +37,13 @@ interface ParkingPinFieldProps {
  * numeric keyboard to get wrong and no way to enter a blank or malformed value. All state
  * changes go through @joinup/shared/parking.
  */
-export default function ParkingPinField({ value, onChange, disabled = false, fieldPosition, onNoteFocus }: ParkingPinFieldProps) {
+export default function ParkingPinField({ value, onChange, disabled = false, fieldPosition, onNoteFocus, onNoteBlur }: ParkingPinFieldProps) {
     const { t } = useTranslation();
     const hasPin = hasParkingPin(value);
     const [pickerOpen, setPickerOpen] = useState(false);
     const [draft, setDraft] = useState<MapCoordinate | null>(null);
+    // Text views align to the paragraph start on their own (right for Hebrew in RTL); only TextInput
+    // needs an explicit alignment.
     const textAlign = I18nManager.isRTL ? 'right' : 'left';
 
     const initialRegion = useMemo<MapRegion>(() => {
@@ -64,7 +67,7 @@ export default function ParkingPinField({ value, onChange, disabled = false, fie
 
     return (
         <View className="mb-3" testID="parking-pin-field">
-            <Text className="text-gray-700 font-medium mb-1" style={{ textAlign }}>{title}</Text>
+            <Text className="text-gray-700 font-medium mb-1">{title}</Text>
 
             {hasPin ? (
                 <View className="bg-blue-50 border border-blue-200 rounded-lg p-3">
@@ -72,7 +75,7 @@ export default function ParkingPinField({ value, onChange, disabled = false, fie
                         <View className="w-7 h-7 rounded-full bg-blue-700 items-center justify-center" style={{ marginEnd: 8 }}>
                             <Text className="text-white font-bold text-xs">P</Text>
                         </View>
-                        <Text className="flex-1 text-gray-800 font-medium" style={{ textAlign }} testID="parking-pin-set">
+                        <Text className="flex-1 text-gray-800 font-medium" testID="parking-pin-set">
                             {t('parking.pinSet', 'מיקום החניה סומן במפה')}
                         </Text>
                     </View>
@@ -112,12 +115,12 @@ export default function ParkingPinField({ value, onChange, disabled = false, fie
                     style={{ minHeight: 48 }}
                 >
                     <FontAwesome name="map-pin" size={16} color="#1d4ed8" style={{ width: 24 }} />
-                    <Text className="flex-1 text-gray-700" style={{ textAlign }}>{t('parking.addPin', 'סימון מיקום החניה במפה')}</Text>
+                    <Text className="flex-1 text-gray-700">{t('parking.addPin', 'סימון מיקום החניה במפה')}</Text>
                 </TouchableOpacity>
             )}
 
             {/* The note is its own optional field: it can be filled with or without a pin. */}
-            <Text className="text-gray-700 font-medium mt-3 mb-1" style={{ textAlign }}>
+            <Text className="text-gray-700 font-medium mt-3 mb-1">
                 {t('parking.noteLabel', 'הערה לחניה (אופציונלי)')}
             </Text>
             <View className="flex-row items-center bg-gray-100 rounded-lg">
@@ -126,6 +129,7 @@ export default function ParkingPinField({ value, onChange, disabled = false, fie
                     value={value.note}
                     onChangeText={(text) => onChange(setParkingNote(value, text))}
                     onFocus={onNoteFocus}
+                    onBlur={onNoteBlur}
                     editable={!disabled}
                     maxLength={PARKING_NOTE_MAX_LENGTH}
                     placeholder={t('parking.notePlaceholder', 'למשל: חניון חינם מאחורי האולם')}
@@ -148,7 +152,7 @@ export default function ParkingPinField({ value, onChange, disabled = false, fie
                     </TouchableOpacity>
                 )}
             </View>
-            <Text className="text-gray-400 text-xs mt-1" style={{ textAlign }} accessibilityElementsHidden importantForAccessibility="no">
+            <Text className="text-gray-400 text-xs mt-1" accessibilityElementsHidden importantForAccessibility="no">
                 {value.note.length}/{PARKING_NOTE_MAX_LENGTH}
             </Text>
 
