@@ -5,6 +5,7 @@ const { requireAdmin } = require('../utils/admin');
 const { createRateLimiter } = require('../middleware/rateLimit');
 const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFile } = require('../middleware/upload');
 const { MAX_FIELD_PHOTOS, computeFieldPhotoAllowance } = require('../shared/upload');
+const { safeUpsertUserFromAuth } = require('../utils/userSync');
 const {
   photoForClient,
   approvedPhotos,
@@ -94,9 +95,11 @@ async function precheckSubmit(req, res, next) {
     const field = await prisma.field.findUnique({ where: { id: req.params.id }, select: { id: true } });
     if (!field) return res.status(404).json({ error: 'Field not found' });
 
-    if (!req.user.isAdmin) {
-      const u = await prisma.user.findUnique({ where: { id: req.user.id }, select: { blockedFromFieldSocial: true } });
-      if (u?.blockedFromFieldSocial) return res.status(403).json({ error: 'You are blocked from adding field content' });
+    // req.user comes from Clerk; a signed-in account may not have its row in our User table yet,
+    // and FieldPhoto.uploadedById is a foreign key to it. Same guard as the join/roster routes.
+    const localUser = await safeUpsertUserFromAuth(prisma, req.user);
+    if (!req.user.isAdmin && localUser?.blockedFromFieldSocial) {
+      return res.status(403).json({ error: 'You are blocked from adding field content' });
     }
 
     const allowance = await allowanceFor(prisma, req.params.id, req.user);

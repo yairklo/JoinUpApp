@@ -62,6 +62,7 @@ describe('Field photo gallery', () => {
   let field;
   let blocked;
   let nextId;
+  let localUsers;
   const spies = [];
   const spy = (obj, method, impl) => {
     const s = jest.spyOn(obj, method).mockImplementation(impl);
@@ -121,7 +122,14 @@ describe('Field photo gallery', () => {
       if (photos?.set) field.photos = photos.set;
       return field;
     });
-    spy(prisma.user, 'findUnique', async () => ({ blockedFromFieldSocial: blocked }));
+    // The routes must make sure the uploader's User row exists before writing the foreign key
+    // (a Clerk account can be signed in without one). `localUsers` records who was ensured.
+    localUsers = new Set();
+    spy(prisma.user, 'upsert', async ({ where }) => {
+      localUsers.add(where.id);
+      return { id: where.id, name: 'Member', blockedFromFieldSocial: blocked };
+    });
+    spy(prisma.user, 'updateMany', async () => ({ count: 0 }));
 
     spy(prisma.fieldPhoto, 'count', async ({ where }) => rows.filter((r) => matches(r, where)).length);
     spy(prisma.fieldPhoto, 'findMany', async ({ where, orderBy, include } = {}) => {
@@ -132,7 +140,13 @@ describe('Field photo gallery', () => {
     });
     spy(prisma.fieldPhoto, 'findFirst', async ({ where, orderBy }) => sorted(rows.filter((r) => matches(r, where)), orderBy)[0] || null);
     spy(prisma.fieldPhoto, 'findUnique', async ({ where }) => rows.find((r) => r.id === where.id) || null);
-    spy(prisma.fieldPhoto, 'create', async ({ data }) => addRow({ createdAt: new Date(), ...data }));
+    spy(prisma.fieldPhoto, 'create', async ({ data }) => {
+      // What Postgres does for FieldPhoto_uploadedById_fkey.
+      if (data.uploadedById && !localUsers.has(data.uploadedById)) {
+        throw Object.assign(new Error('Foreign key constraint violated'), { code: 'P2003' });
+      }
+      return addRow({ createdAt: new Date(), ...data });
+    });
     spy(prisma.fieldPhoto, 'update', async ({ where, data }) => Object.assign(rows.find((r) => r.id === where.id), data));
     spy(prisma.fieldPhoto, 'updateMany', async ({ where, data }) => {
       const hit = rows.filter((r) => matches(r, where));
@@ -263,6 +277,13 @@ describe('Field photo gallery', () => {
       const res = await submit(null);
       expect(res.statusCode).toBe(401);
       expect(rows).toHaveLength(0);
+    });
+
+    test("creates the uploader's local User row first, so the foreign key always holds", async () => {
+      expect(localUsers.has(MEMBER)).toBe(false);
+      const res = await submit(member);
+      expect(res.statusCode).toBe(201);
+      expect(localUsers.has(MEMBER)).toBe(true);
     });
 
     test("a user's photo is stored as PENDING and attributed to them", async () => {
