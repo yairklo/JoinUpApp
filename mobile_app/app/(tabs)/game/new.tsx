@@ -25,6 +25,9 @@ import SafeImage from '@/components/SafeImage';
 import { appAlert } from '@/i18n/appAlert';
 import { formatDate, formatTimeOfDay } from '@/utils/dateLocale';
 import { orderFieldsWithSelectedFirst } from '@/utils/orderFields';
+import DurationPickerModal from '@/components/DurationPickerModal';
+import { formatDurationHM } from '@/utils/gameFormInput';
+import { useWholeNumberInput } from '@/hooks/useWholeNumberInput';
 
 function filterFieldsWithCoords(fields: Field[]): Field[] {
     return fields.filter((f) => f.lat != null && f.lng != null);
@@ -73,7 +76,9 @@ export default function NewGameScreen() {
     // 'group' = create the first game, then land on it with the existing create-group sheet open.
     const [createMode, setCreateMode] = useState<'single' | 'group'>(params.mode === 'group' ? 'group' : 'single');
     const [title, setTitle] = useState('');
-    const [duration, setDuration] = useState('1');
+    // Hours as a number -- the unit the API stores. Chosen and shown as H:MM (2.5 -> "2:30").
+    const [duration, setDuration] = useState(1);
+    const [showDurationPicker, setShowDurationPicker] = useState(false);
     const [teamSize, setTeamSize] = useState('');
 
     const [selectedCity, setSelectedCity] = useState('');
@@ -83,6 +88,11 @@ export default function NewGameScreen() {
     const [time, setTime] = useState(getInitialGameTime);
     const [maxPlayers, setMaxPlayers] = useState('14');
     const [price, setPrice] = useState('0');
+    // Integer-only fields: a typed "." or "," is rejected and the digits after it ignored (see nextWholeNumberInput).
+    const onMaxPlayersChange = useWholeNumberInput(maxPlayers, setMaxPlayers);
+    const onTeamSizeChange = useWholeNumberInput(teamSize, setTeamSize);
+    // Price also accepts a pasted "1,000" as a thousands separator.
+    const onPriceChange = useWholeNumberInput(price, setPrice, { allowThousands: true });
     const [description, setDescription] = useState('');
     const [welcomeMessage, setWelcomeMessage] = useState('');
     const [whatsappLink, setWhatsappLink] = useState('');
@@ -446,8 +456,8 @@ export default function NewGameScreen() {
                     });
                 }
             }
-            if (typeof series.duration === 'number') {
-                setDuration(String(series.duration));
+            if (typeof series.duration === 'number' && series.duration > 0) {
+                setDuration(series.duration);
             }
 
             // Group-level defaults for new games. The create payload always sends these explicitly,
@@ -584,7 +594,7 @@ export default function NewGameScreen() {
                 joinPolicy: requiresApproval ? 'REQUIRES_APPROVAL' : 'INSTANT',
                 sport,
                 title: title || undefined,
-                duration: parseInt(duration) || 1,
+                duration: duration > 0 ? duration : 1,
                 teamSize: teamSize ? parseInt(teamSize) : undefined,
                 registrationOpensAt,
                 friendsOnlyUntil,
@@ -832,21 +842,24 @@ export default function NewGameScreen() {
                     <Text className="text-lg font-bold mb-4 text-gray-800 dark:text-cyber-text">{t('game.details')}</Text>
 
                     <View className="flex-row items-center justify-between mb-4">
-                        <Text className="text-gray-700 dark:text-cyber-text">{t('newGame.durationHours', 'משך זמן (שעות)')}</Text>
-                        <TextInput
-                            value={duration}
-                            onChangeText={(v) => setDuration(v.replace(/[^0-9]/g, ''))}
-                            keyboardType="numeric"
-                            className="bg-gray-100 dark:bg-cyber-border p-2 rounded-lg w-20 text-center text-gray-900 dark:text-cyber-text"
-                        />
+                        <Text className="text-gray-700 dark:text-cyber-text">{t('newGame.durationLabel', 'משך המשחק')}</Text>
+                        <TouchableOpacity
+                            testID="new-game-duration"
+                            onPress={() => setShowDurationPicker(true)}
+                            accessibilityRole="button"
+                            accessibilityLabel={`${t('newGame.durationLabel', 'משך המשחק')}: ${formatDurationHM(duration)}`}
+                            className="bg-gray-100 dark:bg-cyber-border px-2 rounded-lg w-20 min-h-[44px] items-center justify-center"
+                        >
+                            <Text className="text-gray-900 dark:text-cyber-text" style={{ fontVariant: ['tabular-nums'] }}>{formatDurationHM(duration)}</Text>
+                        </TouchableOpacity>
                     </View>
 
                     <View className="flex-row items-center justify-between mb-4">
                         <Text className="text-gray-700 dark:text-cyber-text">{t('newGame.maxPlayers')}</Text>
                         <TextInput
                             value={maxPlayers}
-                            onChangeText={(v) => setMaxPlayers(v.replace(/[^0-9]/g, ''))}
-                            keyboardType="numeric"
+                            onChangeText={onMaxPlayersChange}
+                            keyboardType="number-pad"
                             className="bg-gray-100 dark:bg-cyber-border p-2 rounded-lg w-20 text-center text-gray-900 dark:text-cyber-text"
                         />
                     </View>
@@ -855,8 +868,8 @@ export default function NewGameScreen() {
                         <Text className="text-gray-700 dark:text-cyber-text">{t('newGame.teamSize', 'גודל קבוצה (אופציונלי)')}</Text>
                         <TextInput
                             value={teamSize}
-                            onChangeText={(v) => setTeamSize(v.replace(/[^0-9]/g, ''))}
-                            keyboardType="numeric"
+                            onChangeText={onTeamSizeChange}
+                            keyboardType="number-pad"
                             placeholder={t('newGame.teamSizePlaceholder', 'לדוגמה: 5')}
                             className="bg-gray-100 dark:bg-cyber-border p-2 rounded-lg w-20 text-center text-gray-900 dark:text-cyber-text"
                         />
@@ -865,9 +878,11 @@ export default function NewGameScreen() {
                     <View className="flex-row items-center justify-between mb-4">
                         <Text className="text-gray-700 dark:text-cyber-text">{t('newGame.price')}</Text>
                         <TextInput
+                            testID="new-game-price"
                             value={price}
-                            onChangeText={(v) => setPrice(v.replace(/[^0-9]/g, ''))}
-                            keyboardType="numeric"
+                            // Whole shekels only: the API stores price as an integer.
+                            onChangeText={onPriceChange}
+                            keyboardType="number-pad"
                             className="bg-gray-100 dark:bg-cyber-border p-2 rounded-lg w-20 text-center text-gray-900 dark:text-cyber-text"
                         />
                     </View>
@@ -1120,6 +1135,13 @@ export default function NewGameScreen() {
                     />
                 </View>
             </Modal>
+
+            <DurationPickerModal
+                visible={showDurationPicker}
+                valueHours={duration}
+                onSelect={setDuration}
+                onClose={() => setShowDurationPicker(false)}
+            />
 
             <SuggestFieldModal
                 visible={showSuggestField}
