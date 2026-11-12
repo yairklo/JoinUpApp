@@ -207,6 +207,8 @@ app.set('io', io);
 
 // Routes — legacy JSON /api/auth is intentionally unmounted (Clerk is the only IdP)
 app.use('/api', require('./middleware/scrubEmailNames').scrubEmailNames);
+// Field photo gallery: its own paths under /api/fields/:id/photos/... and /api/field-photos/...
+app.use('/api', require('./routes/fieldPhotos'));
 app.use('/api/fields', fieldsRoutes);
 app.use('/api/games', gamesRoutes);
 app.use('/api/series', seriesRoutes);

@@ -6,7 +6,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { fieldsApi, Field } from '@/services/api/fields';
 import { SPORT_MAPPING } from '@/utils/sports';
 import FieldLocationPicker from '@/components/admin/FieldLocationPicker';
-import FieldImageUpload from '@/components/admin/FieldImageUpload';
 import FieldPhotoGallery from '@/components/admin/FieldPhotoGallery';
 import BackButton from '@/components/ui/BackButton';
 import { appAlert } from '@/i18n/appAlert';
@@ -254,18 +253,8 @@ export default function FieldEditorForm({ field }: FieldEditorFormProps) {
                 <View className="h-px bg-gray-100 mb-4" />
 
                 {activeField ? (
-                    <>
-                        <FieldImageUpload
-                            fieldId={activeField.id}
-                            image={activeField.image ?? null}
-                            onChange={(image) => setSavedField((f) => (f ? { ...f, image } : f))}
-                        />
-                        <FieldPhotoGallery
-                            fieldId={activeField.id}
-                            photos={activeField.photos || []}
-                            onChange={(photos) => setSavedField((f) => (f ? { ...f, photos } : f))}
-                        />
-                    </>
+                    // One gallery: the first photo is the field's cover (no separate cover slot any more).
+                    <FieldPhotoGallery fieldId={activeField.id} />
                 ) : (
                     <View className="p-3 bg-blue-50 border border-blue-100 rounded-xl">
                         <Text className="text-blue-700 text-sm text-center">יש לשמור את המגרש כדי להוסיף תמונות</Text>

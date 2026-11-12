@@ -38,6 +38,7 @@ model User {
   fieldIssueReportFlags     FieldIssueReportFlag[]
   supportMessages           SupportMessage[]
   fieldSuggestions          FieldSuggestion[]
+  fieldPhotosUploaded       FieldPhoto[]               @relation("FieldPhotoUploader")
   requestsRecv              FriendRequest[]            @relation("Recv")
   requestsSent              FriendRequest[]            @relation("Sent")
   friendshipsA              Friendship[]               @relation("A")
@@ -127,6 +128,9 @@ model Field {
   comments        FieldComment[]
   issueReports    FieldIssueReport[]
   games           Game[]
+  /// The gallery. `image` above stays as the denormalised cover (= first APPROVED photo);
+  /// the legacy `photos` array is no longer read.
+  galleryPhotos   FieldPhoto[]
 
   @@index([lat, lng])
   @@index([available, lat, lng])
@@ -359,6 +363,37 @@ model FieldSuggestion {
 }
 
 enum FieldSuggestionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// One photo in a field's gallery. Users suggest photos (PENDING) and an admin approves or
+/// rejects them; only APPROVED photos are public. A REJECTED row is kept (its stored file is
+/// deleted) so the uploader's daily upload count cannot be reset by getting photos rejected.
+model FieldPhoto {
+  id           String           @id @default(cuid())
+  fieldId      String
+  url          String
+  status       FieldPhotoStatus @default(PENDING)
+  /// Display order among the field's APPROVED photos; 0 is the cover.
+  sortOrder    Int              @default(0)
+  /// null = backfilled from the pre-gallery Field.image / Field.photos, or the uploader's account was deleted.
+  uploadedById String?
+  createdAt    DateTime         @default(now())
+  reviewedAt   DateTime?
+  reviewedById String?
+  field        Field            @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  uploadedBy   User?            @relation("FieldPhotoUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@unique([fieldId, url])
+  @@index([fieldId, status, sortOrder])
+  @@index([uploadedById, status])
+  @@index([uploadedById, createdAt])
+  @@index([status, createdAt])
+}
+
+enum FieldPhotoStatus {
   PENDING
   APPROVED
   REJECTED

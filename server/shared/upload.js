@@ -10,8 +10,155 @@ const MIME_EXTENSIONS = {
 
 const ACCEPTED_IMAGE_TYPES = Object.keys(MIME_EXTENSIONS);
 
+// ---- Field photo gallery -------------------------------------------------------------------
+// Single source for the server's enforcement and both clients' UI. The per-user numbers are
+// sized so an ordinary user never meets them; they exist to bound storage and the review queue.
+
+/** Approved photos shown on one field. A property of the field, so it binds admins too. */
+const MAX_FIELD_PHOTOS = 10;
+/** One user's photos awaiting review on one field. */
+const MAX_PENDING_PHOTOS_PER_USER_PER_FIELD = 5;
+/** One user's photos awaiting review across all fields. */
+const MAX_PENDING_PHOTOS_PER_USER = 15;
+/** One user's uploads in a rolling 24h window (approved, pending and rejected all count). */
+const MAX_PHOTO_UPLOADS_PER_DAY = 20;
+
+/** Client-side resize target: long edge in pixels, never upscaled. */
+const IMAGE_RESIZE_MAX_EDGE = 1600;
+/** JPEG quality for the resized copy -- high enough that the loss is not visible. */
+const IMAGE_RESIZE_JPEG_QUALITY = 0.82;
+
+const FIELD_PHOTO_LIMIT_REASONS = ['FIELD_FULL', 'PENDING_PER_FIELD', 'PENDING_TOTAL', 'DAILY'];
+
+function count(value) {
+  const n = Math.floor(Number(value));
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/**
+ * How many more photos this user may add to this field right now.
+ *
+ * `remaining` is the number of slots left, `allowed` is `requested` trimmed to it, and `reason`
+ * names the limit that trimmed it (null when the whole request fits). Approving or rejecting a
+ * photo lowers the pending counts, which is what frees a slot -- there is no separate bookkeeping.
+ *
+ * Admins skip the three per-user limits; their uploads are approved immediately, so the only
+ * thing that can stop them is the field's own cap.
+ */
+function computeFieldPhotoAllowance(input) {
+  const {
+    isAdmin = false,
+    approvedCountForField,
+    userPendingForField,
+    userPendingTotal,
+    userUploadsLast24h,
+    requested = 1,
+  } = input || {};
+  const want = count(requested);
+
+  const fieldSlots = Math.max(0, MAX_FIELD_PHOTOS - count(approvedCountForField));
+  if (fieldSlots === 0) return { allowed: 0, remaining: 0, reason: 'FIELD_FULL' };
+
+  // Ordered tightest-scope first so a tie reports the limit the user can most easily act on.
+  const limits = isAdmin
+    ? [['FIELD_FULL', fieldSlots]]
+    : [
+      ['PENDING_PER_FIELD', MAX_PENDING_PHOTOS_PER_USER_PER_FIELD - count(userPendingForField)],
+      ['PENDING_TOTAL', MAX_PENDING_PHOTOS_PER_USER - count(userPendingTotal)],
+      ['DAILY', MAX_PHOTO_UPLOADS_PER_DAY - count(userUploadsLast24h)],
+    ];
+
+  let remaining = Infinity;
+  let binding = null;
+  for (const [reason, slots] of limits) {
+    const left = Math.max(0, slots);
+    if (left < remaining) {
+      remaining = left;
+      binding = reason;
+    }
+  }
+
+  const allowed = Math.min(want, remaining);
+  return { allowed, remaining, reason: allowed < want ? binding : null };
+}
+
+/** Type and size check for one image. Returns null when acceptable, else 'TYPE' or 'SIZE'. */
+function validateFieldPhotoFile(file) {
+  const { mimetype, size } = file || {};
+  if (!mimetype || !Object.prototype.hasOwnProperty.call(MIME_EXTENSIONS, mimetype)) return 'TYPE';
+  if (typeof size === 'number' && size > MAX_IMAGE_FILE_SIZE) return 'SIZE';
+  return null;
+}
+
+/**
+ * Target dimensions for the client-side resize: scales the long edge down to `maxEdge`, keeps the
+ * aspect ratio, never upscales. `resized` is false when the image is already small enough.
+ */
+function computeResizedDimensions(width, height, maxEdge = IMAGE_RESIZE_MAX_EDGE) {
+  const w = count(width);
+  const h = count(height);
+  const longEdge = Math.max(w, h);
+  if (w === 0 || h === 0 || longEdge <= maxEdge) return { width: w, height: h, resized: false };
+  const scale = maxEdge / longEdge;
+  return {
+    width: Math.max(1, Math.round(w * scale)),
+    height: Math.max(1, Math.round(h * scale)),
+    resized: true,
+  };
+}
+
+/**
+ * Splits a multi-select into what to do with each file, by index, so nothing is dropped silently:
+ * `accepted` are uploaded, `invalid` have an unsupported type (shown with their error, and they do
+ * not use up a slot), `skipped` are valid files beyond the slots left.
+ *
+ * Size is deliberately not checked here: this runs before the client-side resize, and a 12MB
+ * phone photo is a few hundred KB afterwards. Check size on the resized copy instead.
+ */
+function planFieldPhotoBatch(files, remaining) {
+  const slots = count(remaining);
+  const accepted = [];
+  const invalid = [];
+  const skipped = [];
+  (files || []).forEach((file, index) => {
+    const error = validateFieldPhotoFile({ mimetype: file && file.mimetype });
+    if (error) invalid.push({ index, error });
+    else if (accepted.length < slots) accepted.push(index);
+    else skipped.push(index);
+  });
+  return { accepted, invalid, skipped };
+}
+
+/**
+ * Maps a failed upload response to one stable kind the UI has a message for. `status` 0 or
+ * missing means the request never got a response.
+ */
+function fieldPhotoErrorKind(err) {
+  const { status, code } = err || {};
+  if (FIELD_PHOTO_LIMIT_REASONS.includes(code)) return code;
+  if (!status) return 'NETWORK';
+  if (status === 413) return 'SIZE';
+  if (status === 400) return 'TYPE';
+  if (status === 401) return 'AUTH';
+  if (status === 403) return 'BLOCKED';
+  if (status === 429) return 'RATE';
+  return 'UNKNOWN';
+}
+
 module.exports = {
   MAX_IMAGE_FILE_SIZE,
   MIME_EXTENSIONS,
   ACCEPTED_IMAGE_TYPES,
+  MAX_FIELD_PHOTOS,
+  MAX_PENDING_PHOTOS_PER_USER_PER_FIELD,
+  MAX_PENDING_PHOTOS_PER_USER,
+  MAX_PHOTO_UPLOADS_PER_DAY,
+  IMAGE_RESIZE_MAX_EDGE,
+  IMAGE_RESIZE_JPEG_QUALITY,
+  FIELD_PHOTO_LIMIT_REASONS,
+  computeFieldPhotoAllowance,
+  validateFieldPhotoFile,
+  computeResizedDimensions,
+  planFieldPhotoBatch,
+  fieldPhotoErrorKind,
 };

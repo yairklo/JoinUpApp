@@ -14,7 +14,7 @@ import FieldCommentsSection from '@/components/FieldCommentsSection';
 import FieldIssueReportSection from '@/components/FieldIssueReportSection';
 import FavoriteButton from '@/components/FavoriteButton';
 import BackButton from '@/components/ui/BackButton';
-import SafeImage from '@/components/SafeImage';
+import FieldGallery from '@/components/fields/FieldGallery';
 import OpenInMapButton from '@/components/OpenInMapButton';
 import { parseCoordinate } from '@joinup/shared/parking';
 
@@ -175,9 +175,12 @@ export default function FieldProfileScreen() {
                 {/* Field Header & Info */}
                 <View className="bg-white dark:bg-cyber-card mb-4 shadow-sm">
                     <View style={{ position: 'relative' }}>
-                        {field.image ? (
-                            <SafeImage source={{ uri: field.image }} style={{ width: '100%', height: 180 }} resizeMode="cover" />
-                        ) : null}
+                        <FieldGallery
+                            fieldId={fieldId}
+                            fieldName={field.name}
+                            // Shown until the gallery loads. The stock placeholder is not a photo of this field.
+                            fallbackImage={field.image && !field.image.includes('images.unsplash.com') ? field.image : null}
+                        />
                         <View style={{ position: 'absolute', top: 12, right: 12 }}>
                             <FavoriteButton fieldId={fieldId} />
                         </View>

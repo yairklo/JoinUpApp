@@ -13,8 +13,9 @@ import BackButton from '@/components/ui/BackButton';
 export default function AdminHubScreen() {
     const router = useRouter();
 
-    const items: { title: string; subtitle: string; icon: keyof typeof FontAwesome.glyphMap; href: '/admin/fields' | '/admin/moderation' | '/admin/feedback' }[] = [
+    const items: { title: string; subtitle: string; icon: keyof typeof FontAwesome.glyphMap; href: '/admin/fields' | '/admin/photos' | '/admin/moderation' | '/admin/feedback' }[] = [
         { title: 'ניהול מגרשים', subtitle: 'הוספה, עריכה ומחיקה של מגרשים', icon: 'map-marker', href: '/admin/fields' },
+        { title: 'תמונות מגרשים', subtitle: 'אישור או דחייה של תמונות שמשתמשים הציעו', icon: 'camera', href: '/admin/photos' },
         { title: 'ניהול תוכן ודיווחים', subtitle: 'תגובות ודיווחי ליקויים שדווחו, חסימת משתמשים', icon: 'shield', href: '/admin/moderation' },
         { title: 'פניות ודיווחי באגים', subtitle: 'הודעות משתמשים ודיווחי באגים', icon: 'comment', href: '/admin/feedback' },
     ];
