@@ -25,6 +25,7 @@ import type { FriendsOnlyLinkPolicy } from '@/types/game';
 import SafeImage from '@/components/SafeImage';
 import OpenInMapButton from '@/components/OpenInMapButton';
 import { appAlert } from '@/i18n/appAlert';
+import { parseDecimalInput } from '@/utils/gameFormInput';
 import { friendSuggestions, mergeFriendsFirst } from '@/utils/friendSuggestions';
 import { seriesShareUrl } from '@/utils/shareUrl';
 
@@ -178,8 +179,8 @@ export default function SeriesScreen() {
                 appAlert(t('common.error', 'שגיאה'), t('series.maxPlayersInvalid', 'Max players must be at least 2'));
                 return;
             }
-            const nextDuration = Number(duration.trim().replace(',', '.'));
-            if (!Number.isFinite(nextDuration) || nextDuration <= 0) {
+            const nextDuration = parseDecimalInput(duration);
+            if (nextDuration === null || nextDuration <= 0) {
                 appAlert(t('common.error', 'שגיאה'), t('series.durationInvalid', 'משך המשחק חייב להיות חיובי'));
                 return;
             }
@@ -218,8 +219,8 @@ export default function SeriesScreen() {
             if (nextTeamSize !== (series.teamSize ?? null)) changes.teamSize = nextTeamSize;
             if (welcomeMessage !== (series.welcomeMessage || '')) changes.welcomeMessage = welcomeMessage || null;
             if (membersOnlyPriority !== !!series.membersOnlyPriority) changes.membersOnlyPriority = membersOnlyPriority;
-            const nextGuestHours = guestHours.trim() === '' ? null : Number(guestHours);
-            if (nextGuestHours !== null && !(Number.isFinite(nextGuestHours) && nextGuestHours >= 0)) {
+            const nextGuestHours = guestHours.trim() === '' ? null : parseDecimalInput(guestHours);
+            if (guestHours.trim() !== '' && nextGuestHours === null) {
                 appAlert(t('common.error', 'שגיאה'), t('series.guestHoursInvalid', 'שעות פתיחה לאורחים חייבות להיות מספר חיובי'));
                 return;
             }

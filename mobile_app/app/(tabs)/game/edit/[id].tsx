@@ -18,6 +18,8 @@ import BackButton from '@/components/ui/BackButton';
 import SafeImage from '@/components/SafeImage';
 import { appAlert } from '@/i18n/appAlert';
 import { formatDate, formatTimeOfDay } from '@/utils/dateLocale';
+import DurationPickerModal from '@/components/DurationPickerModal';
+import { formatDurationHM, parseDecimalInput } from '@/utils/gameFormInput';
 
 interface ScrollSelectionModalProps<T> {
     visible: boolean;
@@ -62,17 +64,6 @@ function ScrollSelectionModal<T>({ visible, onClose, title, options, selectedVal
         </Modal>
     );
 }
-
-const getDurationOptions = (t: any) => [
-    { label: `60 ${t('editGame.min', 'min')} (1 ${t('editGame.hour', 'hour')})`, value: "1" },
-    { label: `75 ${t('editGame.min', 'min')} (1.25 ${t('editGame.hours', 'hours')})`, value: "1.25" },
-    { label: `90 ${t('editGame.min', 'min')} (1.5 ${t('editGame.hours', 'hours')})`, value: "1.5" },
-    { label: `105 ${t('editGame.min', 'min')} (1.75 ${t('editGame.hours', 'hours')})`, value: "1.75" },
-    { label: `120 ${t('editGame.min', 'min')} (2 ${t('editGame.hours', 'hours')})`, value: "2" },
-    { label: `150 ${t('editGame.min', 'min')} (2.5 ${t('editGame.hours', 'hours')})`, value: "2.5" },
-    { label: `180 ${t('editGame.min', 'min')} (3 ${t('editGame.hours', 'hours')})`, value: "3" },
-    { label: `240 ${t('editGame.min', 'min')} (4 ${t('editGame.hours', 'hours')})`, value: "4" }
-];
 
 const getPriceOptions = (t: any) => [
     { label: t('game.free', 'Free'), value: "0" },
@@ -454,6 +445,11 @@ export default function EditGameScreen() {
             appAlert(t('editGame.error', 'Error'), t('editGame.mustFillFieldNameAndLocation', 'יש למלא שם מגרש וכתובת'));
             return;
         }
+        // Don't silently save "no guest window" for text that isn't a number ("abc", "1.2.3").
+        if (isSeriesGame && membersOnlyPriority && guestHours.trim() !== '' && parseDecimalInput(guestHours) === null) {
+            appAlert(t('editGame.error', 'Error'), t('editGame.guestHoursInvalid', 'שעות פתיחה לאורחים חייבות להיות מספר חיובי'));
+            return;
+        }
 
         setSubmitting(true);
         try {
@@ -478,6 +474,9 @@ export default function EditGameScreen() {
                 lotteryAt = pickerToJerusalemUTC(lotteryDate, lotteryTime).toISOString();
             }
 
+            // "1,5" and "1.5" both mean an hour and a half; keypads in a Hebrew locale may only offer ",".
+            const guestHoursValue = parseDecimalInput(guestHours);
+
             // Construct payload matching UpdateGameDTO
             const payload = {
                 start,
@@ -488,8 +487,8 @@ export default function EditGameScreen() {
                 ...(isSeriesGame
                     ? {
                         membersOnlyPriority,
-                        guestRegistrationOpensAt: membersOnlyPriority && guestHours.trim() !== '' && Number.isFinite(Number(guestHours))
-                            ? new Date(new Date(start).getTime() - Number(guestHours) * 3600000).toISOString()
+                        guestRegistrationOpensAt: membersOnlyPriority && guestHoursValue !== null
+                            ? new Date(new Date(start).getTime() - guestHoursValue * 3600000).toISOString()
                             : null,
                         guestPrice: guestPrice.trim() === '' ? null : parseInt(guestPrice, 10),
                         guestDescription: guestDescription || null,
@@ -746,10 +745,16 @@ export default function EditGameScreen() {
 
                     {/* Duration Selector */}
                     <View className={`flex-row items-center justify-between mb-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                        <Text className="text-gray-700 dark:text-cyber-text">{t('newGame.duration', 'Duration')}</Text>
-                        <TouchableOpacity onPress={() => setShowDurationPicker(true)} className="bg-gray-100 dark:bg-cyber-border px-4 py-2 rounded-lg w-32 items-center border border-gray-200 dark:border-cyber-border">
-                            <Text className="text-gray-800 dark:text-cyber-text font-bold text-xs" numberOfLines={1}>
-                                {parseFloat(duration) * 60} {t('editGame.min', 'min')}
+                        <Text className="text-gray-700 dark:text-cyber-text">{t('newGame.durationLabel', 'משך המשחק')}</Text>
+                        <TouchableOpacity
+                            testID="edit-game-duration"
+                            onPress={() => setShowDurationPicker(true)}
+                            accessibilityRole="button"
+                            accessibilityLabel={`${t('newGame.durationLabel', 'משך המשחק')}: ${formatDurationHM(parseFloat(duration) || 1)}`}
+                            className="bg-gray-100 dark:bg-cyber-border px-4 py-2 min-h-[44px] justify-center rounded-lg w-32 items-center border border-gray-200 dark:border-cyber-border"
+                        >
+                            <Text className="text-gray-800 dark:text-cyber-text font-bold" numberOfLines={1} style={{ fontVariant: ['tabular-nums'] }}>
+                                {formatDurationHM(parseFloat(duration) || 1)}
                             </Text>
                         </TouchableOpacity>
                     </View>
@@ -1063,13 +1068,11 @@ export default function EditGameScreen() {
                 onSelect={(val) => setTeamSize(val)}
             />
 
-            <ScrollSelectionModal
+            <DurationPickerModal
                 visible={showDurationPicker}
+                valueHours={parseFloat(duration) || 1}
+                onSelect={(hours) => setDuration(String(hours))}
                 onClose={() => setShowDurationPicker(false)}
-                title={t('newGame.duration', 'Duration')}
-                options={getDurationOptions(t)}
-                selectedValue={duration}
-                onSelect={(val) => setDuration(val)}
             />
 
             <ScrollSelectionModal
