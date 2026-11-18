@@ -8,6 +8,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { fieldPhotosApi, fieldPhotoSrc, type FieldPhotosResponse } from '@/services/api/fieldPhotos';
 import FieldPhotoViewer from './FieldPhotoViewer';
 import FieldPhotoUploadSheet from './FieldPhotoUploadSheet';
+import ReportPhotoSheet from './ReportPhotoSheet';
 
 const HEIGHT = 220;
 const MAX_DOTS = 10;
@@ -69,6 +70,7 @@ export default function FieldGallery({ fieldId, fieldName, fallbackImage }: Fiel
     const [viewerAt, setViewerAt] = useState<number | null>(null);
     const [sheetOpen, setSheetOpen] = useState(false);
     const [removingId, setRemovingId] = useState<string | null>(null);
+    const [reportingId, setReportingId] = useState<string | null>(null);
 
     const load = useCallback(async () => {
         try {
@@ -243,6 +245,18 @@ export default function FieldGallery({ fieldId, fieldName, fallbackImage }: Fiel
                                             )}
                                         </TouchableOpacity>
                                     </>
+                                ) : isSignedIn && data && item.id !== 'cover' ? (
+                                    // A published photo: signed-in users can flag it for the admins.
+                                    <TouchableOpacity
+                                        onPress={() => setReportingId(item.id)}
+                                        hitSlop={10}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={t('fieldPhotos.reportAction', 'דיווח על תמונה')}
+                                        style={{ position: 'absolute', top: 12, start: 12 }}
+                                        className="w-9 h-9 rounded-full bg-black/55 items-center justify-center"
+                                    >
+                                        <FontAwesome name="flag-o" size={14} color="#fff" />
+                                    </TouchableOpacity>
                                 ) : null}
                             </View>
                         );
@@ -313,6 +327,14 @@ export default function FieldGallery({ fieldId, fieldName, fallbackImage }: Fiel
                 photos={slides}
                 startIndex={viewerAt ?? 0}
             />
+            {isSignedIn ? (
+                <ReportPhotoSheet
+                    visible={reportingId !== null}
+                    onClose={() => setReportingId(null)}
+                    fieldId={fieldId}
+                    photoId={reportingId}
+                />
+            ) : null}
             {sheet}
         </View>
     );

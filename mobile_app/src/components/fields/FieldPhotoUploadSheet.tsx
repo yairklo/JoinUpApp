@@ -225,6 +225,13 @@ export default function FieldPhotoUploadSheet({
                             : `${remainingText(t, slots)}. ${t('fieldPhotos.reviewNote', 'התמונות יוצגו לכולם אחרי אישור של מנהל.')}`}
                     </Text>
 
+                    <View className="flex-row items-start p-3 mb-4 rounded-xl bg-amber-50 dark:bg-amber-900/30">
+                        <FontAwesome name="users" size={13} color="#b45309" style={{ marginTop: 3 }} />
+                        <Text className="flex-1 mx-2 text-amber-800 dark:text-amber-200 text-sm">
+                            {t('fieldPhotos.peopleNote', 'נא לא לצלם אנשים שאפשר לזהות, במיוחד ילדים. צלמו את המגרש עצמו.')}
+                        </Text>
+                    </View>
+
                     <TouchableOpacity
                         onPress={handlePick}
                         disabled={!canPick}

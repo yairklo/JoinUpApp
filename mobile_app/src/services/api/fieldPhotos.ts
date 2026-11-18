@@ -33,6 +33,8 @@ export interface LocalPhoto {
     type: string;
 }
 
+export type FieldPhotoReportReason = 'PEOPLE' | 'INAPPROPRIATE' | 'WRONG_PLACE' | 'OTHER';
+
 export type UploadError = Error & { status?: number; code?: string };
 
 const UPLOAD_TIMEOUT_MS = 60_000;
@@ -98,6 +100,14 @@ export const fieldPhotosApi = {
     /** The uploader removes their own pending photo; an admin may remove any. */
     remove: (fieldId: string, photoId: string, token: string) =>
         apiClient<{ ok: true }>(`/api/fields/${fieldId}/photos/${photoId}`, { method: 'DELETE', token }),
+
+    /** Flags a published photo for the admins. Reporting the same photo twice is a harmless no-op. */
+    report: (fieldId: string, photoId: string, reason: FieldPhotoReportReason, token: string) =>
+        apiClient<{ ok: true; alreadyReported?: boolean }>(`/api/fields/${fieldId}/photos/${photoId}/report`, {
+            method: 'POST',
+            data: { reason },
+            token,
+        }),
 
     // ---- admin ----
     listPending: (token: string) => apiClient<PendingFieldPhoto[]>('/api/field-photos/pending', { token }),
