@@ -2,6 +2,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { Readable } = require('stream');
+const { stripImageMetadata } = require('../utils/sanitizeImage');
 // server/shared/ is a vendored copy (Docker's build context can't reach the sibling shared/
 // directory at the repo root) -- see server/scripts/sync-shared.js.
 const { MAX_IMAGE_FILE_SIZE: MAX_FILE_SIZE, MIME_EXTENSIONS } = require('../shared/upload');
@@ -65,9 +67,53 @@ function cloudinaryStorage(subfolder) {
   };
 }
 
+// Wraps a storage engine so every file is decoded and re-encoded without its metadata (EXIF /
+// GPS / XMP / IPTC) before it reaches the engine -- see utils/sanitizeImage.js. The upload is
+// buffered in memory first (it is capped at MAX_FILE_SIZE by multer). A file that does not decode
+// as a real JPEG/PNG/WEBP/GIF is refused with a 400, whatever content type the client declared.
+// The stored name/extension follow what the bytes really are, not what the client claimed.
+function sanitizingStorage(inner) {
+  return {
+    _handleFile(req, file, cb) {
+      const chunks = [];
+      let received = 0;
+      let failed = false;
+      const fail = (err) => {
+        if (failed) return;
+        failed = true;
+        cb(err);
+      };
+      file.stream.on('data', (chunk) => {
+        received += chunk.length;
+        // multer truncates at the limit and aborts the request; do not keep buffering past it.
+        if (received <= MAX_FILE_SIZE + 1) chunks.push(chunk);
+      });
+      file.stream.on('error', fail);
+      file.stream.on('end', async () => {
+        if (failed) return;
+        // Over the size limit: multer is already answering 413. Do not decode a cut-off file.
+        if (file.stream.truncated) return fail(Object.assign(new Error('File too large'), { code: 'LIMIT_FILE_SIZE' }));
+        try {
+          const { buffer, mimetype } = await stripImageMetadata(Buffer.concat(chunks));
+          inner._handleFile(req, { ...file, mimetype, stream: Readable.from([buffer]) }, cb);
+        } catch (err) {
+          fail(err);
+        }
+      });
+    },
+    _removeFile(req, file, cb) {
+      // multer also asks to remove a file whose upload was aborted before anything was stored
+      // (no path yet); there is nothing to delete, and the engines below would throw on it.
+      if (!file.path) return cb(null);
+      inner._removeFile(req, file, cb);
+    },
+  };
+}
+
 // Returns a multer instance that saves single-image uploads to server/uploads/<subfolder>
 // with a random filename (never trusts the client-supplied original filename).
-function createImageUpload(subfolder) {
+// `sanitize: true` strips all metadata (including GPS) from every image before it is stored.
+function createImageUpload(subfolder, { sanitize = false } = {}) {
   let storage;
   if (useCloudinary()) {
     storage = cloudinaryStorage(subfolder);
@@ -83,7 +129,7 @@ function createImageUpload(subfolder) {
   }
 
   return multer({
-    storage,
+    storage: sanitize ? sanitizingStorage(storage) : storage,
     limits: { fileSize: MAX_FILE_SIZE },
     fileFilter: (req, file, cb) => {
       if (!MIME_EXTENSIONS[file.mimetype]) {

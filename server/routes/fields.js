@@ -161,7 +161,8 @@ const { requireAdmin } = require('../utils/admin');
 const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFile } = require('../middleware/upload');
 
 const router = express.Router();
-const fieldImageUpload = createImageUpload('fields');
+// Field photos are shown publicly: strip EXIF/GPS from every one (see middleware/upload.js).
+const fieldImageUpload = createImageUpload('fields', { sanitize: true });
 const { nextSortOrder, syncFieldCover } = require('../utils/fieldPhotos');
 const { safeUpsertUserFromAuth } = require('../utils/userSync');
 const { MAX_FIELD_PHOTOS } = require('../shared/upload');

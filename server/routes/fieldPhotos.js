@@ -20,7 +20,7 @@ const {
 // POST/DELETE /api/fields/:id/photos in routes/fields.js are different paths and still work.
 const router = express.Router();
 
-const fieldPhotoUpload = createImageUpload('fields');
+const fieldPhotoUpload = createImageUpload('fields', { sanitize: true });
 
 // Sized so a full multi-select batch (one request per photo) passes untouched; the per-user
 // pending and daily limits are what actually bound a user. Keyed by user, not by IP.

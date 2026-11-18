@@ -1,4 +1,5 @@
 const request = require('supertest');
+const sharp = require('sharp');
 const fs = require('fs');
 const path = require('path');
 
@@ -113,7 +114,8 @@ describe('Field photo gallery', () => {
     field = { id: FIELD, name: 'מגרש הבדיקה', image: null, photos: [], type: 'OPEN' };
 
     spy(prisma, '$transaction', async (fn) => fn(prisma));
-    spy(prisma.field, 'findUnique', async ({ where }) => (where.id === field.id ? field : null));
+    // A copy, like a real query result: the routes compare the row they read with what they then write.
+    spy(prisma.field, 'findUnique', async ({ where }) => (where.id === field.id ? { ...field, photos: [...field.photos] } : null));
     spy(prisma.field, 'update', async ({ where, data }) => {
       if (where.id !== field.id) return field;
       const { photos, ...rest } = data;
@@ -269,6 +271,58 @@ describe('Field photo gallery', () => {
 
       const missing = await request(app).get('/api/fields/nope/photos');
       expect(missing.statusCode).toBe(404);
+    });
+  });
+
+  // A phone photo: the exact place and time it was taken are in the file.
+  const GPS_EXIF = {
+    IFD0: { Make: 'LeakyCam', Software: 'GpsLeakTest 1.0' },
+    IFD3: { GPSLatitudeRef: 'N', GPSLatitude: '32/1 5/1 7/1', GPSLongitudeRef: 'E', GPSLongitude: '34/1 46/1 54/1' },
+  };
+  const photoWithGps = () => sharp({ create: { width: 40, height: 30, channels: 3, background: '#336699' } })
+    .jpeg().withExif(GPS_EXIF).toBuffer();
+  const storedBytes = (url) => fs.readFileSync(path.join(uploadDir, path.basename(url)));
+  const expectNoMetadata = async (bytes) => {
+    expect((await sharp(bytes).metadata()).exif).toBeUndefined();
+    expect(bytes.includes(Buffer.from('LeakyCam'))).toBe(false);
+  };
+
+  describe('metadata is stripped from every stored photo', () => {
+    test('a suggested photo has no EXIF/GPS on disk (the fixture does have it going in)', async () => {
+      const input = await photoWithGps();
+      expect((await sharp(input).metadata()).exif).toBeDefined();
+      expect(input.includes(Buffer.from('LeakyCam'))).toBe(true);
+
+      const res = await submit(member, { buffer: input, name: 'phone.jpg', type: 'image/jpeg' });
+      expect(res.statusCode).toBe(201);
+      await expectNoMetadata(storedBytes(res.body.url));
+    });
+
+    test("an admin's photo, which is published at once, is stripped too", async () => {
+      const res = await submit(admin, { buffer: await photoWithGps(), name: 'phone.jpg', type: 'image/jpeg' });
+      expect(res.statusCode).toBe(201);
+      expect(res.body.status).toBe('APPROVED');
+      await expectNoMetadata(storedBytes(res.body.url));
+    });
+
+    test('the legacy admin endpoints strip it as well', async () => {
+      const gallery = await admin(request(app).post(`/api/fields/${FIELD}/photos`))
+        .attach('photo', await photoWithGps(), { filename: 'phone.jpg', contentType: 'image/jpeg' });
+      expect(gallery.statusCode).toBe(201);
+      await expectNoMetadata(storedBytes(gallery.body.photos[0]));
+
+      const cover = await admin(request(app).post(`/api/fields/${FIELD}/image`))
+        .attach('image', await photoWithGps(), { filename: 'phone.jpg', contentType: 'image/jpeg' });
+      expect(cover.statusCode).toBe(200);
+      await expectNoMetadata(storedBytes(cover.body.image));
+    });
+
+    test('a file that is not really an image is refused with a 400 and nothing is stored', async () => {
+      const before = storedFiles().length;
+      const res = await submit(member, { buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>'), name: 'a.png', type: 'image/png' });
+      expect(res.statusCode).toBe(400);
+      expect(rows).toHaveLength(0);
+      expect(storedFiles().length).toBe(before);
     });
   });
 
