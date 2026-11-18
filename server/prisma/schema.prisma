@@ -39,6 +39,7 @@ model User {
   supportMessages           SupportMessage[]
   fieldSuggestions          FieldSuggestion[]
   fieldPhotosUploaded       FieldPhoto[]               @relation("FieldPhotoUploader")
+  fieldPhotoReports         FieldPhotoReport[]         @relation("FieldPhotoReporter")
   requestsRecv              FriendRequest[]            @relation("Recv")
   requestsSent              FriendRequest[]            @relation("Sent")
   friendshipsA              Friendship[]               @relation("A")
@@ -385,6 +386,7 @@ model FieldPhoto {
   reviewedById String?
   field        Field            @relation(fields: [fieldId], references: [id], onDelete: Cascade)
   uploadedBy   User?            @relation("FieldPhotoUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  reports      FieldPhotoReport[]
 
   @@unique([fieldId, url])
   @@index([fieldId, status, sortOrder])
@@ -397,6 +399,28 @@ enum FieldPhotoStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+/// A signed-in user flagging a published gallery photo (identifiable people, inappropriate,
+/// wrong place, ...). Recorded for admins to review; it never hides the photo by itself.
+model FieldPhotoReport {
+  id           String     @id @default(cuid())
+  photoId      String
+  /// null once the reporter's account is deleted.
+  reporterId   String?
+  /// One of FIELD_PHOTO_REPORT_REASONS in shared/upload.js (validated in the route, so a new
+  /// reason needs no migration).
+  reason       String
+  createdAt    DateTime   @default(now())
+  /// Set when an admin has looked at the report (the photo was removed, or the report dismissed).
+  resolvedAt   DateTime?
+  resolvedById String?
+  photo        FieldPhoto @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  reporter     User?      @relation("FieldPhotoReporter", fields: [reporterId], references: [id], onDelete: SetNull)
+
+  /// One report per user per photo.
+  @@unique([photoId, reporterId])
+  @@index([resolvedAt, createdAt])
 }
 
 model Game {

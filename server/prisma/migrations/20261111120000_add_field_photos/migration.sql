@@ -1,4 +1,5 @@
--- Field photo gallery: one row per photo, with a review status and a display order.
+-- Field photo gallery: one row per photo, with a review status and a display order, plus a table of
+-- user reports against published photos.
 -- Additive only. Nothing existing is altered or dropped: "Field"."image" stays as the cover and
 -- "Field"."photos" stays in place (no longer read by the app).
 
@@ -40,6 +41,31 @@ ALTER TABLE "FieldPhoto" ADD CONSTRAINT "FieldPhoto_fieldId_fkey" FOREIGN KEY ("
 
 -- AddForeignKey
 ALTER TABLE "FieldPhoto" ADD CONSTRAINT "FieldPhoto_uploadedById_fkey" FOREIGN KEY ("uploadedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- CreateTable
+CREATE TABLE "FieldPhotoReport" (
+    "id" TEXT NOT NULL,
+    "photoId" TEXT NOT NULL,
+    "reporterId" TEXT,
+    "reason" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "resolvedAt" TIMESTAMP(3),
+    "resolvedById" TEXT,
+
+    CONSTRAINT "FieldPhotoReport_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE INDEX "FieldPhotoReport_resolvedAt_createdAt_idx" ON "FieldPhotoReport"("resolvedAt", "createdAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "FieldPhotoReport_photoId_reporterId_key" ON "FieldPhotoReport"("photoId", "reporterId");
+
+-- AddForeignKey
+ALTER TABLE "FieldPhotoReport" ADD CONSTRAINT "FieldPhotoReport_photoId_fkey" FOREIGN KEY ("photoId") REFERENCES "FieldPhoto"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "FieldPhotoReport" ADD CONSTRAINT "FieldPhotoReport_reporterId_fkey" FOREIGN KEY ("reporterId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- Backfill: turn the photos fields already have into gallery rows, all APPROVED.
 -- Inserts only (no UPDATE, no DELETE) and idempotent: ids are derived from (fieldId, url) and

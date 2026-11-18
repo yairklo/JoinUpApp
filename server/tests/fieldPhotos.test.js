@@ -64,6 +64,7 @@ describe('Field photo gallery', () => {
   let blocked;
   let nextId;
   let localUsers;
+  let reports;
   const spies = [];
   const spy = (obj, method, impl) => {
     const s = jest.spyOn(obj, method).mockImplementation(impl);
@@ -109,6 +110,7 @@ describe('Field photo gallery', () => {
 
   beforeEach(() => {
     rows = [];
+    reports = [];
     nextId = 1;
     blocked = false;
     field = { id: FIELD, name: 'מגרש הבדיקה', image: null, photos: [], type: 'OPEN' };
@@ -133,6 +135,8 @@ describe('Field photo gallery', () => {
     });
     spy(prisma.user, 'updateMany', async () => ({ count: 0 }));
 
+    // The row locks (FOR NO KEY UPDATE) are exercised against real Postgres in fieldPhotosDb.test.js.
+    spy(prisma, '$queryRaw', async () => []);
     spy(prisma.fieldPhoto, 'count', async ({ where }) => rows.filter((r) => matches(r, where)).length);
     spy(prisma.fieldPhoto, 'findMany', async ({ where, orderBy, include } = {}) => {
       const list = sorted(rows.filter((r) => matches(r, where)), orderBy);
@@ -164,6 +168,23 @@ describe('Field photo gallery', () => {
       const count = rows.length - keep.length;
       rows.splice(0, rows.length, ...keep);
       return { count };
+    });
+    spy(prisma.fieldPhotoReport, 'create', async ({ data }) => {
+      if (data.reporterId && !localUsers.has(data.reporterId)) {
+        throw Object.assign(new Error('Foreign key constraint violated'), { code: 'P2003' });
+      }
+      if (reports.some((r) => r.photoId === data.photoId && r.reporterId === data.reporterId)) {
+        throw Object.assign(new Error('Unique constraint failed'), { code: 'P2002' });
+      }
+      const report = { id: `rep_${reports.length + 1}`, createdAt: new Date(), resolvedAt: null, resolvedById: null, ...data };
+      reports.push(report);
+      return report;
+    });
+    spy(prisma.fieldPhotoReport, 'findMany', async ({ where }) => reports.filter((r) => matches(r, where)));
+    spy(prisma.fieldPhotoReport, 'updateMany', async ({ where, data }) => {
+      const hit = reports.filter((r) => matches(r, where));
+      hit.forEach((r) => Object.assign(r, data));
+      return { count: hit.length };
     });
     spy(prisma.fieldPhoto, 'groupBy', async ({ where }) => {
       const byField = new Map();
@@ -338,6 +359,17 @@ describe('Field photo gallery', () => {
       const res = await submit(member);
       expect(res.statusCode).toBe(201);
       expect(localUsers.has(MEMBER)).toBe(true);
+    });
+
+    test("a lost race to create the uploader's User row is retried, not a 500", async () => {
+      // Parallel first requests from an account with no row all try to create it; the loser gets
+      // a unique violation on the id, and the row exists by the time it asks again.
+      prisma.user.upsert.mockImplementationOnce(async () => {
+        throw Object.assign(new Error('Unique constraint failed on the fields: (`id`)'), { code: 'P2002' });
+      });
+      const res = await submit(member);
+      expect(res.statusCode).toBe(201);
+      expect(prisma.user.upsert).toHaveBeenCalledTimes(2);
     });
 
     test("a user's photo is stored as PENDING and attributed to them", async () => {
@@ -683,6 +715,121 @@ describe('Field photo gallery', () => {
       expect(rows.map((r) => r.id)).toEqual(['b']);
       expect(field.image).toBe(b.url);
       expect(field.photos).toEqual([b.url]);
+    });
+  });
+
+  describe('reporting a published photo', () => {
+    const report = (auth, photoId, body = { reason: 'PEOPLE' }, fieldId = FIELD) => {
+      const r = request(app).post(`/api/fields/${fieldId}/photos/${photoId}/report`);
+      return (auth ? auth(r) : r).send(body);
+    };
+
+    beforeEach(() => {
+      addRow({ id: 'pub', status: 'APPROVED', uploadedById: null });
+    });
+
+    test('requires auth', async () => {
+      expect((await report(null, 'pub')).statusCode).toBe(401);
+      expect(reports).toHaveLength(0);
+    });
+
+    test.each([
+      ['no reason', {}],
+      ['an unknown reason', { reason: 'BORING' }],
+      ['a reason of the wrong type', { reason: ['PEOPLE'] }],
+    ])('refuses %s with a 400', async (_name, body) => {
+      const res = await report(member, 'pub', body);
+      expect(res.statusCode).toBe(400);
+      expect(reports).toHaveLength(0);
+    });
+
+    test.each(['PEOPLE', 'INAPPROPRIATE', 'WRONG_PLACE', 'OTHER'])('records a %s report, and makes sure the reporter has a User row first', async (reason) => {
+      const res = await report(member, 'pub', { reason });
+      expect(res.statusCode).toBe(201);
+      expect(res.body).toEqual({ ok: true });
+      expect(reports).toHaveLength(1);
+      expect(reports[0]).toMatchObject({ photoId: 'pub', reporterId: MEMBER, reason, resolvedAt: null });
+      expect(localUsers.has(MEMBER)).toBe(true);
+    });
+
+    test('reporting the same photo again is a harmless no-op; another user can still report it', async () => {
+      expect((await report(member, 'pub')).statusCode).toBe(201);
+      const again = await report(member, 'pub', { reason: 'OTHER' });
+      expect(again.statusCode).toBe(200);
+      expect(again.body).toEqual({ ok: true, alreadyReported: true });
+      expect(reports).toHaveLength(1);
+
+      expect((await report(other, 'pub')).statusCode).toBe(201);
+      expect(reports).toHaveLength(2);
+    });
+
+    test('only published photos can be reported: pending, rejected, unknown or another field is "not found"', async () => {
+      const pending = addRow({ id: 'pend', status: 'PENDING' });
+      const rejected = addRow({ id: 'rej', status: 'REJECTED' });
+      const elsewhere = addRow({ id: 'else', status: 'APPROVED', fieldId: 'another_field' });
+      for (const id of [pending.id, rejected.id, elsewhere.id, 'nope']) {
+        expect((await report(other, id)).statusCode).toBe(404);
+      }
+      expect(reports).toHaveLength(0);
+    });
+
+    test('a user blocked from field content cannot report', async () => {
+      blocked = true;
+      expect((await report(member, 'pub')).statusCode).toBe(403);
+      expect(reports).toHaveLength(0);
+    });
+  });
+
+  describe('admin view of reports', () => {
+    const addReport = (photoId, reporterId, reason, over = {}) =>
+      reports.push({ id: `r${reports.length + 1}`, photoId, reporterId, reason, createdAt: new Date(), resolvedAt: null, resolvedById: null, ...over });
+
+    beforeEach(() => {
+      addRow({ id: 'a', status: 'APPROVED', uploadedById: null });
+      addRow({ id: 'b', status: 'APPROVED', uploadedById: null });
+    });
+
+    test('is admin only', async () => {
+      expect((await request(app).get('/api/field-photos/reports')).statusCode).toBe(401);
+      expect((await member(request(app).get('/api/field-photos/reports'))).statusCode).toBe(403);
+      expect((await member(request(app).post('/api/field-photos/a/reports/resolve'))).statusCode).toBe(403);
+    });
+
+    test('lists reported photos, most reported first, with a count and the reasons', async () => {
+      addReport('a', 'u1', 'PEOPLE', { createdAt: new Date(Date.now() - 3000) });
+      addReport('b', 'u1', 'OTHER', { createdAt: new Date(Date.now() - 2000) });
+      addReport('b', 'u2', 'PEOPLE', { createdAt: new Date(Date.now() - 1000) });
+      addReport('b', 'u3', 'PEOPLE', { createdAt: new Date() });
+      addReport('a', 'u9', 'PEOPLE', { resolvedAt: new Date() }); // already dealt with: not listed
+
+      const res = await admin(request(app).get('/api/field-photos/reports'));
+      expect(res.statusCode).toBe(200);
+      expect(res.headers['cache-control']).toBe('private, no-store');
+      expect(res.body.map((e) => e.photo.id)).toEqual(['b', 'a']);
+      expect(res.body[0]).toMatchObject({ count: 3, reasons: { PEOPLE: 2, OTHER: 1 } });
+      expect(res.body[0].photo.field).toEqual({ id: FIELD, name: 'מגרש הבדיקה' });
+      expect(res.body[1]).toMatchObject({ count: 1, reasons: { PEOPLE: 1 } });
+      expect(JSON.stringify(res.body)).not.toContain('u1'); // reporters are not exposed
+    });
+
+    test('dismissing clears the open reports for that photo only', async () => {
+      addReport('a', 'u1', 'PEOPLE');
+      addReport('a', 'u2', 'OTHER');
+      addReport('b', 'u1', 'PEOPLE');
+
+      const res = await admin(request(app).post('/api/field-photos/a/reports/resolve'));
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toEqual({ ok: true, resolved: 2 });
+      expect(reports.filter((r) => r.photoId === 'a').every((r) => r.resolvedAt && r.resolvedById === 'user_admin_fp')).toBe(true);
+      expect(reports.find((r) => r.photoId === 'b').resolvedAt).toBeNull();
+
+      const list = await admin(request(app).get('/api/field-photos/reports'));
+      expect(list.body.map((e) => e.photo.id)).toEqual(['b']);
+    });
+
+    test('an empty queue is an empty list', async () => {
+      const res = await admin(request(app).get('/api/field-photos/reports'));
+      expect(res.body).toEqual([]);
     });
   });
 });

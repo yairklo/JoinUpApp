@@ -163,8 +163,7 @@ const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFil
 const router = express.Router();
 // Field photos are shown publicly: strip EXIF/GPS from every one (see middleware/upload.js).
 const fieldImageUpload = createImageUpload('fields', { sanitize: true });
-const { nextSortOrder, syncFieldCover } = require('../utils/fieldPhotos');
-const { safeUpsertUserFromAuth } = require('../utils/userSync');
+const { nextSortOrder, syncFieldCover, lockFieldForPhotos, ensureLocalUser } = require('../utils/fieldPhotos');
 const { MAX_FIELD_PHOTOS } = require('../shared/upload');
 
 // Adds the browse/admin pages' free-text (name/location/city/neighborhood/
@@ -1170,7 +1169,7 @@ router.post('/:id/image', authenticateToken, requireAdmin, handleSingleUpload(fi
     // mirror it there: the old cover's row goes, the new image becomes the first approved photo.
     const fieldId = req.params.id;
     // FieldPhoto.uploadedById is a foreign key; the admin's Clerk account may have no User row yet.
-    await safeUpsertUserFromAuth(prisma, req.user);
+    await ensureLocalUser(prisma, req.user);
     const updated = await prisma.$transaction(async (tx) => {
       if (existing.image) await tx.fieldPhoto.deleteMany({ where: { fieldId, url: existing.image } });
       const first = await tx.fieldPhoto.findFirst({
@@ -1237,8 +1236,9 @@ router.post('/:id/photos', authenticateToken, requireAdmin, handleSingleUpload(f
     // Still appends to the old array for those clients' response, and mirrors into FieldPhoto,
     // which is what the gallery actually reads.
     const fieldId = req.params.id;
-    await safeUpsertUserFromAuth(prisma, req.user);
+    await ensureLocalUser(prisma, req.user);
     const updated = await prisma.$transaction(async (tx) => {
+      await lockFieldForPhotos(tx, fieldId);
       const approved = await tx.fieldPhoto.count({ where: { fieldId, status: 'APPROVED' } });
       if (approved >= MAX_FIELD_PHOTOS) return null;
       await tx.fieldPhoto.create({

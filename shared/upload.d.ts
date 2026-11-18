@@ -9,6 +9,9 @@ export const MAX_PHOTO_UPLOADS_PER_DAY: number;
 export const IMAGE_RESIZE_MAX_EDGE: number;
 export const IMAGE_RESIZE_JPEG_QUALITY: number;
 
+export type FieldPhotoReportReason = 'PEOPLE' | 'INAPPROPRIATE' | 'WRONG_PLACE' | 'OTHER';
+export const FIELD_PHOTO_REPORT_REASONS: FieldPhotoReportReason[];
+
 export type FieldPhotoLimitReason = 'FIELD_FULL' | 'PENDING_PER_FIELD' | 'PENDING_TOTAL' | 'DAILY';
 export const FIELD_PHOTO_LIMIT_REASONS: FieldPhotoLimitReason[];
 

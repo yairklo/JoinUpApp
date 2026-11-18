@@ -13,6 +13,9 @@ jest.mock('../utils/auth', () => {
     mock_fpdb_admin: { id: 'user_fpdb_admin', name: 'FpDbAdmin', isAdmin: true },
     mock_fpdb_member: { id: 'user_fpdb_member', name: 'FpDbMember', isAdmin: false },
     mock_fpdb_other: { id: 'user_fpdb_other', name: 'FpDbOther', isAdmin: false },
+    mock_fpdb_parallel: { id: 'user_fpdb_parallel', name: 'FpDbParallel', isAdmin: false },
+    mock_fpdb_reporter1: { id: 'user_fpdb_reporter1', name: 'FpDbReporter1', isAdmin: false },
+    mock_fpdb_reporter2: { id: 'user_fpdb_reporter2', name: 'FpDbReporter2', isAdmin: false },
   };
   const tokenOf = (req) => {
     const h = req.headers['authorization'];
@@ -181,5 +184,170 @@ describe('Field photo gallery against the real database', () => {
     await prisma.user.delete({ where: { id: 'user_fpdb_member' } });
     const row = await prisma.fieldPhoto.findUnique({ where: { id: photo.id } });
     expect(row).toMatchObject({ status: 'APPROVED', uploadedById: null });
+  });
+});
+
+// Many requests at once, as a batch upload or a double tap would send them. The limits are
+// "count, then insert"; without the row locks every one of these would read the same stale count
+// and the limit would be exceeded by the number of requests in flight.
+describe('parallel requests cannot exceed the limits (real database)', () => {
+  const admin = (r) => r.set('Authorization', 'Bearer mock_fpdb_admin');
+  const parallel = (r) => r.set('Authorization', 'Bearer mock_fpdb_parallel');
+  const uploadDir = path.join(UPLOADS_ROOT, 'fields');
+  let filesBefore;
+  const fieldIds = [];
+
+  const newField = async (name) => {
+    const field = await prisma.field.create({ data: { name, location: 'FieldPhotosDb Parallel Ave', type: 'OPEN' } });
+    fieldIds.push(field.id);
+    return field.id;
+  };
+  const photosFor = (fieldId, status, n, extra = {}) => prisma.fieldPhoto.createMany({
+    data: Array.from({ length: n }, (_, i) => ({
+      fieldId, url: `https://example.com/${fieldId}/${status}/${i}.jpg`, status, sortOrder: i, ...extra,
+    })),
+  });
+  const statuses = (results) => results.map((r) => r.statusCode).sort();
+  const countOf = (results, code) => results.filter((r) => r.statusCode === code).length;
+
+  beforeAll(async () => {
+    filesBefore = new Set(fs.existsSync(uploadDir) ? fs.readdirSync(uploadDir) : []);
+    await prisma.user.deleteMany({ where: { id: 'user_fpdb_parallel' } });
+  });
+
+  afterAll(async () => {
+    try {
+      await prisma.field.deleteMany({ where: { id: { in: fieldIds } } });
+      await prisma.user.deleteMany({ where: { id: 'user_fpdb_parallel' } });
+    } catch (err) {
+      console.warn('fieldPhotosDb parallel cleanup skipped:', err.message);
+    }
+    await new Promise((r) => setTimeout(r, 100));
+    if (fs.existsSync(uploadDir)) {
+      for (const f of fs.readdirSync(uploadDir)) {
+        if (!filesBefore.has(f)) fs.unlinkSync(path.join(uploadDir, f));
+      }
+    }
+  });
+
+  test('nine simultaneous suggestions by one user: exactly five are accepted', async () => {
+    const fieldId = await newField('FieldPhotosDbParallelUser');
+    const results = await Promise.all(Array.from({ length: 9 }, () =>
+      parallel(request(app).post(`/api/fields/${fieldId}/photos/submit`)).attach('photo', PNG, png)));
+
+    expect(statuses(results)).toEqual([201, 201, 201, 201, 201, 409, 409, 409, 409]);
+    for (const r of results.filter((x) => x.statusCode === 409)) expect(r.body.code).toBe('PENDING_PER_FIELD');
+    expect(await prisma.fieldPhoto.count({ where: { fieldId, uploadedById: 'user_fpdb_parallel', status: 'PENDING' } })).toBe(5);
+  });
+
+  test('simultaneous suggestions across two fields respect the per-user total', async () => {
+    const [a, b, c] = [await newField('FieldPhotosDbParallelA'), await newField('FieldPhotosDbParallelB'), await newField('FieldPhotosDbParallelC')];
+    // Start from five pending on a separate field already counted, ten more allowed overall.
+    const results = await Promise.all([a, a, a, a, b, b, b, b, c, c, c, c, c].map((fieldId) =>
+      parallel(request(app).post(`/api/fields/${fieldId}/photos/submit`)).attach('photo', PNG, png)));
+    const accepted = countOf(results, 201);
+    const total = await prisma.fieldPhoto.count({ where: { uploadedById: 'user_fpdb_parallel', status: 'PENDING' } });
+    expect(total).toBeLessThanOrEqual(15);
+    expect(total).toBe(5 + accepted); // five from the previous test, plus whatever got in
+    expect(accepted).toBe(10);
+    expect(results.filter((r) => r.statusCode === 409).every((r) => ['PENDING_TOTAL', 'PENDING_PER_FIELD'].includes(r.body.code))).toBe(true);
+  });
+
+  test('two admins approving different photos at once cannot pass the ten-photo cap', async () => {
+    const fieldId = await newField('FieldPhotosDbParallelApprove');
+    await photosFor(fieldId, 'APPROVED', 9);
+    await photosFor(fieldId, 'PENDING', 3);
+    const pending = await prisma.fieldPhoto.findMany({ where: { fieldId, status: 'PENDING' } });
+
+    const results = await Promise.all(pending.map((p) => admin(request(app).post(`/api/field-photos/${p.id}/approve`))));
+    expect(countOf(results, 200)).toBe(1);
+    expect(countOf(results, 409)).toBe(2);
+    for (const r of results.filter((x) => x.statusCode === 409)) expect(r.body.code).toBe('FIELD_FULL');
+    expect(await prisma.fieldPhoto.count({ where: { fieldId, status: 'APPROVED' } })).toBe(10);
+    // And the approved photos still have distinct positions.
+    const orders = (await prisma.fieldPhoto.findMany({ where: { fieldId, status: 'APPROVED' } })).map((p) => p.sortOrder);
+    expect(new Set(orders).size).toBe(10);
+  });
+
+  test('simultaneous admin uploads stop at the field cap', async () => {
+    const fieldId = await newField('FieldPhotosDbParallelAdmin');
+    await photosFor(fieldId, 'APPROVED', 8);
+    const results = await Promise.all(Array.from({ length: 4 }, () =>
+      admin(request(app).post(`/api/fields/${fieldId}/photos/submit`)).attach('photo', PNG, png)));
+    expect(statuses(results)).toEqual([201, 201, 409, 409]);
+    expect(await prisma.fieldPhoto.count({ where: { fieldId, status: 'APPROVED' } })).toBe(10);
+  });
+});
+
+describe('reports on published photos (real database)', () => {
+  const as = (token) => (r) => r.set('Authorization', `Bearer ${token}`);
+  const admin = as('mock_fpdb_admin');
+  const r1 = as('mock_fpdb_reporter1');
+  const r2 = as('mock_fpdb_reporter2');
+  let fieldId;
+  let photoId;
+  const report = (auth, reason = 'PEOPLE') =>
+    auth(request(app).post(`/api/fields/${fieldId}/photos/${photoId}/report`)).send({ reason });
+
+  beforeAll(async () => {
+    await prisma.user.deleteMany({ where: { id: { in: ['user_fpdb_reporter1', 'user_fpdb_reporter2'] } } });
+    const field = await prisma.field.create({ data: { name: 'FieldPhotosDbReports', location: 'FieldPhotosDb Reports Ave', type: 'OPEN' } });
+    fieldId = field.id;
+    const photo = await prisma.fieldPhoto.create({
+      data: { fieldId, url: `https://example.com/${fieldId}/reported.jpg`, status: 'APPROVED', sortOrder: 0 },
+    });
+    photoId = photo.id;
+  });
+
+  afterAll(async () => {
+    try {
+      await prisma.field.deleteMany({ where: { id: fieldId } });
+      await prisma.user.deleteMany({ where: { id: { in: ['user_fpdb_reporter1', 'user_fpdb_reporter2'] } } });
+    } catch (err) {
+      console.warn('fieldPhotosDb reports cleanup skipped:', err.message);
+    }
+  });
+
+  test('a user with no local User row can report; doing it twice records one report', async () => {
+    expect(await prisma.user.findUnique({ where: { id: 'user_fpdb_reporter1' } })).toBeNull();
+    expect((await report(r1)).statusCode).toBe(201);
+    expect(await prisma.user.findUnique({ where: { id: 'user_fpdb_reporter1' } })).not.toBeNull();
+
+    const again = await report(r1, 'OTHER');
+    expect(again.statusCode).toBe(200);
+    expect(again.body.alreadyReported).toBe(true);
+    expect(await prisma.fieldPhotoReport.count({ where: { photoId } })).toBe(1);
+  });
+
+  test('the same two reporters at once still record one report each', async () => {
+    const results = await Promise.all([report(r2), report(r2), report(r1)]);
+    expect(results.map((r) => r.statusCode).sort()).toEqual([200, 200, 201]);
+    expect(await prisma.fieldPhotoReport.count({ where: { photoId } })).toBe(2);
+  });
+
+  test('the admin sees the photo with both reports, and dismissing empties the list', async () => {
+    const list = await admin(request(app).get('/api/field-photos/reports'));
+    expect(list.statusCode).toBe(200);
+    const entry = list.body.find((e) => e.photo.id === photoId);
+    expect(entry).toMatchObject({ count: 2, reasons: { PEOPLE: 2 } });
+    expect(entry.photo.field.id).toBe(fieldId);
+
+    const resolved = await admin(request(app).post(`/api/field-photos/${photoId}/reports/resolve`));
+    expect(resolved.body).toEqual({ ok: true, resolved: 2 });
+    const after = await admin(request(app).get('/api/field-photos/reports'));
+    expect(after.body.find((e) => e.photo.id === photoId)).toBeUndefined();
+  });
+
+  test("deleting a reporter's account keeps the report, without the reporter", async () => {
+    await prisma.user.delete({ where: { id: 'user_fpdb_reporter2' } });
+    const rows = await prisma.fieldPhotoReport.findMany({ where: { photoId } });
+    expect(rows).toHaveLength(2);
+    expect(rows.filter((r) => r.reporterId === null)).toHaveLength(1);
+  });
+
+  test("an admin removing the photo removes its reports with it", async () => {
+    const removed = await admin(request(app).delete(`/api/fields/${fieldId}/photos/${photoId}`));
+    expect(removed.statusCode).toBe(200);
+    expect(await prisma.fieldPhotoReport.count({ where: { photoId } })).toBe(0);
   });
 });

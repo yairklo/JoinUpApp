@@ -27,6 +27,9 @@ const IMAGE_RESIZE_MAX_EDGE = 1600;
 /** JPEG quality for the resized copy -- high enough that the loss is not visible. */
 const IMAGE_RESIZE_JPEG_QUALITY = 0.82;
 
+/** Why a user may report a published field photo. Validated by the server, not by the database. */
+const FIELD_PHOTO_REPORT_REASONS = ['PEOPLE', 'INAPPROPRIATE', 'WRONG_PLACE', 'OTHER'];
+
 const FIELD_PHOTO_LIMIT_REASONS = ['FIELD_FULL', 'PENDING_PER_FIELD', 'PENDING_TOTAL', 'DAILY'];
 
 function count(value) {
@@ -155,6 +158,7 @@ module.exports = {
   IMAGE_RESIZE_MAX_EDGE,
   IMAGE_RESIZE_JPEG_QUALITY,
   FIELD_PHOTO_LIMIT_REASONS,
+  FIELD_PHOTO_REPORT_REASONS,
   computeFieldPhotoAllowance,
   validateFieldPhotoFile,
   computeResizedDimensions,

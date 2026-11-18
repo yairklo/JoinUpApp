@@ -4,14 +4,16 @@ const { authenticateToken, attachOptionalUser } = require('../utils/auth');
 const { requireAdmin } = require('../utils/admin');
 const { createRateLimiter } = require('../middleware/rateLimit');
 const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFile } = require('../middleware/upload');
-const { MAX_FIELD_PHOTOS, computeFieldPhotoAllowance } = require('../shared/upload');
-const { safeUpsertUserFromAuth } = require('../utils/userSync');
+const { MAX_FIELD_PHOTOS, FIELD_PHOTO_REPORT_REASONS, computeFieldPhotoAllowance } = require('../shared/upload');
 const {
   photoForClient,
   approvedPhotos,
   nextSortOrder,
   syncFieldCover,
   allowanceCounts,
+  ensureLocalUser,
+  lockUserForPhotos,
+  lockFieldForPhotos,
 } = require('../utils/fieldPhotos');
 
 // Field photo gallery. Any signed-in user may suggest photos for a field; a suggestion is a
@@ -28,6 +30,14 @@ const submitLimiter = createRateLimiter({
   windowMs: 60 * 60 * 1000,
   max: 30,
   prefix: 'field-photo',
+  resolveUserId: async (req) => req.user?.id || null,
+});
+
+// Reporting is cheap but must not become a way to flood the admins' queue.
+const reportLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  prefix: 'field-photo-report',
   resolveUserId: async (req) => req.user?.id || null,
 });
 
@@ -97,7 +107,7 @@ async function precheckSubmit(req, res, next) {
 
     // req.user comes from Clerk; a signed-in account may not have its row in our User table yet,
     // and FieldPhoto.uploadedById is a foreign key to it. Same guard as the join/roster routes.
-    const localUser = await safeUpsertUserFromAuth(prisma, req.user);
+    const localUser = await ensureLocalUser(prisma, req.user);
     if (!req.user.isAdmin && localUser?.blockedFromFieldSocial) {
       return res.status(403).json({ error: 'You are blocked from adding field content' });
     }
@@ -128,6 +138,10 @@ router.post(
 
       // Any 4xx/5xx below makes handleSingleUpload discard the stored file.
       const result = await prisma.$transaction(async (tx) => {
+        // Parallel requests queue here, so the counts below cannot be read stale. A user's own
+        // limits are per user; an admin is bound only by the field's cap, which is per field.
+        if (isAdmin) await lockFieldForPhotos(tx, fieldId);
+        else await lockUserForPhotos(tx, req.user.id);
         const allowance = await allowanceFor(tx, fieldId, req.user);
         if (allowance.allowed < 1) return { reason: allowance.reason };
         const photo = await tx.fieldPhoto.create({
@@ -272,6 +286,8 @@ router.post('/field-photos/:id/approve', authenticateToken, requireAdmin, async 
       if (!photo) return { status: 404, body: { error: 'Photo not found' } };
       if (photo.status !== 'PENDING') return { status: 409, body: { error: 'Photo was already reviewed', code: 'NOT_PENDING' } };
 
+      // Two admins approving different photos at once must not both pass the cap.
+      await lockFieldForPhotos(tx, photo.fieldId);
       const approved = await tx.fieldPhoto.count({ where: { fieldId: photo.fieldId, status: 'APPROVED' } });
       if (approved >= MAX_FIELD_PHOTOS) return { status: 409, body: { error: LIMIT_MESSAGES.FIELD_FULL, code: 'FIELD_FULL' } };
 
@@ -314,6 +330,92 @@ router.post('/field-photos/:id/reject', authenticateToken, requireAdmin, async (
   } catch (error) {
     console.error('Reject field photo error:', error);
     res.status(500).json({ error: 'Failed to reject photo' });
+  }
+});
+
+// ---- Reports on published photos ------------------------------------------------------------
+
+// POST /api/fields/:id/photos/:photoId/report - flag a published photo (identifiable people,
+// inappropriate, wrong place, ...). It only records the report for the admins; the photo stays up
+// until an admin removes it. One report per user per photo, so repeating it is a harmless no-op.
+router.post('/fields/:id/photos/:photoId/report', authenticateToken, reportLimiter, async (req, res) => {
+  try {
+    const { id: fieldId, photoId } = req.params;
+    const { reason } = req.body || {};
+    if (!FIELD_PHOTO_REPORT_REASONS.includes(reason)) {
+      return res.status(400).json({ error: `reason must be one of ${FIELD_PHOTO_REPORT_REASONS.join(', ')}` });
+    }
+
+    // Only published photos can be reported: a pending one is invisible to everyone but its
+    // uploader, and "not found" keeps it that way.
+    const photo = await prisma.fieldPhoto.findUnique({ where: { id: photoId }, select: { id: true, fieldId: true, status: true } });
+    if (!photo || photo.fieldId !== fieldId || photo.status !== 'APPROVED') {
+      return res.status(404).json({ error: 'Photo not found' });
+    }
+
+    // FieldPhotoReport.reporterId is a foreign key to User; a Clerk account may have no row yet.
+    const localUser = await ensureLocalUser(prisma, req.user);
+    if (!req.user.isAdmin && localUser?.blockedFromFieldSocial) {
+      return res.status(403).json({ error: 'You are blocked from reporting field content' });
+    }
+
+    try {
+      await prisma.fieldPhotoReport.create({ data: { photoId, reporterId: req.user.id, reason } });
+    } catch (error) {
+      if (error.code !== 'P2002') throw error; // already reported by this user
+      return res.json({ ok: true, alreadyReported: true });
+    }
+    res.status(201).json({ ok: true });
+  } catch (error) {
+    console.error('Report field photo error:', error);
+    res.status(500).json({ error: 'Failed to report photo' });
+  }
+});
+
+// GET /api/field-photos/reports - published photos with open reports, most reported first.
+router.get('/field-photos/reports', authenticateToken, requireAdmin, async (req, res) => {
+  res.setHeader('Cache-Control', 'private, no-store');
+  try {
+    const open = await prisma.fieldPhotoReport.findMany({
+      where: { resolvedAt: null },
+      orderBy: { createdAt: 'asc' },
+      take: 500,
+      select: { photoId: true, reason: true, createdAt: true },
+    });
+    const byPhoto = new Map();
+    for (const r of open) {
+      const entry = byPhoto.get(r.photoId) || { count: 0, reasons: {}, firstReportedAt: r.createdAt };
+      entry.count += 1;
+      entry.reasons[r.reason] = (entry.reasons[r.reason] || 0) + 1;
+      byPhoto.set(r.photoId, entry);
+    }
+    const photos = byPhoto.size
+      ? await prisma.fieldPhoto.findMany({
+        where: { id: { in: [...byPhoto.keys()] } },
+        include: { field: { select: { id: true, name: true } } },
+      })
+      : [];
+    res.json(photos
+      .map((p) => ({ ...byPhoto.get(p.id), photo: { ...photoForClient(p), field: { id: p.field.id, name: p.field.name } } }))
+      .sort((a, b) => b.count - a.count || a.firstReportedAt - b.firstReportedAt));
+  } catch (error) {
+    console.error('List field photo reports error:', error);
+    res.status(500).json({ error: 'Failed to load reports' });
+  }
+});
+
+// POST /api/field-photos/:id/reports/resolve - an admin looked and is leaving the photo up.
+// (To take a reported photo down, use DELETE /api/fields/:id/photos/:photoId; its reports go with it.)
+router.post('/field-photos/:id/reports/resolve', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { count } = await prisma.fieldPhotoReport.updateMany({
+      where: { photoId: req.params.id, resolvedAt: null },
+      data: { resolvedAt: new Date(), resolvedById: req.user.id },
+    });
+    res.json({ ok: true, resolved: count });
+  } catch (error) {
+    console.error('Resolve field photo reports error:', error);
+    res.status(500).json({ error: 'Failed to resolve reports' });
   }
 });
 

@@ -10,6 +10,7 @@ const {
   computeResizedDimensions,
   planFieldPhotoBatch,
   fieldPhotoErrorKind,
+  FIELD_PHOTO_REPORT_REASONS,
 } = require('./upload');
 
 const fresh = { approvedCountForField: 0, userPendingForField: 0, userPendingTotal: 0, userUploadsLast24h: 0 };
@@ -255,5 +256,11 @@ describe('fieldPhotoErrorKind', () => {
 
   test('an unknown code falls back to the status', () => {
     expect(fieldPhotoErrorKind({ status: 429, code: 'SOMETHING_ELSE' })).toBe('RATE');
+  });
+});
+
+describe('FIELD_PHOTO_REPORT_REASONS', () => {
+  test('is the agreed list, with a catch-all last', () => {
+    expect(FIELD_PHOTO_REPORT_REASONS).toEqual(['PEOPLE', 'INAPPROPRIATE', 'WRONG_PLACE', 'OTHER']);
   });
 });
