@@ -1,4 +1,4 @@
-import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
+import type * as ImageManipulatorModule from 'expo-image-manipulator';
 import {
     IMAGE_RESIZE_MAX_EDGE,
     IMAGE_RESIZE_JPEG_QUALITY,
@@ -23,12 +23,16 @@ function jpegFileName(name: string): string {
  * photo is uploaded as it is and the server's type and size check remains the gate.
  *
  * expo-image-manipulator is a native module -- it needs a native build that includes it and
- * cannot be delivered by an OTA update to builds made before it was added.
+ * cannot be delivered by an OTA update to builds made before it was added. It is therefore
+ * required here, inside the try, rather than imported at the top of the file: a static import
+ * throws while the module is being loaded when the native side is missing, which would take the
+ * whole field screen down with it instead of just skipping the resize.
  */
 export const resizeImage: ResizeFn = async (asset) => {
     const original = { uri: asset.uri, name: asset.name, type: asset.mimeType, size: asset.size };
     try {
         const target = computeResizedDimensions(asset.width, asset.height, IMAGE_RESIZE_MAX_EDGE);
+        const { ImageManipulator, SaveFormat } = require('expo-image-manipulator') as typeof ImageManipulatorModule;
         const context = ImageManipulator.manipulate(asset.uri);
         if (target.resized) context.resize({ width: target.width, height: target.height });
         const rendered = await context.renderAsync();
