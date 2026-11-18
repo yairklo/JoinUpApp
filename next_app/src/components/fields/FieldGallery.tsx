@@ -15,10 +15,12 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import DeleteIcon from "@mui/icons-material/DeleteOutline";
 import HourglassIcon from "@mui/icons-material/HourglassTop";
+import FlagIcon from "@mui/icons-material/OutlinedFlag";
 import PhotoCameraIcon from "@mui/icons-material/PhotoCameraOutlined";
 import { fieldPhotosApi, fieldPhotoSrc, type FieldPhotosResponse } from "@/services/api/fieldPhotos";
 import FieldPhotoViewer, { overlayButtonSx, snapStripSx, useSnapCarousel } from "./FieldPhotoViewer";
 import FieldPhotoUploader from "./FieldPhotoUploader";
+import ReportPhotoDialog from "./ReportPhotoDialog";
 
 const HEIGHT = { xs: 220, md: 320 };
 const MAX_DOTS = 10;
@@ -97,6 +99,7 @@ export default function FieldGallery({ fieldId, fieldName, initialPhotos }: Fiel
     const [viewerAt, setViewerAt] = useState<number | null>(null);
     const [uploaderOpen, setUploaderOpen] = useState(false);
     const [removingId, setRemovingId] = useState<string | null>(null);
+    const [reportingId, setReportingId] = useState<string | null>(null);
 
     const load = useCallback(async () => {
         try {
@@ -259,6 +262,16 @@ export default function FieldGallery({ fieldId, fieldName, initialPhotos }: Fiel
                             >
                                 <SlideImage src={fieldPhotoSrc(slide.url, 1200)} alt={label} eager={i === 0} />
                             </ButtonBase>
+                            {!slide.pending && isSignedIn && !slide.id.startsWith("ssr-") && (
+                                <IconButton
+                                    size="small"
+                                    onClick={() => setReportingId(slide.id)}
+                                    aria-label={`דיווח על תמונה ${i + 1}`}
+                                    sx={{ ...overlayButtonSx, position: "absolute", top: 12, insetInlineStart: 12 }}
+                                >
+                                    <FlagIcon fontSize="small" />
+                                </IconButton>
+                            )}
                             {slide.pending && (
                                 <>
                                     <Chip
@@ -388,6 +401,14 @@ export default function FieldGallery({ fieldId, fieldName, initialPhotos }: Fiel
                 photos={slides}
                 startIndex={viewerAt ?? 0}
             />
+            {isSignedIn && (
+                <ReportPhotoDialog
+                    open={reportingId !== null}
+                    onClose={() => setReportingId(null)}
+                    fieldId={fieldId}
+                    photoId={reportingId}
+                />
+            )}
             {uploader}
         </Box>
     );

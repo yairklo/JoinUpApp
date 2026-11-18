@@ -17,6 +17,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CloseIcon from "@mui/icons-material/Close";
 import ErrorIcon from "@mui/icons-material/ErrorOutline";
 import ImageIcon from "@mui/icons-material/ImageOutlined";
+import PeopleIcon from "@mui/icons-material/PeopleOutline";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import {
     ACCEPTED_IMAGE_TYPES,
@@ -39,6 +40,9 @@ const ERROR_TEXT: Record<FieldPhotoErrorKind, string> = {
     NETWORK: "ההעלאה נכשלה. בדקו את החיבור ונסו שוב",
     UNKNOWN: "ההעלאה נכשלה, נסו שוב",
 };
+
+/** Shown before every upload: photos are public, and people in them cannot consent. */
+export const PEOPLE_NOTE = "נא לא לצלם אנשים שאפשר לזהות, במיוחד ילדים. צלמו את המגרש עצמו.";
 
 /** "אפשר להוסיף עוד תמונה אחת" / "אפשר להוסיף עוד 3 תמונות". */
 export function remainingText(remaining: number): string {
@@ -192,6 +196,10 @@ export default function FieldPhotoUploader({
                         ? ERROR_TEXT.FIELD_FULL
                         : `${remainingText(slots)}. התמונות יוצגו לכולם אחרי אישור של מנהל.`}
                 </Typography>
+
+                <Alert severity="info" icon={<PeopleIcon fontSize="inherit" />} sx={{ mb: 2 }}>
+                    {PEOPLE_NOTE}
+                </Alert>
 
                 <Button
                     variant="outlined"

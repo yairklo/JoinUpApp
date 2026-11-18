@@ -26,6 +26,16 @@ export interface PendingFieldPhoto extends FieldPhoto {
     uploader: { id: string; name: string | null } | null;
 }
 
+export type FieldPhotoReportReason = "PEOPLE" | "INAPPROPRIATE" | "WRONG_PLACE" | "OTHER";
+
+/** A published photo with open reports against it, for the admin queue. */
+export interface ReportedFieldPhoto {
+    photo: FieldPhoto & { field: { id: string; name: string } };
+    count: number;
+    reasons: Partial<Record<FieldPhotoReportReason, number>>;
+    firstReportedAt: string;
+}
+
 export type UploadError = Error & { status?: number; code?: string };
 
 /**
@@ -87,7 +97,22 @@ export const fieldPhotosApi = {
     remove: (fieldId: string, photoId: string, token: string) =>
         apiClient<{ ok: true }>(`/api/fields/${fieldId}/photos/${photoId}`, { method: "DELETE", token }),
 
+    /** Flags a published photo for the admins. Reporting the same photo twice is a harmless no-op. */
+    report: (fieldId: string, photoId: string, reason: FieldPhotoReportReason, token: string) =>
+        apiClient<{ ok: true; alreadyReported?: boolean }>(`/api/fields/${fieldId}/photos/${photoId}/report`, {
+            method: "POST",
+            data: { reason },
+            token,
+        }),
+
     // ---- admin ----
+    listReports: (token: string) =>
+        apiClient<ReportedFieldPhoto[]>("/api/field-photos/reports", { token, cache: "no-store" }),
+
+    /** Leaves the photo up and clears its open reports. (To take it down, use `remove`.) */
+    resolveReports: (photoId: string, token: string) =>
+        apiClient<{ ok: true; resolved: number }>(`/api/field-photos/${photoId}/reports/resolve`, { method: "POST", token }),
+
     listPending: (token: string) =>
         apiClient<PendingFieldPhoto[]>("/api/field-photos/pending", { token, cache: "no-store" }),
 

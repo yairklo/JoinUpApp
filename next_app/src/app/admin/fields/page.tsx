@@ -9,6 +9,7 @@ import { SPORT_MAPPING } from "@/utils/sports";
 import FieldEditorDialog from "@/components/admin/FieldEditorDialog";
 import FieldSuggestionsPanel from "@/components/admin/FieldSuggestionsPanel";
 import PendingFieldPhotosPanel from "@/components/admin/PendingFieldPhotosPanel";
+import ReportedFieldPhotosPanel from "@/components/admin/ReportedFieldPhotosPanel";
 
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -136,6 +137,8 @@ export default function AdminFieldsPage() {
       <FieldSuggestionsPanel onFieldCreated={() => { reload(); }} />
 
       <PendingFieldPhotosPanel />
+
+      <ReportedFieldPhotosPanel />
 
       <TextField
         placeholder="חיפוש לפי שם, עיר או כתובת…"
