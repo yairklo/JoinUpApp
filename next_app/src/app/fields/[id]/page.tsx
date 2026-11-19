@@ -14,7 +14,7 @@ import ParkingInfo from "@/components/ParkingInfo";
 // MUI Imports
 import Container from "@mui/material/Container";
 import Card from "@mui/material/Card";
-import SafeImage from "@/components/ui/SafeImage";
+import FieldGallery from "@/components/fields/FieldGallery";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
@@ -77,6 +77,22 @@ async function fetchField(id: string): Promise<Field | null> {
   }
 }
 
+// Approved gallery photos, fetched without credentials on purpose: the server-rendered HTML then
+// only ever contains public photos. The signed-in viewer's own pending photos are added in the
+// browser by FieldGallery, from a private, uncached request.
+async function fetchApprovedPhotos(id: string, cover?: string | null): Promise<string[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/fields/${id}/photos`, { cache: "no-store" });
+    if (!res.ok) throw new Error(String(res.status));
+    const body: { photos?: { url: string }[] } = await res.json();
+    return (body.photos ?? []).map((p) => p.url);
+  } catch {
+    // Gallery unavailable: fall back to the single cover, unless it is the stock placeholder.
+    const real = cover && cover.trim().length > 0 && !cover.includes("images.unsplash.com");
+    return real ? [cover as string] : [];
+  }
+}
+
 async function fetchAnalytics(id: string, token?: string | null): Promise<FieldAnalytics | null> {
   if (!token) return null;
   try {
@@ -119,7 +135,7 @@ export default async function FieldProfilePage(props: { params: Promise<{ id: st
   }
 
   const address = buildAddress(field);
-  const imgSrc = field.image && field.image.trim().length > 0 ? field.image : "/images/default-field.jpg";
+  const photos = await fetchApprovedPhotos(id, field.image);
   const sports = field.supportedSports || [];
   const hasFieldPin = typeof field.lat === "number" && typeof field.lng === "number";
   const hasParking = typeof field.parkingLat === "number" && typeof field.parkingLng === "number";
@@ -129,15 +145,7 @@ export default async function FieldProfilePage(props: { params: Promise<{ id: st
       <Container maxWidth="md" sx={{ py: 4 }}>
         {/* Field Header & Info */}
         <Card sx={{ mb: 3, overflow: "hidden" }}>
-          <SafeImage
-            src={imgSrc}
-            alt={field.name}
-            style={{ display: "block", width: "100%", height: 220, objectFit: "cover" }}
-            fallback={
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src="/images/default-field.jpg" alt={field.name} style={{ display: "block", width: "100%", height: 220, objectFit: "cover" }} />
-            }
-          />
+          <FieldGallery fieldId={field.id} fieldName={field.name} initialPhotos={photos} />
           <Box sx={{ p: 3 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={1}>
               <Box>

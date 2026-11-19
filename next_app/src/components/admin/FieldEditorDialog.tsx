@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { fieldsApi, Field } from "@/services/api/fields";
 import { SPORT_MAPPING } from "@/utils/sports";
-import ImageUploadField from "@/components/ImageUploadField";
 import FieldPhotoGallery from "@/components/admin/FieldPhotoGallery";
 import FieldLocationPicker from "@/components/admin/FieldLocationPicker";
 import ParkingLocationInput, { type ParkingValue } from "@/components/ParkingLocationInput";
@@ -209,21 +208,6 @@ export default function FieldEditorDialog({
     }
   };
 
-  const handleImageUpload = async (file: File) => {
-    const token = await getToken();
-    if (!token || !activeField) throw new Error("יש לשמור את המגרש לפני העלאת תמונה");
-    const result = await fieldsApi.uploadImage(activeField.id, file, token);
-    setSavedField((f) => (f ? { ...f, image: result.image } : f));
-    return { imageUrl: result.image };
-  };
-
-  const handleImageRemove = async () => {
-    const token = await getToken();
-    if (!token || !activeField) return;
-    await fieldsApi.removeImage(activeField.id, token);
-    setSavedField((f) => (f ? { ...f, image: null } : f));
-  };
-
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth fullScreen dir="rtl">
       <DialogTitle>{isEdit ? `עריכת מגרש: ${field?.name}` : createTitle || "מגרש חדש"}</DialogTitle>
@@ -325,25 +309,8 @@ export default function FieldEditorDialog({
           <Divider />
 
           {activeField ? (
-            <>
-              <Box>
-                <Typography variant="body2" color="text.secondary" mb={1}>תמונה ראשית</Typography>
-                <ImageUploadField
-                  imageUrl={activeField.image}
-                  name={form.name}
-                  label="העלאת תמונה"
-                  onUpload={handleImageUpload}
-                  onUploaded={(url) => setSavedField((f) => (f ? { ...f, image: url } : f))}
-                  onRemove={handleImageRemove}
-                  onRemoved={() => setSavedField((f) => (f ? { ...f, image: null } : f))}
-                />
-              </Box>
-              <FieldPhotoGallery
-                fieldId={activeField.id}
-                photos={activeField.photos || []}
-                onChange={(photos) => setSavedField((f) => (f ? { ...f, photos } : f))}
-              />
-            </>
+            // One gallery: the first photo is the field's cover (no separate cover slot any more).
+            <FieldPhotoGallery fieldId={activeField.id} onChanged={onSaved} />
           ) : (
             <Alert severity="info">יש לשמור את המגרש כדי להוסיף תמונות</Alert>
           )}
