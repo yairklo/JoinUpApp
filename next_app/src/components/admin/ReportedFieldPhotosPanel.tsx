@@ -6,6 +6,7 @@ import { useAuth } from "@clerk/nextjs";
 import { fieldPhotosApi, fieldPhotoSrc, type ReportedFieldPhoto } from "@/services/api/fieldPhotos";
 import { REPORT_REASON_LABELS } from "@/components/fields/ReportPhotoDialog";
 import FieldPhotoViewer from "@/components/fields/FieldPhotoViewer";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
@@ -29,6 +30,7 @@ export default function ReportedFieldPhotosPanel() {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [viewing, setViewing] = useState<ReportedFieldPhoto | null>(null);
+  const [confirmingRemove, setConfirmingRemove] = useState<ReportedFieldPhoto | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -48,7 +50,6 @@ export default function ReportedFieldPhotosPanel() {
   }, [load]);
 
   const act = async (entry: ReportedFieldPhoto, action: "remove" | "dismiss") => {
-    if (action === "remove" && !window.confirm(`להסיר את התמונה מהמגרש "${entry.photo.field.name}"? התמונה תימחק.`)) return;
     const before = entries;
     setBusyId(entry.photo.id);
     setEntries((prev) => prev.filter((e) => e.photo.id !== entry.photo.id));
@@ -144,7 +145,7 @@ export default function ReportedFieldPhotosPanel() {
                       variant="contained"
                       startIcon={<DeleteIcon />}
                       disabled={busyId === photo.id}
-                      onClick={() => act(entry, "remove")}
+                      onClick={() => setConfirmingRemove(entry)}
                     >
                       הסרת התמונה
                     </Button>
@@ -163,6 +164,19 @@ export default function ReportedFieldPhotosPanel() {
           </Stack>
         )}
       </CardContent>
+      <ConfirmDialog
+        open={!!confirmingRemove}
+        title="להסיר את התמונה?"
+        message={`התמונה תוסר מהמגרש "${confirmingRemove?.photo.field.name ?? ""}" ותימחק, יחד עם הדיווחים עליה.`}
+        confirmLabel="הסרת התמונה"
+        destructive
+        onClose={() => setConfirmingRemove(null)}
+        onConfirm={() => {
+          const entry = confirmingRemove;
+          setConfirmingRemove(null);
+          if (entry) void act(entry, "remove");
+        }}
+      />
       <FieldPhotoViewer
         open={!!viewing}
         onClose={() => setViewing(null)}
