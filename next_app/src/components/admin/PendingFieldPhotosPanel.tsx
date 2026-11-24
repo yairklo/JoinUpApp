@@ -6,6 +6,7 @@ import { useAuth } from "@clerk/nextjs";
 import { MAX_FIELD_PHOTOS } from "@joinup/shared/upload";
 import { fieldPhotosApi, fieldPhotoSrc, type PendingFieldPhoto } from "@/services/api/fieldPhotos";
 import FieldPhotoViewer from "@/components/fields/FieldPhotoViewer";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -30,6 +31,7 @@ export default function PendingFieldPhotosPanel() {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [viewing, setViewing] = useState<PendingFieldPhoto | null>(null);
+  const [confirmingReject, setConfirmingReject] = useState<PendingFieldPhoto | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -50,7 +52,6 @@ export default function PendingFieldPhotosPanel() {
 
   // Optimistic: the row leaves at once and comes back, with an error, if the server refuses.
   const resolve = async (photo: PendingFieldPhoto, action: "approve" | "reject") => {
-    if (action === "reject" && !window.confirm(`לדחות את התמונה שהוצעה ל"${photo.field.name}"? התמונה תימחק.`)) return;
     const before = photos;
     setBusyId(photo.id);
     setPhotos((prev) =>
@@ -163,7 +164,7 @@ export default function PendingFieldPhotosPanel() {
                       color="error"
                       startIcon={<CloseIcon />}
                       disabled={busyId === p.id}
-                      onClick={() => resolve(p, "reject")}
+                      onClick={() => setConfirmingReject(p)}
                     >
                       דחייה
                     </Button>
@@ -174,6 +175,19 @@ export default function PendingFieldPhotosPanel() {
           </Stack>
         )}
       </CardContent>
+      <ConfirmDialog
+        open={!!confirmingReject}
+        title="לדחות את התמונה?"
+        message={`התמונה שהוצעה ל"${confirmingReject?.field.name ?? ""}" תימחק ולא תוצג במגרש.`}
+        confirmLabel="דחיית התמונה"
+        destructive
+        onClose={() => setConfirmingReject(null)}
+        onConfirm={() => {
+          const photo = confirmingReject;
+          setConfirmingReject(null);
+          if (photo) void resolve(photo, "reject");
+        }}
+      />
       <FieldPhotoViewer
         open={!!viewing}
         onClose={() => setViewing(null)}

@@ -146,7 +146,11 @@ export default function FieldGallery({ fieldId, fieldName, fallbackImage }: Fiel
         if (!loaded) {
             return <View style={{ height: HEIGHT }} className="bg-gray-200 dark:bg-cyber-border" />;
         }
+        // The sheet must sit at the same position in the tree in BOTH branches (second child of a fragment).
+        // Rendered inside each branch's own <View> it was a different element in each, so the first
+        // successful upload (which flips an empty gallery to the carousel) remounted it and lost its state.
         return (
+            <>
             <View style={{ height: HEIGHT }} className="items-center justify-center px-6 bg-brand-mist dark:bg-brand-ink">
                 <View className="w-14 h-14 rounded-full bg-white dark:bg-cyber-card items-center justify-center mb-3">
                     <FontAwesome name="camera" size={22} color="#047857" />
@@ -167,12 +171,14 @@ export default function FieldGallery({ fieldId, fieldName, fallbackImage }: Fiel
                             : t('fieldPhotos.signInToAdd', 'התחברו כדי להוסיף תמונה')}
                     </Text>
                 </TouchableOpacity>
-                {sheet}
             </View>
+            {sheet}
+            </>
         );
     }
 
     return (
+        <>
         <View
             style={{ height: HEIGHT }}
             className="bg-gray-200 dark:bg-cyber-border"
@@ -335,7 +341,8 @@ export default function FieldGallery({ fieldId, fieldName, fallbackImage }: Fiel
                     photoId={reportingId}
                 />
             ) : null}
-            {sheet}
         </View>
+        {sheet}
+        </>
     );
 }

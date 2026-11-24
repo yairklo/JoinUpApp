@@ -19,6 +19,7 @@ import FlagIcon from "@mui/icons-material/OutlinedFlag";
 import PhotoCameraIcon from "@mui/icons-material/PhotoCameraOutlined";
 import { fieldPhotosApi, fieldPhotoSrc, type FieldPhotosResponse } from "@/services/api/fieldPhotos";
 import FieldPhotoViewer, { overlayButtonSx, snapStripSx, useSnapCarousel } from "./FieldPhotoViewer";
+import { useAuthTokenRef } from "@/hooks/useAuthTokenRef";
 import FieldPhotoUploader from "./FieldPhotoUploader";
 import ReportPhotoDialog from "./ReportPhotoDialog";
 
@@ -94,7 +95,9 @@ interface FieldGalleryProps {
  * opens the fullscreen viewer; with no photos at all it invites the first upload.
  */
 export default function FieldGallery({ fieldId, fieldName, initialPhotos }: FieldGalleryProps) {
-    const { isSignedIn, getToken } = useAuth();
+    const { isSignedIn } = useAuth();
+    // Clerk's getToken can change identity between renders; as an effect dependency it would refetch in a loop.
+    const getTokenRef = useAuthTokenRef();
     const [data, setData] = useState<FieldPhotosResponse | null>(null);
     const [viewerAt, setViewerAt] = useState<number | null>(null);
     const [uploaderOpen, setUploaderOpen] = useState(false);
@@ -103,12 +106,12 @@ export default function FieldGallery({ fieldId, fieldName, initialPhotos }: Fiel
 
     const load = useCallback(async () => {
         try {
-            const token = isSignedIn ? await getToken() : null;
+            const token = isSignedIn ? await getTokenRef.current() : null;
             setData(await fieldPhotosApi.list(fieldId, token));
         } catch {
             // Keep showing the server-rendered photos; the gallery is not worth an error banner.
         }
-    }, [fieldId, getToken, isSignedIn]);
+    }, [fieldId, getTokenRef, isSignedIn]);
 
     useEffect(() => {
         // Guests already have everything from the server render.
@@ -129,7 +132,7 @@ export default function FieldGallery({ fieldId, fieldName, initialPhotos }: Fiel
     const removeMine = async (photoId: string) => {
         setRemovingId(photoId);
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (token) await fieldPhotosApi.remove(fieldId, photoId, token);
             await load();
         } catch {
@@ -155,8 +158,13 @@ export default function FieldGallery({ fieldId, fieldName, initialPhotos }: Fiel
         />
     );
 
+    // The uploader must sit at the same position in the tree in BOTH branches below (second child of a
+    // fragment). Rendered inside each branch's own <Box> it was a different element in each, so the first
+    // successful upload (which flips an empty gallery to the carousel) remounted it and its state --
+    // the success message and the uploaded file's row -- was lost before anyone saw it.
     if (total === 0) {
         return (
+            <>
             <Box
                 sx={{
                     position: "relative",
@@ -198,14 +206,16 @@ export default function FieldGallery({ fieldId, fieldName, initialPhotos }: Fiel
                         התחברו כדי להוסיף תמונה
                     </Button>
                 )}
-                {uploader}
             </Box>
+            {uploader}
+            </>
         );
     }
 
     const approved = slides.filter((s) => !s.pending);
 
     return (
+        <>
         <Box
             sx={{
                 position: "relative",
@@ -409,7 +419,8 @@ export default function FieldGallery({ fieldId, fieldName, initialPhotos }: Fiel
                     photoId={reportingId}
                 />
             )}
-            {uploader}
         </Box>
+        {uploader}
+        </>
     );
 }
