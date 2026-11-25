@@ -9,6 +9,8 @@
  *
  * start()/stop() of the jobs themselves are the only places jobs begin/end in either mode.
  */
+const { createReminderScheduler } = require('./reminderScheduler');
+
 function createJobsRuntime({
   enabled,                 // RUN_BACKGROUND_JOBS gate (and not Jest)
   httpEnabled,             // this process serves HTTP (false for worker.js)
@@ -21,6 +23,7 @@ function createJobsRuntime({
   runWeeklySeriesGeneration,
   runTournamentReminders = async () => {},
   runGameReminders = async () => {},
+  planReminderWake = null,  // async (now: Date) => epoch ms | null; null dep = fixed 5-min cadence
   createLeaderLock,
   getRedis,
   adapterEnabled = () => false,
@@ -31,7 +34,7 @@ function createJobsRuntime({
 }) {
   let active = false;
   let seriesTimer = null;
-  let reminderTimer = null;
+  let reminderScheduler = null;
   let lock = null;
 
   const mayContinue = () => active && (!lock || lock.isLeader());
@@ -50,16 +53,23 @@ function createJobsRuntime({
       24 * 60 * 60 * 1000,
     );
     runWeeklySeriesGeneration({ shouldContinue: mayContinue }).catch(() => { });
-    // Tournament + game reminders: every 5 min, plus once now. Each match is claimed in the
-    // DB, so a duplicate runner would be a no-op.
-    const sweep = () => {
-      runTournamentReminders({ io: jobIo, shouldContinue: mayContinue })
-        .catch((e) => logger.error('[JOBS] tournament reminder sweep failed:', e));
-      runGameReminders({ io: jobIo, shouldContinue: mayContinue })
-        .catch((e) => logger.error('[JOBS] game reminder sweep failed:', e));
-    };
-    reminderTimer = setInterval(sweep, 5 * 60 * 1000);
-    sweep();
+    // Tournament + game reminders: one sweep now, then event-driven (services/reminderScheduler.js)
+    // — it sleeps until the next reminder window opens instead of polling the DB every 5 min, so
+    // Neon can autosuspend. Each match is claimed in the DB, so a duplicate runner is a no-op.
+    const sweep = () => Promise.all([
+      Promise.resolve(runTournamentReminders({ io: jobIo, shouldContinue: mayContinue }))
+        .catch((e) => logger.error('[JOBS] tournament reminder sweep failed:', e)),
+      Promise.resolve(runGameReminders({ io: jobIo, shouldContinue: mayContinue }))
+        .catch((e) => logger.error('[JOBS] game reminder sweep failed:', e)),
+    ]);
+    reminderScheduler = createReminderScheduler({
+      sweep, planNextWake: planReminderWake, shouldContinue: mayContinue, logger,
+    });
+    // Game writes (gameScheduler.resyncGame) and tournament/settings routes nudge through here.
+    if (typeof gameScheduler.setReminderNudge === 'function') {
+      gameScheduler.setReminderNudge(() => reminderScheduler && reminderScheduler.nudge());
+    }
+    reminderScheduler.start();
     // Drain any review backlog left by a crash/redeploy/previous leader.
     gameScheduler.triggerReviewQueue();
     logger.log('🔔 Notification workers started');
@@ -68,7 +78,8 @@ function createJobsRuntime({
   async function stopNow() {
     active = false;
     if (seriesTimer) { clearInterval(seriesTimer); seriesTimer = null; }
-    if (reminderTimer) { clearInterval(reminderTimer); reminderTimer = null; }
+    if (reminderScheduler) { reminderScheduler.stop(); reminderScheduler = null; }
+    if (typeof gameScheduler.setReminderNudge === 'function') gameScheduler.setReminderNudge(null);
     if (typeof stopCleanupWorker === 'function') stopCleanupWorker();
     gameScheduler.stop();
     logger.log('⏹️  Background jobs stopped');

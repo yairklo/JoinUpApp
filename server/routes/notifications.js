@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { NotificationService } = require('../services/notificationService');
 const { prisma } = require('../lib/prisma');
+const gameScheduler = require('../services/gameScheduler');
 const { authenticateToken } = require('../utils/auth');
 const { sanitizeSettingsUpdate, sanitizeMuteInput } = require('../utils/notificationPrefs');
 
@@ -128,6 +129,8 @@ router.put('/settings', authenticateToken, async (req, res) => {
             return res.status(400).json({ error: 'Invalid notification settings', details: errors });
         }
         const settings = await notificationService.updateSettings(userId, data);
+        // A longer reminder lead widens the window in which game reminders can be due.
+        if (data.gameReminderLeadMinutes !== undefined) gameScheduler.nudgeReminders();
         res.json(settings);
     } catch (error) {
         console.error('[API] Failed to update settings:', error);

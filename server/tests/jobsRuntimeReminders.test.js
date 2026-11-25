@@ -45,13 +45,45 @@ test('leader runs tournament AND game reminders at startup and every 5 minutes',
   expect(f.deps.runGameReminders).toHaveBeenCalledWith(expect.objectContaining({ io: 'IO', shouldContinue: expect.any(Function) }));
   expect(f.deps.runGameReminders.mock.calls[0][0].shouldContinue()).toBe(true);
 
-  jest.advanceTimersByTime(FIVE_MIN);
+  await jest.advanceTimersByTimeAsync(FIVE_MIN);
   expect(f.deps.runGameReminders).toHaveBeenCalledTimes(2);
   expect(f.deps.runTournamentReminders).toHaveBeenCalledTimes(2);
 
   await f.lose();
-  jest.advanceTimersByTime(FIVE_MIN * 2);
+  await jest.advanceTimersByTimeAsync(FIVE_MIN * 2);
   expect(f.deps.runGameReminders).toHaveBeenCalledTimes(2); // stopped with the lock
+});
+
+test('with a wake planner the runtime sleeps (no 5-minute polling) until the planned time', async () => {
+  const wakeAt = Date.now() + 3 * 60 * 60 * 1000;
+  const planReminderWake = jest.fn().mockResolvedValueOnce(wakeAt).mockResolvedValue(null);
+  const f = build({ planReminderWake });
+  const rt = createJobsRuntime(f.deps);
+  await rt.start('IO');
+  await f.acquire();
+  await jest.advanceTimersByTimeAsync(0);
+  expect(f.deps.runGameReminders).toHaveBeenCalledTimes(1); // boot sweep only
+
+  await jest.advanceTimersByTimeAsync(2 * 60 * 60 * 1000);
+  expect(f.deps.runGameReminders).toHaveBeenCalledTimes(1);
+  expect(f.deps.runTournamentReminders).toHaveBeenCalledTimes(1);
+
+  await jest.advanceTimersByTimeAsync(60 * 60 * 1000 + 1000);
+  expect(f.deps.runGameReminders).toHaveBeenCalledTimes(2);
+  expect(f.deps.runTournamentReminders).toHaveBeenCalledTimes(2);
+});
+
+test('losing the lock unregisters the nudge and stops the reminder driver', async () => {
+  const f = build({ planReminderWake: jest.fn().mockResolvedValue(Date.now() + FIVE_MIN) });
+  f.deps.gameScheduler.setReminderNudge = jest.fn();
+  const rt = createJobsRuntime(f.deps);
+  await rt.start('IO');
+  await f.acquire();
+  expect(f.deps.gameScheduler.setReminderNudge).toHaveBeenCalledWith(expect.any(Function));
+  await f.lose();
+  expect(f.deps.gameScheduler.setReminderNudge).toHaveBeenLastCalledWith(null);
+  await jest.advanceTimersByTimeAsync(FIVE_MIN * 3);
+  expect(f.deps.runGameReminders).toHaveBeenCalledTimes(1);
 });
 
 test('a failing sweep is logged, not silently swallowed', async () => {
@@ -71,7 +103,7 @@ test('a failing game sweep does not stop the tournament sweep (and vice versa)',
   const rt = createJobsRuntime(f.deps);
   await rt.start('IO');
   await f.acquire();
-  jest.advanceTimersByTime(FIVE_MIN);
+  await jest.advanceTimersByTimeAsync(FIVE_MIN);
   expect(f.deps.runTournamentReminders).toHaveBeenCalledTimes(2);
   expect(f.deps.runGameReminders).toHaveBeenCalledTimes(2);
 });

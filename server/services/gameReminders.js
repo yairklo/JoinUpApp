@@ -217,4 +217,4 @@ async function runGameReminderSweep({ prisma, notificationService, io = null, no
   return { sent };
 }
 
-module.exports = { PAGE_SIZE, MAX_PAGES, runGameReminderSweep, isReminderDue, describeTimeLeft, buildReminderMessage };
+module.exports = { PAGE_SIZE, MAX_PAGES, reminderHorizonMs, runGameReminderSweep, isReminderDue, describeTimeLeft, buildReminderMessage };
