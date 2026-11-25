@@ -37,6 +37,7 @@ class GameScheduler {
     // Optional extra permission check (leader lock): consulted right before any job runs, so a
     // process that was frozen past its lease cannot fire timers before its demotion is processed.
     this.runGuard = null;
+    this.reminderNudge = null;
   }
 
   setRunGuard(fn) {
@@ -71,7 +72,23 @@ class GameScheduler {
     if (!this.enabled || !msg) return Promise.resolve();
     if (msg.type === 'resync') return this.resyncGameById(msg.gameId);
     if (msg.type === 'reviewQueue') { this.triggerReviewQueue(); return Promise.resolve(); }
+    if (msg.type === 'remindersReplan') { this.nudgeReminders(); return Promise.resolve(); }
     return Promise.resolve();
+  }
+
+  // The reminder driver (jobsRuntime) registers itself here while this process is the job runner.
+  setReminderNudge(fn) {
+    this.reminderNudge = fn;
+  }
+
+  // Something that can create or move a reminder moment changed (tournament match, reminder lead).
+  // The leader re-plans its next sweep; any other process forwards the signal to it.
+  nudgeReminders() {
+    if (!this.enabled) {
+      if (this.publish) this.publish({ type: 'remindersReplan' });
+      return;
+    }
+    if (this.reminderNudge) this.reminderNudge();
   }
 
   // Lets a process that doesn't run the scheduler itself (e.g. the web API when split from
@@ -150,6 +167,8 @@ class GameScheduler {
       this._disarm(`completion:${game.id}`);
     }
 
+    // A new/moved/cancelled game can change when the next reminder window opens (debounced).
+    if (this.reminderNudge) this.reminderNudge();
   }
 
   // Re-fetches and resyncs a single game by id — used when this process's scheduler is
@@ -311,7 +330,9 @@ class GameScheduler {
     console.log(`🏁 [SCHEDULER] Auto-completed game ${game.id}.`);
   }
 
-  // Game reminders are a per-user sweep now (services/gameReminders.js), not a per-game timer.
+  // Game reminders are a per-user sweep (services/gameReminders.js), driven by
+  // services/reminderScheduler.js: it sleeps until the next reminder window and is nudged by
+  // resyncGame / nudgeReminders — not a per-game timer, and not a fixed-interval poll.
 
   // --- review queue (FlaggedMessage backlog table - not timestamp-driven like the above,
   // so it's triggered on insert instead of armed against a due column). ----------------------
