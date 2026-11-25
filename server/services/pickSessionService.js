@@ -185,6 +185,8 @@ async function assignManagersToOwnTeams(gameId, managerIds) {
     }
   }
 
+  // New/confirmed participants = new reminder moments (reminder driver sleeps between them).
+  if (changed) gameScheduler.nudgeReminders();
   return changed;
 }
 

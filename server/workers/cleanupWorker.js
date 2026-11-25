@@ -31,7 +31,7 @@ function startCleanupWorker() {
         cleanupOldNotifications().catch(err => {
             console.error('[CLEANUP_WORKER] Cron execution failed:', err);
         });
-    });
+    }, { timezone: 'Asia/Jerusalem' }); // 03:00 Israel time, not the host's (UTC) clock
 
     console.log('[CLEANUP_WORKER] Scheduled to run daily at 3:00 AM');
 }

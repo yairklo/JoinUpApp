@@ -2,21 +2,28 @@
 // setInterval: that tick touched the DB every 5 minutes, which is exactly Neon's autosuspend
 // window, so the compute never suspended even with nothing to remind about.
 //
-// Instead, after every sweep `planNextWake()` (one cheap look at the earliest upcoming game /
-// match) says when the next sweep can first matter:
-//   - nothing upcoming          -> no timer at all; the DB is left alone until a nudge
-//   - first reminder is far off -> sleep until its window opens
-//   - inside a window           -> sweep every `activeMs`, as before (users pick their own lead)
-// Anything that can create or move a reminder moment calls nudge() (debounced), which re-plans and
-// only ever pulls the timer EARLIER, so a stream of nudges can't starve a pending sweep.
-const MAX_TIMEOUT = 2_147_000_000; // under Node's 2^31-1 ms setTimeout cap
-const MIN_GAP_MS = 60 * 1000;      // never sweep more often than this, whatever the planner says
+// After every sweep `planNextWake()` says when the next sweep can first have something to send
+// (the exact next due moment, see services/reminderWake.js). Anything that can create or move a
+// reminder moment calls nudge() (debounced), which re-plans and only ever pulls the timer EARLIER.
+//
+// Invariants (each has a test):
+//  - While started there is ALWAYS a timer armed (or a sweep/plan in flight that will arm one):
+//    "nothing upcoming" sleeps MAX_SLEEP_MS, not forever, and a leadership blip (shouldContinue
+//    false) re-arms without DB work. Only stop() ends scheduling.
+//  - A stale plan can never push out an earlier wake armed by a nudge in the meantime.
+//  - Sweeps are never closer than MIN_GAP_MS, whatever the planner answers (no hot loop).
+//  - Any single sleep is capped at MAX_SLEEP_MS and then re-planned, so a missed nudge (a write
+//    on a non-leader without Redis) self-heals within that bound.
+const MAX_SLEEP_MS = 6 * 60 * 60 * 1000;
+const MIN_GAP_MS = 60 * 1000;
 
 function createReminderScheduler({
   sweep,                                  // async () => void: runs both reminder sweeps
   planNextWake = null,                    // async (now: Date) => epoch ms | null
   shouldContinue = () => true,            // leader-lock guard, re-checked right before sweeping
-  activeMs = 5 * 60 * 1000,
+  activeMs = 5 * 60 * 1000,               // fallback cadence when there is no planner / it fails
+  maxSleepMs = MAX_SLEEP_MS,
+  minGapMs = MIN_GAP_MS,
   debounceMs = 1000,
   logger = console,
   now = Date.now,
@@ -33,30 +40,27 @@ function createReminderScheduler({
     timerAt = Infinity;
   }
 
-  // keepEarlier: a nudge must never push an already-armed, earlier wake further out.
+  // keepEarlier: a re-plan must never push an already-armed, earlier wake further out.
   function arm(at, { keepEarlier = false } = {}) {
     if (!started) return;
-    if (at == null) {
-      if (!keepEarlier) clearTimer();
-      return;
-    }
-    if (keepEarlier && timer && timerAt <= at) return;
+    const t = now();
+    const target = Math.min(Math.max(at, t + minGapMs), t + maxSleepMs);
+    if (keepEarlier && timer && timerAt <= target) return;
     clearTimer();
-    timerAt = at;
-    const delay = Math.min(MAX_TIMEOUT, Math.max(0, at - now()));
+    timerAt = target;
     timer = setTimeout(() => {
       timer = null;
       timerAt = Infinity;
-      if (at - now() > 1000) { arm(at); return; } // clamped long sleep: re-arm the remainder
       run();
-    }, delay);
+    }, target - t);
     if (timer.unref) timer.unref();
   }
 
   async function plan() {
     if (!planNextWake) return now() + activeMs;
     try {
-      return await planNextWake(new Date(now()));
+      const at = await planNextWake(new Date(now()));
+      return at == null ? now() + maxSleepMs : at; // nothing upcoming: sleep, then look again
     } catch (err) {
       logger.error('[REMINDERS] planning the next wake failed, retrying soon:', err);
       return now() + activeMs;
@@ -65,7 +69,12 @@ function createReminderScheduler({
 
   async function run() {
     if (!started || sweeping) return;
-    if (!shouldContinue()) return;
+    if (!shouldContinue()) {
+      // Leadership may only be momentarily unconfirmed (lease renewal). Do not drop the schedule:
+      // stop() is what ends it. No DB work here.
+      arm(now() + activeMs, { keepEarlier: true });
+      return;
+    }
     sweeping = true;
     try {
       await sweep();
@@ -75,9 +84,9 @@ function createReminderScheduler({
       sweeping = false;
     }
     if (!started) return;
-    // Floor: a planner answering "now"/the past must not turn into a back-to-back sweep loop.
-    const at = await plan();
-    arm(at == null ? null : Math.max(at, now() + MIN_GAP_MS));
+    // keepEarlier: a nudge handled while plan() was awaiting may already have armed an earlier
+    // wake; this (possibly stale) answer must not override it.
+    arm(await plan(), { keepEarlier: true });
   }
 
   async function replan() {
@@ -98,7 +107,7 @@ function createReminderScheduler({
       if (nudgeTimer) clearTimeout(nudgeTimer);
       nudgeTimer = null;
     },
-    /** A game, match or reminder setting changed: re-plan soon (debounced). No-op when stopped. */
+    /** A game, participation, match or reminder setting changed: re-plan soon (debounced). */
     nudge() {
       if (!started || nudgeTimer) return;
       nudgeTimer = setTimeout(() => {
@@ -111,4 +120,4 @@ function createReminderScheduler({
   };
 }
 
-module.exports = { createReminderScheduler };
+module.exports = { createReminderScheduler, MAX_SLEEP_MS, MIN_GAP_MS };

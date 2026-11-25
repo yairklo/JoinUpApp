@@ -1,39 +1,73 @@
-// "When can the next reminder sweep first matter?" — two indexed single-row lookups plus the
-// horizon aggregate, so an idle stretch costs the DB nothing between wakes. Pairs with
-// services/reminderScheduler.js. The filters mirror what the sweeps themselves select.
-const { reminderHorizonMs } = require('./gameReminders');
+// "When is the next reminder actually due?" — the exact answer, so the DB can idle between
+// reminders instead of being polled. Pairs with services/reminderScheduler.js.
+//
+// The filters MIRROR the sweeps (gameReminders.js remindPage/isReminderDue, tournamentReminders.js)
+// so the planner never returns a moment the sweep would then skip: a mismatch there is a hot loop
+// (wake, sweep sends nothing, plan the same moment again). Each rule below names its twin.
+//
+// Cost: one query per kind, driven by Game(status,start) / Participation(gameId,status) and
+// TournamentMatch(tournamentId,scheduledAt); no table scans of history.
 const { LEAD_MS: TOURNAMENT_LEAD_MS } = require('./tournamentReminders');
+const { GAME_REMINDER_LEAD_DEFAULT } = require('../shared/notificationPrefs');
+
+const MIN_GAP_MS = 60 * 1000; // a moment that is already due is retried no sooner than this
 
 /**
- * @returns {Promise<number|null>} epoch ms of the next sweep, or null when nothing is upcoming
- *   (the scheduler then stays asleep until a nudge). Never earlier than now + activeMs, which is
- *   the old fixed sweep cadence.
+ * Earliest moment any CONFIRMED participant of an OPEN, future game should be reminded.
+ * Per participant: moment = start - lead (lead from their settings, default when absent/0).
+ *  - gameRemindersEnabled=false AND gameRemindersInApp=false -> never reminded (remindPage skip)
+ *  - GameReminderSent row for (user, game, start)            -> already reminded (dedupe key)
+ *  - joined at/after the moment, or lead changed after it    -> isReminderDue is false forever
  */
-async function planNextReminderWake({ prisma, now = new Date(), activeMs = 5 * 60 * 1000 }) {
-  const horizonMs = await reminderHorizonMs(prisma);
-  const [game, match] = await Promise.all([
-    prisma.game.findFirst({
-      where: { status: 'OPEN', start: { gt: now } },
-      orderBy: { start: 'asc' },
-      select: { start: true },
-    }),
-    prisma.tournamentMatch.findFirst({
-      where: {
-        status: 'SCHEDULED',
-        scheduledAt: { gt: now },
-        homeTeamId: { not: null },
-        awayTeamId: { not: null },
-        tournament: { status: 'IN_PROGRESS' },
-      },
-      orderBy: { scheduledAt: 'asc' },
-      select: { scheduledAt: true },
-    }),
-  ]);
-  const opens = [];
-  if (game) opens.push(new Date(game.start).getTime() - horizonMs);
-  if (match) opens.push(new Date(match.scheduledAt).getTime() - TOURNAMENT_LEAD_MS);
-  if (!opens.length) return null;
-  return Math.max(Math.min(...opens), now.getTime() + activeMs);
+async function nextGameMoment(prisma, now) {
+  const rows = await prisma.$queryRaw`
+    SELECT MIN(x."moment") AS "moment" FROM (
+      SELECT
+        g."start" - (COALESCE(NULLIF(s."gameReminderLeadMinutes", 0), ${GAME_REMINDER_LEAD_DEFAULT}) * INTERVAL '1 minute') AS "moment",
+        p."createdAt" AS "joinedAt",
+        s."gameReminderLeadUpdatedAt" AS "leadUpdatedAt"
+      FROM "Game" g
+      JOIN "Participation" p ON p."gameId" = g."id" AND p."status" = 'CONFIRMED'
+      LEFT JOIN "UserNotificationSettings" s ON s."userId" = p."userId"
+      WHERE g."status" = 'OPEN'
+        AND g."start" > ${now}
+        AND NOT (COALESCE(s."gameRemindersEnabled", true) = false AND COALESCE(s."gameRemindersInApp", true) = false)
+        AND NOT EXISTS (
+          SELECT 1 FROM "GameReminderSent" r
+          WHERE r."userId" = p."userId" AND r."gameId" = g."id" AND r."gameStart" = g."start"
+        )
+    ) x
+    WHERE x."joinedAt" < x."moment"
+      AND (x."leadUpdatedAt" IS NULL OR x."leadUpdatedAt" <= x."moment")`;
+  const m = rows && rows[0] && rows[0].moment;
+  return m ? new Date(m).getTime() : null;
 }
 
-module.exports = { planNextReminderWake };
+/** Earliest (scheduledAt - 1h) over matches the tournament sweep would still remind about. */
+async function nextMatchMoment(prisma, now) {
+  const rows = await prisma.$queryRaw`
+    SELECT MIN(m."scheduledAt") AS "at"
+    FROM "TournamentMatch" m
+    JOIN "Tournament" t ON t."id" = m."tournamentId"
+    WHERE m."status" = 'SCHEDULED'
+      AND m."scheduledAt" > ${now}
+      AND m."homeTeamId" IS NOT NULL
+      AND m."awayTeamId" IS NOT NULL
+      AND t."status" = 'IN_PROGRESS'
+      AND (m."details" IS NULL OR m."details"->>'reminderSentAt' IS NULL)`;
+  const at = rows && rows[0] && rows[0].at;
+  return at ? new Date(at).getTime() - TOURNAMENT_LEAD_MS : null;
+}
+
+/**
+ * @returns {Promise<number|null>} epoch ms of the next sweep worth running (never earlier than
+ *   now + MIN_GAP_MS), or null when no reminder is pending at all.
+ */
+async function planNextReminderWake({ prisma, now = new Date() }) {
+  const [game, match] = await Promise.all([nextGameMoment(prisma, now), nextMatchMoment(prisma, now)]);
+  const moments = [game, match].filter((v) => v != null);
+  if (!moments.length) return null;
+  return Math.max(Math.min(...moments), now.getTime() + MIN_GAP_MS);
+}
+
+module.exports = { planNextReminderWake, nextGameMoment, nextMatchMoment, MIN_GAP_MS };

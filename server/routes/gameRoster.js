@@ -29,6 +29,18 @@ const notifCopy = require('../utils/notificationCopy');
 
 const router = express.Router();
 
+// Every roster mutation (join, approve a request, waitlist promote/offer accept, organizer add,
+// lottery seating via /join, ...) can create or confirm a Participation, i.e. a new reminder
+// moment. The reminder driver sleeps until the next due moment, so wake its planner once the
+// request has finished (after commit). Debounced, forwarded to the job leader if needed; an early
+// wake from a leave/remove is harmless.
+router.use((req, res, next) => {
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    res.on('finish', () => { if (res.statusCode < 400) gameScheduler.nudgeReminders(); });
+  }
+  next();
+});
+
 const REJOINABLE_STATUSES = ['REJECTED', 'NOT_SELECTED', 'CANCELLED'];
 
 // Capacity check and the participation write, already inside the caller's transaction.

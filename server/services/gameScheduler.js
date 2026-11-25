@@ -281,6 +281,8 @@ class GameScheduler {
     }, { timeout: 20000, maxWait: 10000 });
 
     if (drew) {
+      // Winners just became CONFIRMED: new reminder moments (may run on a non-leader: forwards).
+      this.nudgeReminders();
       console.log(`🎲 [SCHEDULER] Lottery executed for game ${gameId} at ${now.toISOString()}`);
     }
   }
