@@ -8,7 +8,7 @@
 jest.mock('../utils/tournamentGate', () => ({ filterViewableUserIds: async (ids) => ids }));
 
 const { prisma } = require('../lib/prisma');
-const { planNextReminderWake, MIN_GAP_MS } = require('../services/reminderWake');
+const { planNextReminderWake, SLACK_MS } = require('../services/reminderWake');
 const { runGameReminderSweep } = require('../services/gameReminders');
 const { runReminderSweep } = require('../services/tournamentReminders');
 
@@ -95,7 +95,7 @@ describe('planNextReminderWake - games (exact per-user moment)', () => {
   test('default lead (60) -> start - 60min, and the sweep then sends', async () => {
     await makeGame({ startMin: 300 });
     const w = await plan();
-    expect(w).toBe(at(240).getTime());
+    expect(w).toBe(at(240).getTime() + SLACK_MS);
     await expectSweepSendsAt(w);
   });
 
@@ -103,7 +103,7 @@ describe('planNextReminderWake - games (exact per-user moment)', () => {
     await makeGame({ startMin: 600 });
     await setPrefs(1, { gameReminderLeadMinutes: 180 });
     const w = await plan();
-    expect(w).toBe(at(420).getTime());
+    expect(w).toBe(at(420).getTime() + SLACK_MS);
     await expectSweepSendsAt(w);
   });
 
@@ -111,26 +111,29 @@ describe('planNextReminderWake - games (exact per-user moment)', () => {
     await makeGame({ startMin: 600, parts: [{ userId: U(1) }, { userId: U(2) }] });
     await setPrefs(1, { gameReminderLeadMinutes: 30 });
     await setPrefs(2, { gameReminderLeadMinutes: 120 });
-    expect(await plan()).toBe(at(480).getTime());
+    expect(await plan()).toBe(at(480).getTime() + SLACK_MS);
   });
 
   test('a long lead on an unrelated far game does not pull this one earlier', async () => {
     await makeGame({ startMin: 600, parts: [{ userId: U(1) }] });
     await makeGame({ startMin: 60 * 24 * 20, parts: [{ userId: U(2) }] });
     await setPrefs(2, { gameReminderLeadMinutes: 2880 });
-    expect(await plan()).toBe(at(540).getTime());
+    expect(await plan()).toBe(at(540).getTime() + SLACK_MS);
   });
 
-  test('a moment already due is clamped to now + MIN_GAP (never an immediate re-sweep loop)', async () => {
-    await makeGame({ startMin: 20 });
-    expect(await plan()).toBe(NOW.getTime() + MIN_GAP_MS);
+  test('a moment already due is reported as overdue (past), for the scheduler to floor/back off', async () => {
+    await makeGame({ startMin: 20 }); // moment = -40min
+    const w = await plan();
+    expect(w).toBe(at(-40).getTime() + SLACK_MS);
+    expect(w).toBeLessThan(NOW.getTime());
+    await expectSweepSendsAt(NOW.getTime() - 1000); // and the sweep really does send it
   });
 
   test('push off but in-app on still counts; both off is never reminded (same rule as remindPage)', async () => {
     await makeGame({ startMin: 300 });
     await setPrefs(1, { gameRemindersEnabled: false, gameRemindersInApp: true });
     const w = await plan();
-    expect(w).toBe(at(240).getTime());
+    expect(w).toBe(at(240).getTime() + SLACK_MS);
     await expectSweepSendsAt(w);
     await setPrefs(1, { gameRemindersEnabled: false, gameRemindersInApp: false });
     expect(await plan()).toBeNull();
@@ -157,7 +160,7 @@ describe('planNextReminderWake - games (exact per-user moment)', () => {
     expect(await plan()).toBeNull();
     await setPrefs(1, { gameReminderLeadMinutes: 120, gameReminderLeadUpdatedAt: at(100) }); // before the moment
     const w = await plan();
-    expect(w).toBe(at(180).getTime());
+    expect(w).toBe(at(180).getTime() + SLACK_MS);
     await expectSweepSendsAt(w);
   });
 
@@ -199,7 +202,7 @@ describe('planNextReminderWake - tournament matches', () => {
   test('plans scheduledAt - 1h, and the sweep then reminds', async () => {
     await makeMatch({ startMin: 600 });
     const w = await plan();
-    expect(w).toBe(at(540).getTime());
+    expect(w).toBe(at(540).getTime() + SLACK_MS);
     const notifier = fakeNotifier();
     const r = await runReminderSweep({ prisma, notificationService: notifier, now: new Date(w + 1000) });
     expect(r.reminded).toBe(1);
@@ -218,6 +221,6 @@ describe('planNextReminderWake - tournament matches', () => {
   test('earliest of games and matches', async () => {
     await makeMatch({ startMin: 400 });
     await makeGame({ startMin: 900 });
-    expect(await plan()).toBe(at(340).getTime()); // match: 400 - 60
+    expect(await plan()).toBe(at(340).getTime() + SLACK_MS); // match: 400 - 60
   });
 });

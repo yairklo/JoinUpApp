@@ -10,7 +10,9 @@
 const { LEAD_MS: TOURNAMENT_LEAD_MS } = require('./tournamentReminders');
 const { GAME_REMINDER_LEAD_DEFAULT } = require('../shared/notificationPrefs');
 
-const MIN_GAP_MS = 60 * 1000; // a moment that is already due is retried no sooner than this
+// Timers can fire ~1ms before their target and clocks can step; a wake landing a hair BEFORE the
+// moment would sweep nothing and cost a whole re-plan. Aim just after it.
+const SLACK_MS = 1000;
 
 /**
  * Earliest moment any CONFIRMED participant of an OPEN, future game should be reminded.
@@ -60,14 +62,15 @@ async function nextMatchMoment(prisma, now) {
 }
 
 /**
- * @returns {Promise<number|null>} epoch ms of the next sweep worth running (never earlier than
- *   now + MIN_GAP_MS), or null when no reminder is pending at all.
+ * @returns {Promise<number|null>} epoch ms of the next sweep worth running, or null when no
+ *   reminder is pending. May be in the past (a reminder that is due right now): the scheduler
+ *   floors every wake at its own minimum gap and uses "overdue" to detect sweeps that skip it.
  */
 async function planNextReminderWake({ prisma, now = new Date() }) {
   const [game, match] = await Promise.all([nextGameMoment(prisma, now), nextMatchMoment(prisma, now)]);
   const moments = [game, match].filter((v) => v != null);
   if (!moments.length) return null;
-  return Math.max(Math.min(...moments), now.getTime() + MIN_GAP_MS);
+  return Math.min(...moments) + SLACK_MS;
 }
 
-module.exports = { planNextReminderWake, nextGameMoment, nextMatchMoment, MIN_GAP_MS };
+module.exports = { planNextReminderWake, nextGameMoment, nextMatchMoment, SLACK_MS };

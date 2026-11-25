@@ -56,12 +56,19 @@ function createJobsRuntime({
     // Tournament + game reminders: one sweep now, then event-driven (services/reminderScheduler.js)
     // — it sleeps until the next reminder window opens instead of polling the DB every 5 min, so
     // Neon can autosuspend. Each match is claimed in the DB, so a duplicate runner is a no-op.
-    const sweep = () => Promise.all([
-      Promise.resolve(runTournamentReminders({ io: jobIo, shouldContinue: mayContinue }))
-        .catch((e) => logger.error('[JOBS] tournament reminder sweep failed:', e)),
-      Promise.resolve(runGameReminders({ io: jobIo, shouldContinue: mayContinue }))
-        .catch((e) => logger.error('[JOBS] game reminder sweep failed:', e)),
-    ]);
+    // Resolves to how many reminders went out (undefined when a runner reports nothing), which
+    // the scheduler uses to tell "overdue but nothing sendable" from a normal wake.
+    const sweep = async () => {
+      const [tournament, game] = await Promise.all([
+        Promise.resolve(runTournamentReminders({ io: jobIo, shouldContinue: mayContinue }))
+          .catch((e) => { logger.error('[JOBS] tournament reminder sweep failed:', e); return null; }),
+        Promise.resolve(runGameReminders({ io: jobIo, shouldContinue: mayContinue }))
+          .catch((e) => { logger.error('[JOBS] game reminder sweep failed:', e); return null; }),
+      ]);
+      const t = tournament && typeof tournament.reminded === 'number' ? tournament.reminded : null;
+      const g = game && typeof game.sent === 'number' ? game.sent : null;
+      return t === null || g === null ? undefined : t + g; // a failed/unknown sweep: no back-off
+    };
     reminderScheduler = createReminderScheduler({
       sweep, planNextWake: planReminderWake, shouldContinue: mayContinue, logger,
     });

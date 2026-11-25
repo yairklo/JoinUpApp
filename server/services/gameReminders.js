@@ -1,5 +1,5 @@
 // Per-user game reminders ("your game starts in N minutes"). Runs from the leader-locked jobs
-// runtime (services/jobsRuntime.js) every 5 minutes. Each participant picks their own lead time
+// runtime (services/jobsRuntime.js), woken by services/reminderScheduler.js at the next due moment. Each participant picks their own lead time
 // (UserNotificationSettings.gameReminderLeadMinutes); a (user, game, game start) row in
 // GameReminderSent is the dedupe key, so a second sweep, a second sweeper or a changed setting
 // never double-sends, and an edited start time (a new key) is reminded again.

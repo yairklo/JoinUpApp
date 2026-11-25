@@ -45,7 +45,7 @@ router.use(tournamentsGate);
 // planner. Debounced and forwarded to the job leader if this process isn't it.
 router.use((req, res, next) => {
   if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
-    res.on('finish', () => { if (res.statusCode < 400) gameScheduler.nudgeReminders(); });
+    res.once('close', () => { if (res.statusCode < 400) gameScheduler.nudgeReminders(); });
   }
   next();
 });

@@ -1,4 +1,7 @@
-const { createReminderScheduler, MAX_SLEEP_MS, MIN_GAP_MS } = require('../services/reminderScheduler');
+const {
+  createReminderScheduler, MAX_SLEEP_MS, MIN_GAP_MS, BACKOFF_MS, STEP_TIMEOUT_MS,
+} = require('../services/reminderScheduler');
+const { SLACK_MS } = require('../services/reminderWake');
 const { planNextReminderWake } = require('../services/reminderWake');
 
 const MIN = 60 * 1000;
@@ -196,6 +199,72 @@ describe('createReminderScheduler', () => {
   });
 });
 
+describe('createReminderScheduler - review hardening', () => {
+  test('overdue-but-nothing-sent backs off 5/15/60 min instead of sweeping every minute', async () => {
+    const sweep = jest.fn().mockResolvedValue(0);                 // e.g. tournament gated off for everyone
+    const planNextWake = jest.fn(async () => Date.now() - 1000);  // planner: "already due"
+    const s = createReminderScheduler({ sweep, planNextWake, logger: quiet });
+    s.start();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(s.state().nextWakeAt - Date.now()).toBe(BACKOFF_MS[0]);
+    await jest.advanceTimersByTimeAsync(BACKOFF_MS[0] + 10);
+    expect(s.state().nextWakeAt - Date.now()).toBeGreaterThan(BACKOFF_MS[0] - 1000);
+    expect(s.state().nextWakeAt - Date.now()).toBeLessThanOrEqual(BACKOFF_MS[1]);
+    await jest.advanceTimersByTimeAsync(2 * HOUR);
+    expect(sweep.mock.calls.length).toBeLessThanOrEqual(6);       // not ~120 one-minute sweeps
+  });
+
+  test('a sweep that sends resets the back-off; an unknown result (undefined) never backs off', async () => {
+    const sweep = jest.fn().mockResolvedValueOnce(0).mockResolvedValueOnce(2).mockResolvedValue(undefined);
+    const planNextWake = jest.fn(async () => Date.now() - 1000);
+    const s = createReminderScheduler({ sweep, planNextWake, logger: quiet });
+    s.start();
+    await jest.advanceTimersByTimeAsync(0);
+    await jest.advanceTimersByTimeAsync(BACKOFF_MS[0] + 10);       // second sweep sent 2 -> reset
+    expect(s.state().nextWakeAt - Date.now()).toBeLessThanOrEqual(MIN_GAP_MS);
+  });
+
+  test('a hung sweep is abandoned after the step timeout and scheduling continues', async () => {
+    const sweep = jest.fn().mockReturnValueOnce(new Promise(() => {})).mockResolvedValue(undefined);
+    const planNextWake = jest.fn().mockResolvedValue(Date.now() + 2 * HOUR);
+    const s = createReminderScheduler({ sweep, planNextWake, logger: quiet });
+    s.start();
+    await jest.advanceTimersByTimeAsync(STEP_TIMEOUT_MS + 1000);
+    expect(quiet.error).toHaveBeenCalledWith(expect.stringContaining('sweep failed'), expect.any(Error));
+    expect(s.state().nextWakeAt).not.toBeNull();
+    s.nudge();                                                    // not stuck behind `sweeping`
+    await jest.advanceTimersByTimeAsync(1500);
+    expect(planNextWake).toHaveBeenCalledTimes(2);
+  });
+
+  test('a hung planner falls back to the active cadence', async () => {
+    const planNextWake = jest.fn(() => new Promise(() => {}));
+    const s = createReminderScheduler({ sweep: jest.fn().mockResolvedValue(undefined), planNextWake, logger: quiet });
+    s.start();
+    await jest.advanceTimersByTimeAsync(STEP_TIMEOUT_MS + 1000);
+    expect(s.state().nextWakeAt).not.toBeNull();
+  });
+
+  test('shouldContinue throwing, or a NaN plan, never kills or hot-loops the schedule', async () => {
+    const sweep = jest.fn().mockResolvedValue(undefined);
+    let boom = true;
+    const s1 = createReminderScheduler({
+      sweep, planNextWake: jest.fn().mockResolvedValue(Date.now() + HOUR),
+      shouldContinue: () => { if (boom) throw new Error('lease check failed'); return true; }, logger: quiet,
+    });
+    s1.start();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(s1.state().nextWakeAt).not.toBeNull();
+    s1.stop();
+
+    const s2 = createReminderScheduler({ sweep, planNextWake: jest.fn().mockResolvedValue(NaN), logger: quiet });
+    sweep.mockClear();
+    s2.start();
+    await jest.advanceTimersByTimeAsync(10 * MIN);
+    expect(sweep.mock.calls.length).toBeLessThanOrEqual(3);
+  });
+});
+
 // SQL correctness (and the planner-vs-sweep mirror) is covered against a real Postgres in
 // reminderWake.db.test.js; these only check the glue around the two queries.
 describe('planNextReminderWake (glue)', () => {
@@ -213,11 +282,11 @@ describe('planNextReminderWake (glue)', () => {
   test('earliest of the game moment and (match - 1h)', async () => {
     const game = new Date(now.getTime() + 5 * HOUR);
     const match = new Date(now.getTime() + 4 * HOUR); // reminder at +3h
-    expect(await planNextReminderWake({ prisma: prismaWith(game, match), now })).toBe(now.getTime() + 3 * HOUR);
+    expect(await planNextReminderWake({ prisma: prismaWith(game, match), now })).toBe(now.getTime() + 3 * HOUR + SLACK_MS);
   });
 
-  test('an already-due moment is clamped to now + 60s', async () => {
+  test('an already-due moment is reported as past (the scheduler floors / backs off)', async () => {
     const past = new Date(now.getTime() - HOUR);
-    expect(await planNextReminderWake({ prisma: prismaWith(past, null), now })).toBe(now.getTime() + MIN);
+    expect(await planNextReminderWake({ prisma: prismaWith(past, null), now })).toBe(past.getTime() + SLACK_MS);
   });
 });
