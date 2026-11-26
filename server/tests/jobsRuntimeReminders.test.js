@@ -150,13 +150,9 @@ function makeFakeRedis() {
       data.set(key, { val, px, ttl: Number(ttl), exp: Date.now() + Number(ttl) });
       return 'OK';
     }),
-    getdel: jest.fn(async (key) => {
+    get: jest.fn(async (key) => {
       const entry = data.get(key);
-      if (!entry || entry.exp <= Date.now()) {
-        data.delete(key);
-        return null;
-      }
-      data.delete(key);
+      if (!entry || entry.exp <= Date.now()) return null;
       return entry.val;
     }),
     del: jest.fn(async (key) => (data.delete(key) ? 1 : 0)),
@@ -203,14 +199,17 @@ test('a lost non-leader nudge sets the dirty key and the leader replans within o
     expect(log).toHaveBeenCalledWith(expect.stringContaining('reminder wake publish failed'), expect.any(Error));
 
     await jest.advanceTimersByTimeAsync(DIRTY_CHECK_MS - 1);
-    expect(fake.getdel).not.toHaveBeenCalled();
+    expect(fake.get).not.toHaveBeenCalled();
     expect(planReminderWake).toHaveBeenCalledTimes(1);
     expect(f.deps.runGameReminders).toHaveBeenCalledTimes(1);
     expect(f.deps.runTournamentReminders).toHaveBeenCalledTimes(1);
     expect(touches).toEqual([]);
 
     await jest.advanceTimersByTimeAsync(1);
-    expect(fake.getdel).toHaveBeenCalledTimes(1);
+    expect(fake.get).toHaveBeenCalledTimes(1);
+    expect(fake.get.mock.invocationCallOrder[0]).toBeLessThan(
+      fake.del.mock.invocationCallOrder[fake.del.mock.invocationCallOrder.length - 1],
+    );
     expect(fake.data.has(DIRTY_KEY)).toBe(false);
     expect(planReminderWake).toHaveBeenCalledTimes(1);
     expect(f.deps.runGameReminders).toHaveBeenCalledTimes(1);
@@ -257,7 +256,7 @@ test('leader clears a stale dirty key before the first sweep and does not replan
 test('a hanging dirty-flag read times out without a planner call and does not tight-loop', async () => {
   const fake = makeFakeRedis();
   fake.data.set(DIRTY_KEY, { val: '1', px: 'PX', ttl: DIRTY_TTL_MS, exp: Date.now() + DIRTY_TTL_MS });
-  fake.getdel.mockImplementationOnce(() => new Promise(() => {}));
+  fake.get.mockImplementationOnce(() => new Promise(() => {}));
   const planReminderWake = jest.fn(async () => Date.now() + 5 * 60 * 60 * 1000);
   const f = build({ planReminderWake, getRedis: () => fake });
   const rt = createJobsRuntime(f.deps);
@@ -268,22 +267,25 @@ test('a hanging dirty-flag read times out without a planner call and does not ti
   fake.data.set(DIRTY_KEY, { val: '1', px: 'PX', ttl: DIRTY_TTL_MS, exp: Date.now() + DIRTY_TTL_MS });
   expect(planReminderWake).toHaveBeenCalledTimes(1);
 
+  const delsAtStart = fake.del.mock.calls.length;
   await jest.advanceTimersByTimeAsync(DIRTY_CHECK_MS);
-  expect(fake.getdel).toHaveBeenCalledTimes(1);
+  expect(fake.get).toHaveBeenCalledTimes(1);
   expect(planReminderWake).toHaveBeenCalledTimes(1);
   await jest.advanceTimersByTimeAsync(REDIS_OP_TIMEOUT_MS);
   expect(quiet.error).toHaveBeenCalledWith(
     expect.stringContaining('dirty flag check failed'),
     expect.objectContaining({ message: 'redis timeout' }),
   );
+  expect(fake.data.has(DIRTY_KEY)).toBe(true);
+  expect(fake.del).toHaveBeenCalledTimes(delsAtStart);
   expect(planReminderWake).toHaveBeenCalledTimes(1);
   expect(f.deps.runGameReminders).toHaveBeenCalledTimes(1);
 
-  const reads = fake.getdel.mock.calls.length;
+  const reads = fake.get.mock.calls.length;
   await jest.advanceTimersByTimeAsync(1000);
-  expect(fake.getdel).toHaveBeenCalledTimes(reads);
+  expect(fake.get).toHaveBeenCalledTimes(reads);
   await jest.advanceTimersByTimeAsync(DIRTY_CHECK_MS + 1500);
-  expect(fake.getdel.mock.calls.length).toBe(reads + 1);
+  expect(fake.get.mock.calls.length).toBe(reads + 1);
   expect(planReminderWake).toHaveBeenCalledTimes(2);
   expect(f.deps.runGameReminders).toHaveBeenCalledTimes(1);
   await f.lose();

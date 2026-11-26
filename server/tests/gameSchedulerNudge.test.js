@@ -10,7 +10,11 @@ function makeFakeRedis() {
       data.set(key, { val, px, ttl: Number(ttl), exp: Date.now() + Number(ttl) });
       return 'OK';
     }),
-    getdel: jest.fn(async () => null),
+    get: jest.fn(async (key) => {
+      const entry = data.get(key);
+      if (!entry || entry.exp <= Date.now()) return null;
+      return entry.val;
+    }),
     del: jest.fn(async (key) => (data.delete(key) ? 1 : 0)),
   };
   return fake;
@@ -118,6 +122,34 @@ describe('gameScheduler reminder nudges', () => {
       id: 'g9', status: 'OPEN', start: new Date(Date.now() + 3600e3),
     })).toThrow('down');
     expect(fake.set).toHaveBeenCalledWith(DIRTY_KEY, '1', 'PX', DIRTY_TTL_MS);
+  });
+
+  test('the leader drops the dirty key when it applies a nudge', async () => {
+    const fake = makeFakeRedis();
+    jest.spyOn(redisLib, 'getRedis').mockReturnValue(fake);
+    fake.data.set(DIRTY_KEY, { val: '1', exp: Date.now() + DIRTY_TTL_MS });
+    const nudge = jest.fn();
+    scheduler.init({ prisma: {}, io: null, notificationService: {} });
+    scheduler.setReminderNudge(nudge);
+    scheduler.nudgeReminders();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(nudge).toHaveBeenCalledTimes(1);
+    expect(fake.data.has(DIRTY_KEY)).toBe(false);
+  });
+
+  test('a leader resync drops the dirty key after nudging', async () => {
+    const fake = makeFakeRedis();
+    jest.spyOn(redisLib, 'getRedis').mockReturnValue(fake);
+    fake.data.set(DIRTY_KEY, { val: '1', exp: Date.now() + DIRTY_TTL_MS });
+    const nudge = jest.fn();
+    scheduler.init({ prisma: {}, io: null, notificationService: {} });
+    scheduler.setReminderNudge(nudge);
+    scheduler.resyncGame({ id: 'g1', status: 'CANCELLED', start: new Date(Date.now() + 3600e3) });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(nudge).toHaveBeenCalled();
+    expect(fake.data.has(DIRTY_KEY)).toBe(false);
   });
 
   test('resyncGame nudges the reminder driver (a game write can move a reminder moment)', () => {

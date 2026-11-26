@@ -1,7 +1,8 @@
 // Cross-process reminder wakes that never reach the leader (Redis publish failed, or the
-// subscriber missed it). The non-leader SETs a key; the leader GETDELs it on a timer and, only
-// when it was set, nudges the in-memory scheduler. This module never opens Prisma: an idle
-// leader must not touch the DB just to notice that nothing changed.
+// subscriber missed it). The non-leader SETs a key. The leader GETs it on a timer and, only
+// when it was set, nudges, then DELs. GETDEL is not used: a timeout after the delete was
+// applied would drop the only backup. A timed-out GET leaves the key for the next tick.
+// This module never opens a database client.
 const redisLib = require('../lib/redis');
 const { MAX_SLEEP_MS } = require('./reminderScheduler');
 
@@ -67,12 +68,12 @@ async function clearReminderDirty({ getClient, logger = console } = {}) {
   }
 }
 
-/** GETDEL. True only when the key was present. False on a miss OR a Redis error (logged). */
-async function takeReminderDirty({ getClient, logger = console } = {}) {
+/** GET. True only when the key was present. False on a miss OR a Redis error (logged). Never deletes. */
+async function peekReminderDirty({ getClient, logger = console } = {}) {
   const client = clientFrom({ getClient, logger });
-  if (!client || typeof client.getdel !== 'function') return false;
+  if (!client || typeof client.get !== 'function') return false;
   try {
-    const val = await withTimeout(client.getdel(DIRTY_KEY));
+    const val = await withTimeout(client.get(DIRTY_KEY));
     return val != null;
   } catch (err) {
     logger.error('[REMINDERS] dirty flag check failed:', err);
@@ -82,7 +83,8 @@ async function takeReminderDirty({ getClient, logger = console } = {}) {
 
 /**
  * Redis-only poll. `shouldRun` gates each tick (leader only). `onDirty` runs only after a
- * successful GETDEL of a set key — never on an empty key, a timeout, or a Redis error.
+ * successful GET of a set key — never on an empty key, a timeout, or a Redis error. The key
+ * is deleted only after that nudge is accepted and this process is still the leader.
  * Returns a stop function. The next tick is scheduled only after the current one settles,
  * one interval later, so a slow Redis cannot pile up or spin.
  */
@@ -106,13 +108,17 @@ function startReminderDirtyWatch({
 
   async function tick() {
     if (!running()) return;
-    const dirty = await takeReminderDirty({ getClient, logger });
+    const dirty = await peekReminderDirty({ getClient, logger });
+    // Do not delete on a miss, a timeout, or after leadership was lost during the GET.
+    // The new leader sweeps on acquire; a key that is still set is its problem.
     if (!dirty || !running()) return;
     try {
       onDirty();
     } catch (err) {
       logger.error('[REMINDERS] dirty flag nudge failed:', err);
+      return; // leave the key so the next tick can retry
     }
+    if (running()) await clearReminderDirty({ getClient, logger });
   }
 
   function arm() {
@@ -139,6 +145,6 @@ module.exports = {
   REDIS_OP_TIMEOUT_MS,
   markReminderDirty,
   clearReminderDirty,
-  takeReminderDirty,
+  peekReminderDirty,
   startReminderDirtyWatch,
 };

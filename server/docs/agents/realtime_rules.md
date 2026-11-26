@@ -103,9 +103,11 @@ not under Jest).
 - **Reminder idle**: nothing upcoming sleeps 6h in both modes. Do not add a shorter idle DB
   re-plan — that keeps Neon from suspending. A non-leader reminder wake (and a non-leader game
   resync) also `SET joinup:reminders:dirty PX 6h`. The leader clears that key once before its
-  first sweep, then every 60s `GETDEL`s it with a 2s timeout and nudges only if it was set.
-  That check uses Redis only (`services/reminderDirty.js`); it must not call Prisma. Direct mode
-  without Redis is unchanged. Redis down still self-heals at the 6h cap.
+  first sweep, and again when it actually applies a delivered nudge, so a wake that arrived
+  does not cause a second planner query. Every 60s it `GET`s the key (2s timeout, no delete on
+  timeout — `GETDEL` can apply and then lose the reply) and nudges only if it was set, then
+  `DEL`s. That check uses Redis only (`services/reminderDirty.js`); it must not call Prisma.
+  Direct mode without Redis is unchanged. Redis down still self-heals at the 6h cap.
 - **Lease enforcement**: the lease is measured from the moment a renew/acquire was *sent* (minus TTL/6
   margin) and a dedicated timer demotes the leader exactly at the deadline, independent of the renew
   tick. Scheduler timers, the review queue and series generation also consult `lock.isLeader()` right

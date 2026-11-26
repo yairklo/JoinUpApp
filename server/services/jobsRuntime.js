@@ -87,8 +87,9 @@ function createJobsRuntime({
       await clearReminderDirty({ getClient: getRedis, logger });
     }
     reminderScheduler.start();
-    // Lost cross-process wakes (publish failed) set a Redis key. While we lead, GETDEL it every
-    // 60s and nudge only if it was set. An empty key does not touch the planner or the DB.
+    // Lost cross-process wakes (publish failed) set a Redis key. While we lead, GET it every
+    // 60s and nudge only if it was set, then DEL. An empty key does not touch the planner or
+    // the DB. A delivered wake clears the key itself, so this watch does not plan again.
     // Direct mode has no leader and does not run this watch.
     if (useLeaderLock) {
       stopDirtyWatch = startReminderDirtyWatch({

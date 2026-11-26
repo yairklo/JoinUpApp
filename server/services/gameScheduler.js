@@ -3,7 +3,7 @@
 // timer instead of the whole table being scanned every 30-60s — that polling never let Neon's
 // compute suspend, since the DB was touched every tick regardless of whether anything was due.
 const { lockGameRow } = require('../utils/gameRowLock');
-const { markReminderDirty } = require('./reminderDirty');
+const { markReminderDirty, clearReminderDirty } = require('./reminderDirty');
 
 const MAX_TIMEOUT = 2_147_000_000; // ~24.8 days, safely under Node's 2^31-1 ms setTimeout cap
 // A timer may fire a hair before its due time; anything further out is a STALE timer (the row was
@@ -89,7 +89,14 @@ class GameScheduler {
       this._publishReminderWake();
       return;
     }
-    if (this.reminderNudge) this.reminderNudge();
+    this._applyLocalNudge();
+  }
+
+  // The wake is being planned here. Drop the backup key so the 60s watch does not plan again.
+  _applyLocalNudge() {
+    if (!this.reminderNudge) return;
+    this.reminderNudge();
+    clearReminderDirty();
   }
 
   // A failed publish used to vanish until the next 6h re-plan. Log it, and also SET a Redis
@@ -196,7 +203,7 @@ class GameScheduler {
     }
 
     // A new/moved/cancelled game can change when the next reminder window opens (debounced).
-    if (this.reminderNudge) this.reminderNudge();
+    this._applyLocalNudge();
   }
 
   // Re-fetches and resyncs a single game by id — used when this process's scheduler is
