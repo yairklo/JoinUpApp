@@ -23,7 +23,11 @@ const USERS = [1, 2, 3].map(U);
 let field;
 const gameIds = [];
 const tournamentIds = [];
-const plan = (now = NOW) => planNextReminderWake({ prisma, now });
+const planDetails = (now = NOW) => planNextReminderWake({ prisma, now });
+const plan = async (now = NOW) => {
+  const w = await planDetails(now);
+  return w == null ? null : w.at;
+};
 
 function fakeNotifier() {
   return {
@@ -123,10 +127,19 @@ describe('planNextReminderWake - games (exact per-user moment)', () => {
 
   test('a moment already due is reported as overdue (past), for the scheduler to floor/back off', async () => {
     await makeGame({ startMin: 20 }); // moment = -40min
-    const w = await plan();
-    expect(w).toBe(at(-40).getTime() + SLACK_MS);
-    expect(w).toBeLessThan(NOW.getTime());
+    const w = await planDetails();
+    expect(w.at).toBe(at(-40).getTime() + SLACK_MS);
+    expect(w.at).toBeLessThan(NOW.getTime());
+    expect(w.nextFuture).toBeNull();
     await expectSweepSendsAt(NOW.getTime() - 1000); // and the sweep really does send it
+  });
+
+  test('an overdue moment is returned beside the earliest one still in the future', async () => {
+    await makeGame({ startMin: 20 });  // moment = -40min
+    await makeGame({ startMin: 200 }); // default lead 60 -> moment = +140min
+    const w = await planDetails();
+    expect(w.at).toBe(at(-40).getTime() + SLACK_MS);
+    expect(w.nextFuture).toBe(at(140).getTime() + SLACK_MS);
   });
 
   test('push off but in-app on still counts; both off is never reminded (same rule as remindPage)', async () => {
@@ -222,5 +235,13 @@ describe('planNextReminderWake - tournament matches', () => {
     await makeMatch({ startMin: 400 });
     await makeGame({ startMin: 900 });
     expect(await plan()).toBe(at(340).getTime() + SLACK_MS); // match: 400 - 60
+  });
+
+  test('an overdue match does not hide a later game moment', async () => {
+    await makeMatch({ startMin: 30 }); // reminder moment = -30min
+    await makeGame({ startMin: 180 }); // default lead 60 -> +120min
+    const w = await planDetails();
+    expect(w.at).toBe(at(-30).getTime() + SLACK_MS);
+    expect(w.nextFuture).toBe(at(120).getTime() + SLACK_MS);
   });
 });

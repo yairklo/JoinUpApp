@@ -36,6 +36,26 @@ describe('gameScheduler reminder nudges', () => {
     expect(publish).not.toHaveBeenCalled();
   });
 
+  test('a rejected reminder-wake publish is logged', async () => {
+    const err = new Error('redis down');
+    scheduler.setPublisher(() => Promise.reject(err));
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    scheduler.nudgeReminders();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('reminder wake publish failed'), err);
+    spy.mockRestore();
+  });
+
+  test('a throwing reminder-wake publish is logged', () => {
+    const err = new Error('redis down');
+    scheduler.setPublisher(() => { throw err; });
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    scheduler.nudgeReminders();
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('reminder wake publish failed'), err);
+    spy.mockRestore();
+  });
+
   test('resyncGame nudges the reminder driver (a game write can move a reminder moment)', () => {
     const nudge = jest.fn();
     scheduler.init({ prisma: {}, io: null, notificationService: {} });

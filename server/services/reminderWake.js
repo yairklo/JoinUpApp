@@ -14,16 +14,37 @@ const { GAME_REMINDER_LEAD_DEFAULT } = require('../shared/notificationPrefs');
 // moment would sweep nothing and cost a whole re-plan. Aim just after it.
 const SLACK_MS = 1000;
 
+function epoch(value) {
+  if (value == null) return null;
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+// `future` is the earliest moment still strictly after `now`. When the query only selected the
+// overall minimum (or that minimum is itself still ahead), derive it so a past minimum cannot
+// be mistaken for "nothing else coming".
+function momentsFrom(earliest, future, nowMs) {
+  let next = future;
+  if (next == null && earliest != null && earliest > nowMs) next = earliest;
+  if (next != null && next <= nowMs) next = null;
+  return { earliest, future: next };
+}
+
 /**
- * Earliest moment any CONFIRMED participant of an OPEN, future game should be reminded.
+ * Earliest moment any CONFIRMED participant of an OPEN, future game should be reminded,
+ * and the earliest such moment that is still in the future.
  * Per participant: moment = start - lead (lead from their settings, default when absent/0).
  *  - gameRemindersEnabled=false AND gameRemindersInApp=false -> never reminded (remindPage skip)
  *  - GameReminderSent row for (user, game, start)            -> already reminded (dedupe key)
  *  - joined at/after the moment, or lead changed after it    -> isReminderDue is false forever
+ * @returns {Promise<{ earliest: number|null, future: number|null }>}
  */
 async function nextGameMoment(prisma, now) {
   const rows = await prisma.$queryRaw`
-    SELECT MIN(x."moment") AS "moment" FROM (
+    SELECT
+      MIN(x."moment") AS "moment",
+      MIN(x."moment") FILTER (WHERE x."moment" > ${now}) AS "future"
+    FROM (
       SELECT
         g."start" - (COALESCE(NULLIF(s."gameReminderLeadMinutes", 0), ${GAME_REMINDER_LEAD_DEFAULT}) * INTERVAL '1 minute') AS "moment",
         p."createdAt" AS "joinedAt",
@@ -41,14 +62,21 @@ async function nextGameMoment(prisma, now) {
     ) x
     WHERE x."joinedAt" < x."moment"
       AND (x."leadUpdatedAt" IS NULL OR x."leadUpdatedAt" <= x."moment")`;
-  const m = rows && rows[0] && rows[0].moment;
-  return m ? new Date(m).getTime() : null;
+  const row = rows && rows[0];
+  return momentsFrom(epoch(row && row.moment), epoch(row && row.future), now.getTime());
 }
 
-/** Earliest (scheduledAt - 1h) over matches the tournament sweep would still remind about. */
+/**
+ * Earliest (scheduledAt - 1h) over matches the tournament sweep would still remind about,
+ * and the earliest of those moments that is still in the future.
+ * @returns {Promise<{ earliest: number|null, future: number|null }>}
+ */
 async function nextMatchMoment(prisma, now) {
+  const futureAfter = new Date(now.getTime() + TOURNAMENT_LEAD_MS);
   const rows = await prisma.$queryRaw`
-    SELECT MIN(m."scheduledAt") AS "at"
+    SELECT
+      MIN(m."scheduledAt") AS "at",
+      MIN(m."scheduledAt") FILTER (WHERE m."scheduledAt" > ${futureAfter}) AS "futureAt"
     FROM "TournamentMatch" m
     JOIN "Tournament" t ON t."id" = m."tournamentId"
     WHERE m."status" = 'SCHEDULED'
@@ -57,20 +85,33 @@ async function nextMatchMoment(prisma, now) {
       AND m."awayTeamId" IS NOT NULL
       AND t."status" = 'IN_PROGRESS'
       AND (m."details" IS NULL OR m."details"->>'reminderSentAt' IS NULL)`;
-  const at = rows && rows[0] && rows[0].at;
-  return at ? new Date(at).getTime() - TOURNAMENT_LEAD_MS : null;
+  const row = rows && rows[0];
+  const at = epoch(row && row.at);
+  const futureAt = epoch(row && row.futureAt);
+  return momentsFrom(
+    at == null ? null : at - TOURNAMENT_LEAD_MS,
+    futureAt == null ? null : futureAt - TOURNAMENT_LEAD_MS,
+    now.getTime(),
+  );
 }
 
 /**
- * @returns {Promise<number|null>} epoch ms of the next sweep worth running, or null when no
- *   reminder is pending. May be in the past (a reminder that is due right now): the scheduler
- *   floors every wake at its own minimum gap and uses "overdue" to detect sweeps that skip it.
+ * @returns {Promise<{ at: number, nextFuture: number|null }|null>}
+ *   `at` is the earliest pending moment (may be in the past: a reminder due right now). The
+ *   scheduler floors every wake at its own minimum gap and treats "overdue" as the signal to
+ *   back off when a sweep sends nothing. `nextFuture` is the earliest moment still ahead, so
+ *   that back-off cannot hide a different reminder that comes due during the wait. Null when
+ *   nothing is pending.
  */
 async function planNextReminderWake({ prisma, now = new Date() }) {
   const [game, match] = await Promise.all([nextGameMoment(prisma, now), nextMatchMoment(prisma, now)]);
-  const moments = [game, match].filter((v) => v != null);
+  const moments = [game.earliest, match.earliest].filter((v) => v != null);
   if (!moments.length) return null;
-  return Math.min(...moments) + SLACK_MS;
+  const futures = [game.future, match.future].filter((v) => v != null);
+  return {
+    at: Math.min(...moments) + SLACK_MS,
+    nextFuture: futures.length ? Math.min(...futures) + SLACK_MS : null,
+  };
 }
 
 module.exports = { planNextReminderWake, nextGameMoment, nextMatchMoment, SLACK_MS };

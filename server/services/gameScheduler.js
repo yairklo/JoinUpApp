@@ -85,10 +85,28 @@ class GameScheduler {
   // The leader re-plans its next sweep; any other process forwards the signal to it.
   nudgeReminders() {
     if (!this.enabled) {
-      if (this.publish) this.publish({ type: 'remindersReplan' });
+      this._publishReminderWake();
       return;
     }
     if (this.reminderNudge) this.reminderNudge();
+  }
+
+  // A failed publish used to vanish: the leader only noticed at its next re-plan (up to 6h when
+  // nothing is scheduled). Log it here so the loss is visible even when the publisher doesn't.
+  _publishReminderWake() {
+    if (!this.publish) return;
+    let published;
+    try {
+      published = this.publish({ type: 'remindersReplan' });
+    } catch (err) {
+      console.error('[SCHEDULER] reminder wake publish failed:', err);
+      return;
+    }
+    if (published && typeof published.then === 'function') {
+      published.catch((err) => {
+        console.error('[SCHEDULER] reminder wake publish failed:', err);
+      });
+    }
   }
 
   // Lets a process that doesn't run the scheduler itself (e.g. the web API when split from

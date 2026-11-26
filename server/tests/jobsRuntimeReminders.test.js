@@ -96,6 +96,45 @@ test('a failing sweep is logged, not silently swallowed', async () => {
   expect(quiet.error).toHaveBeenCalledWith(expect.stringContaining('game reminder sweep failed'), boom);
 });
 
+test('a throwing runner backs off instead of sweeping every minute while the failure lasts', async () => {
+  const planReminderWake = jest.fn(async () => Date.now() - 1000);
+  const f = build({
+    planReminderWake,
+    runGameReminders: jest.fn().mockRejectedValue(new Error('boom')),
+    runTournamentReminders: jest.fn().mockResolvedValue({ reminded: 0 }),
+  });
+  const rt = createJobsRuntime(f.deps);
+  await rt.start('IO');
+  await f.acquire();
+  await jest.advanceTimersByTimeAsync(0);
+  await jest.advanceTimersByTimeAsync(10 * 60 * 1000);
+  expect(f.deps.runGameReminders.mock.calls.length).toBeLessThanOrEqual(3);
+  expect(f.deps.runTournamentReminders.mock.calls.length).toBe(f.deps.runGameReminders.mock.calls.length);
+});
+
+test('leader-lock with nothing upcoming re-plans within 15 minutes, and a known wake is left alone', async () => {
+  const idlePlan = jest.fn().mockResolvedValue(null);
+  const idle = build({ planReminderWake: idlePlan });
+  const idleRt = createJobsRuntime(idle.deps);
+  await idleRt.start('IO');
+  await idle.acquire();
+  await jest.advanceTimersByTimeAsync(0);
+  expect(idle.deps.runGameReminders).toHaveBeenCalledTimes(1);
+  await jest.advanceTimersByTimeAsync(15 * 60 * 1000);
+  expect(idle.deps.runGameReminders).toHaveBeenCalledTimes(2);
+  await jest.advanceTimersByTimeAsync(60 * 1000);
+  expect(idle.deps.runGameReminders).toHaveBeenCalledTimes(2);
+
+  const later = Date.now() + 3 * 60 * 60 * 1000;
+  const planned = build({ planReminderWake: jest.fn().mockResolvedValue(later) });
+  const plannedRt = createJobsRuntime(planned.deps);
+  await plannedRt.start('IO');
+  await planned.acquire();
+  await jest.advanceTimersByTimeAsync(0);
+  await jest.advanceTimersByTimeAsync(15 * 60 * 1000);
+  expect(planned.deps.runGameReminders).toHaveBeenCalledTimes(1);
+});
+
 test('a failing game sweep does not stop the tournament sweep (and vice versa)', async () => {
   const f = build({
     runGameReminders: jest.fn().mockRejectedValue(new Error('boom')),

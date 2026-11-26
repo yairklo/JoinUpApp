@@ -1,7 +1,8 @@
-// Per-user game reminders ("your game starts in N minutes"). Runs from the leader-locked jobs
-// runtime (services/jobsRuntime.js), woken by services/reminderScheduler.js at the next due moment. Each participant picks their own lead time
-// (UserNotificationSettings.gameReminderLeadMinutes); a (user, game, game start) row in
-// GameReminderSent is the dedupe key, so a second sweep, a second sweeper or a changed setting
+// Per-user game reminders ("your game starts in N minutes"). The leader-locked jobs runtime
+// (services/jobsRuntime.js) runs the sweep; services/reminderScheduler.js wakes it at the next
+// due moment. Each participant picks their own lead time
+// (UserNotificationSettings.gameReminderLeadMinutes). A (user, game, game start) row in
+// GameReminderSent is the dedupe key, so a second sweep, a second sweeper, or a changed setting
 // never double-sends, and an edited start time (a new key) is reminded again.
 const { formatJerusalemTime } = require('../shared/timezone');
 const { GAME_REMINDER_LEAD_DEFAULT, GAME_REMINDER_LEAD_MAX } = require('../shared/notificationPrefs');
@@ -217,4 +218,4 @@ async function runGameReminderSweep({ prisma, notificationService, io = null, no
   return { sent };
 }
 
-module.exports = { PAGE_SIZE, MAX_PAGES, reminderHorizonMs, runGameReminderSweep, isReminderDue, describeTimeLeft, buildReminderMessage };
+module.exports = { PAGE_SIZE, MAX_PAGES, runGameReminderSweep, isReminderDue, describeTimeLeft, buildReminderMessage };

@@ -8,17 +8,27 @@
 //
 // Invariants (each has a test):
 //  - While started there is ALWAYS a timer armed (or a sweep/plan in flight that will arm one):
-//    "nothing upcoming" sleeps MAX_SLEEP_MS, not forever, and a leadership blip (shouldContinue
-//    false) re-arms without DB work. Only stop() ends scheduling.
+//    "nothing upcoming" sleeps the idle re-plan (MAX_SLEEP_MS, or idleReplanMs when set), not
+//    forever, and a leadership blip (shouldContinue false) re-arms without DB work. Only stop()
+//    ends scheduling.
 //  - A stale plan can never push out an earlier wake armed by a nudge in the meantime.
 //  - Sweeps are never closer than MIN_GAP_MS, whatever the planner answers (no hot loop).
 //  - A hung sweep or plan is abandoned after STEP_TIMEOUT_MS, so scheduling can't stall behind it.
 //  - If the planner says a reminder is overdue but the sweep sent nothing (a rule the planner
-//    can't see, e.g. a tournament gated off for every recipient), back off 5/15/60 min instead of
-//    re-sweeping every minute; any sweep that does send, or a normal plan, resets it.
+//    can't see, e.g. a tournament gated off for every recipient) — or the sweep threw — back off
+//    5/15/60 min instead of re-sweeping every minute. That wait is capped by the earliest moment
+//    still in the future, so a skipped overdue item cannot hide a different reminder that comes
+//    due during the back-off. A wake that was pulled forward for that later moment does not
+//    inherit the previous item's rung: if that sweep throws or sends nothing, it retries once
+//    at the minimum gap and the ladder starts over at 5 min. A sweep that sends, a normal
+//    (not overdue-and-empty) plan, or a write-triggered nudge/re-plan resets the streak.
 //  - Any single sleep is capped at MAX_SLEEP_MS and then re-planned, so a missed nudge (a write
-//    on a non-leader without Redis) self-heals within that bound.
+//    on a non-leader without Redis) self-heals within that bound. In leader-lock mode a planner
+//    that finds nothing uses a shorter idle re-plan (LEADER_LOCK_IDLE_REPLAN_MS): long enough
+//    for Neon to suspend, short enough that a lost Redis wake is not stuck for 6h. A known
+//    future moment is not pulled in — chopping every sleep would poll the DB.
 const MAX_SLEEP_MS = 6 * 60 * 60 * 1000;
+const LEADER_LOCK_IDLE_REPLAN_MS = 15 * 60 * 1000;
 const MIN_GAP_MS = 60 * 1000;
 const STEP_TIMEOUT_MS = 3 * 60 * 1000;              // a hung sweep/plan must not stall scheduling
 const BACKOFF_MS = [5 * 60 * 1000, 15 * 60 * 1000, 60 * 60 * 1000];
@@ -26,10 +36,11 @@ const BACKOFF_MS = [5 * 60 * 1000, 15 * 60 * 1000, 60 * 60 * 1000];
 function createReminderScheduler({
   sweep,                                  // async () => number|void: runs both sweeps, returns #sent
   stepTimeoutMs = STEP_TIMEOUT_MS,
-  planNextWake = null,                    // async (now: Date) => epoch ms | null
+  planNextWake = null,                    // async (now: Date) => epoch ms | { at, nextFuture } | null
   shouldContinue = () => true,            // leader-lock guard, re-checked right before sweeping
   activeMs = 5 * 60 * 1000,               // fallback cadence when there is no planner / it fails
   maxSleepMs = MAX_SLEEP_MS,
+  idleReplanMs = null,                    // null → maxSleepMs; leader-lock passes a shorter idle gap
   minGapMs = MIN_GAP_MS,
   debounceMs = 1000,
   logger = console,
@@ -40,7 +51,26 @@ function createReminderScheduler({
   let timerAt = Infinity;
   let nudgeTimer = null;
   let sweeping = false;
-  let idleStreak = 0; // consecutive overdue-but-nothing-sent sweeps
+  let idleStreak = 0; // consecutive overdue-but-nothing-sent (or failed) sweeps
+  // The armed timer was shortened to a later reminder, not left on the streak's own rung.
+  let armedForFuture = false;
+  const nothingUpcomingMs = idleReplanMs == null ? maxSleepMs : idleReplanMs;
+
+  // A number is the earliest moment only (tests, and any caller that has not grown a future).
+  // An object also carries the earliest moment still ahead, which caps an overdue back-off.
+  function normalizePlan(raw, t) {
+    if (raw == null) return { at: t + nothingUpcomingMs, nextFuture: null };
+    if (typeof raw === 'number') return { at: raw, nextFuture: null };
+    if (typeof raw === 'object') {
+      let at;
+      if (typeof raw.at === 'number') at = raw.at;
+      else if (raw.at == null) at = t + nothingUpcomingMs;
+      else at = t + activeMs;
+      const nextFuture = typeof raw.nextFuture === 'number' ? raw.nextFuture : null;
+      return { at, nextFuture };
+    }
+    return { at: t + activeMs, nextFuture: null };
+  }
 
   function clearTimer() {
     if (timer) clearTimeout(timer);
@@ -74,13 +104,15 @@ function createReminderScheduler({
   }
 
   async function plan() {
-    if (!planNextWake) return now() + activeMs;
+    const t = now();
+    if (!planNextWake) return { at: t + activeMs, nextFuture: null };
     try {
-      const at = await withTimeout(Promise.resolve(planNextWake(new Date(now()))), 'plan');
-      return at == null ? now() + maxSleepMs : at; // nothing upcoming: sleep, then look again
+      const raw = await withTimeout(Promise.resolve(planNextWake(new Date(t))), 'plan');
+      // Measure the idle/fallback sleep from when the plan returns, not from when it started.
+      return normalizePlan(raw, now());
     } catch (err) {
       logger.error('[REMINDERS] planning the next wake failed, retrying soon:', err);
-      return now() + activeMs;
+      return { at: now() + activeMs, nextFuture: null };
     }
   }
 
@@ -104,23 +136,46 @@ function createReminderScheduler({
     }
     sweeping = true;
     let sent;
+    let sweepFailed = false;
     try {
       sent = await withTimeout(Promise.resolve(sweep()), 'sweep');
     } catch (err) {
+      sweepFailed = true;
       logger.error('[REMINDERS] sweep failed:', err);
     } finally {
       sweeping = false;
     }
     if (!started) return;
-    const at = await plan();
-    // Overdue (planner says "already due") yet the sweep sent nothing: the sweep skips something
-    // the planner cannot see. Back off rather than re-sweep every minute.
+    const planned = await plan();
+    const at = planned.at;
+    const t = now();
+    // Overdue (planner says "already due") yet the sweep sent nothing, or the sweep threw:
+    // back off rather than re-sweep every minute. Never past the next moment still ahead —
+    // otherwise a skipped overdue item hides a different reminder that comes due during the wait.
     let target = at;
-    if (typeof sent === 'number' && sent === 0 && Number.isFinite(at) && at <= now()) {
-      target = now() + BACKOFF_MS[Math.min(idleStreak, BACKOFF_MS.length - 1)];
+    const overdue = Number.isFinite(at) && at <= t;
+    const nothingSent = sweepFailed || (typeof sent === 'number' && sent === 0);
+    if (nothingSent && overdue && armedForFuture) {
+      // This wake was pulled forward for a different reminder. The streak belongs to the
+      // overdue item we have been skipping; a miss here must not wait out that 60-min rung
+      // (the new reminder's window can close first). One minimum-gap retry, then 5/15/60.
+      armedForFuture = false;
+      idleStreak = 0;
+      target = t + minGapMs;
+    } else if (nothingSent && overdue) {
+      const backoffAt = t + BACKOFF_MS[Math.min(idleStreak, BACKOFF_MS.length - 1)];
       idleStreak += 1;
+      const cap = Number.isFinite(planned.nextFuture) && planned.nextFuture > t ? planned.nextFuture : null;
+      if (cap != null && cap < backoffAt) {
+        target = cap;
+        armedForFuture = true;
+      } else {
+        target = backoffAt;
+        armedForFuture = false;
+      }
     } else {
       idleStreak = 0;
+      armedForFuture = false;
     }
     // keepEarlier: a nudge handled while plan() was awaiting may already have armed an earlier
     // wake; this (possibly stale) answer must not override it.
@@ -129,7 +184,10 @@ function createReminderScheduler({
 
   async function replan() {
     if (!started || sweeping) return; // a running sweep re-plans itself when it finishes
-    arm(await plan(), { keepEarlier: true });
+    idleStreak = 0; // a write changed what is due; don't carry an escalated skip into it
+    armedForFuture = false;
+    const planned = await plan();
+    arm(planned.at, { keepEarlier: true });
   }
 
   return {
@@ -147,7 +205,12 @@ function createReminderScheduler({
     },
     /** A game, participation, match or reminder setting changed: re-plan soon (debounced). */
     nudge() {
-      if (!started || nudgeTimer) return;
+      if (!started) return;
+      // Reset even when a debounce is already pending or a sweep is in flight: the write is new
+      // information, and the in-flight sweep's post-plan would otherwise keep the escalated wait.
+      idleStreak = 0;
+      armedForFuture = false;
+      if (nudgeTimer) return;
       nudgeTimer = setTimeout(() => {
         nudgeTimer = null;
         replan().catch((err) => logger.error('[REMINDERS] replan failed:', err));
@@ -158,4 +221,6 @@ function createReminderScheduler({
   };
 }
 
-module.exports = { createReminderScheduler, MAX_SLEEP_MS, MIN_GAP_MS, BACKOFF_MS, STEP_TIMEOUT_MS };
+module.exports = {
+  createReminderScheduler, MAX_SLEEP_MS, LEADER_LOCK_IDLE_REPLAN_MS, MIN_GAP_MS, BACKOFF_MS, STEP_TIMEOUT_MS,
+};

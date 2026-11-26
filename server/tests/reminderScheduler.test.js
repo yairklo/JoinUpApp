@@ -1,5 +1,5 @@
 const {
-  createReminderScheduler, MAX_SLEEP_MS, MIN_GAP_MS, BACKOFF_MS, STEP_TIMEOUT_MS,
+  createReminderScheduler, MAX_SLEEP_MS, LEADER_LOCK_IDLE_REPLAN_MS, MIN_GAP_MS, BACKOFF_MS, STEP_TIMEOUT_MS,
 } = require('../services/reminderScheduler');
 const { SLACK_MS } = require('../services/reminderWake');
 const { planNextReminderWake } = require('../services/reminderWake');
@@ -222,6 +222,147 @@ describe('createReminderScheduler - review hardening', () => {
     await jest.advanceTimersByTimeAsync(0);
     await jest.advanceTimersByTimeAsync(BACKOFF_MS[0] + 10);       // second sweep sent 2 -> reset
     expect(s.state().nextWakeAt - Date.now()).toBeLessThanOrEqual(MIN_GAP_MS);
+    await jest.advanceTimersByTimeAsync(MIN_GAP_MS + 10);          // third sweep resolves undefined
+    expect(s.state().nextWakeAt - Date.now()).toBeLessThanOrEqual(MIN_GAP_MS);
+  });
+
+  test('a thrown sweep with an overdue plan backs off instead of retrying every minute', async () => {
+    const sweep = jest.fn().mockRejectedValue(new Error('boom'));
+    const planNextWake = jest.fn(async () => Date.now() - 1000);
+    const s = createReminderScheduler({ sweep, planNextWake, logger: quiet });
+    s.start();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(s.state().nextWakeAt - Date.now()).toBe(BACKOFF_MS[0]);
+    await jest.advanceTimersByTimeAsync(10 * MIN);
+    expect(sweep.mock.calls.length).toBeLessThanOrEqual(3);
+  });
+
+  // Gated match due at T0 (tournamentsPublic off, so the sweep sends nothing); a game starts at
+  // T0+60 with a 30-min lead, so its reminder moment is T0+30. Without a future cap the wakes
+  // land at ~T0+1, +6, +21, +81 and the game reminder is never armed.
+  test('an overdue skipped reminder does not hide a later one due inside the back-off', async () => {
+    const T0 = Date.now();
+    const matchMoment = T0;
+    const gameMoment = T0 + 30 * MIN;
+    const sweeps = [];
+    const sweep = jest.fn(async () => { sweeps.push(Date.now()); return 0; });
+    const planNextWake = jest.fn(async () => {
+      const t = Date.now();
+      const moments = [matchMoment, gameMoment];
+      const future = moments.filter((m) => m > t);
+      return {
+        at: Math.min(...moments) + SLACK_MS,
+        nextFuture: future.length ? Math.min(...future) + SLACK_MS : null,
+      };
+    });
+    const s = createReminderScheduler({ sweep, planNextWake, logger: quiet });
+    s.start();
+    await jest.advanceTimersByTimeAsync(0);
+    await jest.advanceTimersByTimeAsync(31 * MIN);
+    const near = (minute) => sweeps.some((t) => Math.abs(t - (T0 + minute * MIN)) <= 1500);
+    expect(near(0)).toBe(true);
+    expect(near(1)).toBe(true);
+    expect(near(6)).toBe(true);
+    expect(near(21)).toBe(true);
+    expect(near(30)).toBe(true);
+    expect(sweeps).toHaveLength(5);
+    s.stop();
+  });
+
+  test('a nudge during an overdue sweep clears the escalated back-off for that sweep', async () => {
+    let release;
+    const sweep = jest.fn()
+      .mockResolvedValueOnce(0)
+      .mockImplementationOnce(() => new Promise((resolve) => { release = () => resolve(0); }));
+    const planNextWake = jest.fn(async () => Date.now() - 1000);
+    const s = createReminderScheduler({ sweep, planNextWake, debounceMs: 60 * 1000, logger: quiet });
+    s.start();
+    await jest.advanceTimersByTimeAsync(0);                  // streak 1, next wake +5
+    await jest.advanceTimersByTimeAsync(BACKOFF_MS[0] + 10); // second sweep is in flight, streak still 1
+    s.nudge();                                                // replan is debounced far past this sweep
+    release();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(s.state().nextWakeAt - Date.now()).toBe(BACKOFF_MS[0]); // 5 min, not the escalated 15
+    s.stop();
+  });
+
+  test('a failure at a future-capped wake retries in a minute, not on the escalated rung', async () => {
+    const T0 = Date.now();
+    const matchMoment = T0 - 30 * MIN; // gated match, already overdue
+    const gameMoment = T0 + 25 * MIN;  // start at T0+85 with the default 60-min lead
+    const sweeps = [];
+    let failedAtCap = false;
+    const sweep = jest.fn(async () => {
+      const t = Date.now();
+      sweeps.push(t);
+      if (!failedAtCap && t >= gameMoment) {
+        failedAtCap = true;
+        throw new Error('boom');
+      }
+      return 0;
+    });
+    const planNextWake = jest.fn(async () => {
+      const t = Date.now();
+      const moments = [matchMoment, gameMoment];
+      const future = moments.filter((m) => m > t);
+      return {
+        at: Math.min(...moments) + SLACK_MS,
+        nextFuture: future.length ? Math.min(...future) + SLACK_MS : null,
+      };
+    });
+    const s = createReminderScheduler({ sweep, planNextWake, logger: quiet });
+    s.start();
+    await jest.advanceTimersByTimeAsync(0);
+    await jest.advanceTimersByTimeAsync(28 * MIN);
+    const capped = gameMoment + SLACK_MS;
+    const capSweep = sweeps.find((t) => Math.abs(t - capped) <= 1500);
+    const retry = sweeps.find((t) => Math.abs(t - (capped + MIN_GAP_MS)) <= 1500);
+    expect(capSweep).toEqual(expect.any(Number));
+    expect(retry).toEqual(expect.any(Number));
+    expect(sweeps.some((t) => t > capped + 2 * MIN && t < capped + 30 * MIN)).toBe(false);
+    expect(s.state().nextWakeAt - retry).toBeLessThanOrEqual(BACKOFF_MS[0] + 50);
+    expect(s.state().nextWakeAt - retry).toBeGreaterThan(MIN_GAP_MS);
+    s.stop();
+  });
+
+  test('a write-triggered nudge resets the idle back-off streak', async () => {
+    const sweep = jest.fn().mockResolvedValue(0);
+    const planNextWake = jest.fn(async () => Date.now() - 1000);
+    const s = createReminderScheduler({ sweep, planNextWake, debounceMs: 1000, logger: quiet });
+    s.start();
+    await jest.advanceTimersByTimeAsync(0);                        // streak 1, wake +5
+    await jest.advanceTimersByTimeAsync(BACKOFF_MS[0] + 10);       // streak 2, wake +15
+    expect(s.state().nextWakeAt - Date.now()).toBeGreaterThan(BACKOFF_MS[0]);
+    s.nudge();
+    await jest.advanceTimersByTimeAsync(1500);                     // re-plan pulls the overdue wake in
+    await jest.advanceTimersByTimeAsync(MIN_GAP_MS + 10);          // fresh streak: back off 5, not 60
+    expect(s.state().nextWakeAt - Date.now()).toBeLessThanOrEqual(BACKOFF_MS[0] + 50);
+    s.stop();
+  });
+
+  test('idleReplanMs shortens the nothing-upcoming sleep without chopping a known future wake', async () => {
+    const idle = createReminderScheduler({
+      sweep: jest.fn().mockResolvedValue(undefined),
+      planNextWake: jest.fn().mockResolvedValue(null),
+      idleReplanMs: LEADER_LOCK_IDLE_REPLAN_MS,
+      logger: quiet,
+    });
+    idle.start();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(idle.state().nextWakeAt - Date.now()).toBe(LEADER_LOCK_IDLE_REPLAN_MS);
+    idle.stop();
+
+    const later = Date.now() + 3 * HOUR;
+    const planned = createReminderScheduler({
+      sweep: jest.fn().mockResolvedValue(undefined),
+      planNextWake: jest.fn().mockResolvedValue(later),
+      idleReplanMs: LEADER_LOCK_IDLE_REPLAN_MS,
+      logger: quiet,
+    });
+    planned.start();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(planned.state().nextWakeAt).toBe(later);
+    planned.stop();
   });
 
   test('a hung sweep is abandoned after the step timeout and scheduling continues', async () => {
@@ -279,14 +420,31 @@ describe('planNextReminderWake (glue)', () => {
     expect(await planNextReminderWake({ prisma: prismaWith(null, null), now })).toBeNull();
   });
 
-  test('earliest of the game moment and (match - 1h)', async () => {
+  test('earliest of the game moment and (match - 1h), which is also still ahead', async () => {
     const game = new Date(now.getTime() + 5 * HOUR);
     const match = new Date(now.getTime() + 4 * HOUR); // reminder at +3h
-    expect(await planNextReminderWake({ prisma: prismaWith(game, match), now })).toBe(now.getTime() + 3 * HOUR + SLACK_MS);
+    const at = now.getTime() + 3 * HOUR + SLACK_MS;
+    expect(await planNextReminderWake({ prisma: prismaWith(game, match), now })).toEqual({ at, nextFuture: at });
   });
 
   test('an already-due moment is reported as past (the scheduler floors / backs off)', async () => {
     const past = new Date(now.getTime() - HOUR);
-    expect(await planNextReminderWake({ prisma: prismaWith(past, null), now })).toBe(past.getTime() + SLACK_MS);
+    expect(await planNextReminderWake({ prisma: prismaWith(past, null), now })).toEqual({
+      at: past.getTime() + SLACK_MS,
+      nextFuture: null,
+    });
+  });
+
+  test('a past minimum does not hide a later future column', async () => {
+    const past = new Date(now.getTime() - HOUR);
+    const future = new Date(now.getTime() + 2 * HOUR);
+    const prisma = {
+      $queryRaw: jest.fn()
+        .mockResolvedValueOnce([{ moment: past, future }])
+        .mockResolvedValueOnce([{ at: null, futureAt: null }]),
+    };
+    const w = await planNextReminderWake({ prisma, now });
+    expect(w.at).toBe(past.getTime() + SLACK_MS);
+    expect(w.nextFuture).toBe(future.getTime() + SLACK_MS);
   });
 });

@@ -9,7 +9,7 @@
  *
  * start()/stop() of the jobs themselves are the only places jobs begin/end in either mode.
  */
-const { createReminderScheduler } = require('./reminderScheduler');
+const { createReminderScheduler, LEADER_LOCK_IDLE_REPLAN_MS } = require('./reminderScheduler');
 
 function createJobsRuntime({
   enabled,                 // RUN_BACKGROUND_JOBS gate (and not Jest)
@@ -23,7 +23,7 @@ function createJobsRuntime({
   runWeeklySeriesGeneration,
   runTournamentReminders = async () => {},
   runGameReminders = async () => {},
-  planReminderWake = null,  // async (now: Date) => epoch ms | null; null dep = fixed 5-min cadence
+  planReminderWake = null,  // async (now) => ms | { at, nextFuture } | null; null dep = fixed 5-min cadence
   createLeaderLock,
   getRedis,
   adapterEnabled = () => false,
@@ -56,21 +56,27 @@ function createJobsRuntime({
     // Tournament + game reminders: one sweep now, then event-driven (services/reminderScheduler.js)
     // — it sleeps until the next reminder window opens instead of polling the DB every 5 min, so
     // Neon can autosuspend. Each match is claimed in the DB, so a duplicate runner is a no-op.
-    // Resolves to how many reminders went out (undefined when a runner reports nothing), which
-    // the scheduler uses to tell "overdue but nothing sendable" from a normal wake.
+    // Resolves to how many reminders went out. undefined = a runner reported no count (no back-off).
+    // A throw is different: return 0 so an overdue plan backs off instead of sweeping every minute
+    // for as long as the failure lasts. Sends on the other runner are already claimed.
     const sweep = async () => {
+      let failed = false;
       const [tournament, game] = await Promise.all([
         Promise.resolve(runTournamentReminders({ io: jobIo, shouldContinue: mayContinue }))
-          .catch((e) => { logger.error('[JOBS] tournament reminder sweep failed:', e); return null; }),
+          .catch((e) => { logger.error('[JOBS] tournament reminder sweep failed:', e); failed = true; return null; }),
         Promise.resolve(runGameReminders({ io: jobIo, shouldContinue: mayContinue }))
-          .catch((e) => { logger.error('[JOBS] game reminder sweep failed:', e); return null; }),
+          .catch((e) => { logger.error('[JOBS] game reminder sweep failed:', e); failed = true; return null; }),
       ]);
+      if (failed) return 0;
       const t = tournament && typeof tournament.reminded === 'number' ? tournament.reminded : null;
       const g = game && typeof game.sent === 'number' ? game.sent : null;
-      return t === null || g === null ? undefined : t + g; // a failed/unknown sweep: no back-off
+      return t === null || g === null ? undefined : t + g;
     };
     reminderScheduler = createReminderScheduler({
       sweep, planNextWake: planReminderWake, shouldContinue: mayContinue, logger,
+      // A lost non-leader publish is otherwise invisible until the 6h cap. Re-plan sooner when
+      // nothing is scheduled; a concrete future moment still sleeps until that moment.
+      ...(useLeaderLock ? { idleReplanMs: LEADER_LOCK_IDLE_REPLAN_MS } : {}),
     });
     // Game writes (gameScheduler.resyncGame) and tournament/settings routes nudge through here.
     if (typeof gameScheduler.setReminderNudge === 'function') {
