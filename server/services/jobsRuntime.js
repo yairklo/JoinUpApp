@@ -9,6 +9,9 @@
  *
  * start()/stop() of the jobs themselves are the only places jobs begin/end in either mode.
  */
+const { createReminderScheduler } = require('./reminderScheduler');
+const { clearReminderDirty, startReminderDirtyWatch } = require('./reminderDirty');
+
 function createJobsRuntime({
   enabled,                 // RUN_BACKGROUND_JOBS gate (and not Jest)
   httpEnabled,             // this process serves HTTP (false for worker.js)
@@ -21,6 +24,7 @@ function createJobsRuntime({
   runWeeklySeriesGeneration,
   runTournamentReminders = async () => {},
   runGameReminders = async () => {},
+  planReminderWake = null,  // async (now) => ms | { at, nextFuture } | null; null dep = fixed 5-min cadence
   createLeaderLock,
   getRedis,
   adapterEnabled = () => false,
@@ -31,7 +35,8 @@ function createJobsRuntime({
 }) {
   let active = false;
   let seriesTimer = null;
-  let reminderTimer = null;
+  let reminderScheduler = null;
+  let stopDirtyWatch = null;
   let lock = null;
 
   const mayContinue = () => active && (!lock || lock.isLeader());
@@ -50,16 +55,50 @@ function createJobsRuntime({
       24 * 60 * 60 * 1000,
     );
     runWeeklySeriesGeneration({ shouldContinue: mayContinue }).catch(() => { });
-    // Tournament + game reminders: every 5 min, plus once now. Each match is claimed in the
-    // DB, so a duplicate runner would be a no-op.
-    const sweep = () => {
-      runTournamentReminders({ io: jobIo, shouldContinue: mayContinue })
-        .catch((e) => logger.error('[JOBS] tournament reminder sweep failed:', e));
-      runGameReminders({ io: jobIo, shouldContinue: mayContinue })
-        .catch((e) => logger.error('[JOBS] game reminder sweep failed:', e));
+    // Tournament + game reminders: one sweep now, then event-driven (services/reminderScheduler.js)
+    // — it sleeps until the next reminder window opens instead of polling the DB every 5 min, so
+    // Neon can autosuspend. Each match is claimed in the DB, so a duplicate runner is a no-op.
+    // Resolves to how many reminders went out. undefined = a runner reported no count (no back-off).
+    // A throw is different: return 0 so an overdue plan backs off instead of sweeping every minute
+    // for as long as the failure lasts. Sends on the other runner are already claimed.
+    const sweep = async () => {
+      let failed = false;
+      const [tournament, game] = await Promise.all([
+        Promise.resolve(runTournamentReminders({ io: jobIo, shouldContinue: mayContinue }))
+          .catch((e) => { logger.error('[JOBS] tournament reminder sweep failed:', e); failed = true; return null; }),
+        Promise.resolve(runGameReminders({ io: jobIo, shouldContinue: mayContinue }))
+          .catch((e) => { logger.error('[JOBS] game reminder sweep failed:', e); failed = true; return null; }),
+      ]);
+      if (failed) return 0;
+      const t = tournament && typeof tournament.reminded === 'number' ? tournament.reminded : null;
+      const g = game && typeof game.sent === 'number' ? game.sent : null;
+      return t === null || g === null ? undefined : t + g;
     };
-    reminderTimer = setInterval(sweep, 5 * 60 * 1000);
-    sweep();
+    reminderScheduler = createReminderScheduler({
+      sweep, planNextWake: planReminderWake, shouldContinue: mayContinue, logger,
+    });
+    // Game writes (gameScheduler.resyncGame) and tournament/settings routes nudge through here.
+    if (typeof gameScheduler.setReminderNudge === 'function') {
+      gameScheduler.setReminderNudge(() => reminderScheduler && reminderScheduler.nudge());
+    }
+    // A stale dirty flag from before this process became leader is covered by the sweep below.
+    // Drop it first so the 60s watch does not immediately plan again. Redis only — no Prisma.
+    if (useLeaderLock) {
+      await clearReminderDirty({ getClient: getRedis, logger });
+    }
+    reminderScheduler.start();
+    // Lost cross-process wakes (publish failed) set a Redis key. While we lead, GET it every
+    // 60s and nudge only if it was set, then DEL. An empty key does not touch the planner or
+    // the DB. A delivered wake clears the key itself, so this watch does not plan again.
+    // Direct mode has no leader and does not run this watch.
+    if (useLeaderLock) {
+      stopDirtyWatch = startReminderDirtyWatch({
+        getClient: getRedis,
+        logger,
+        shouldRun: mayContinue,
+        onDirty: () => { if (reminderScheduler) reminderScheduler.nudge(); },
+      });
+    }
     // Drain any review backlog left by a crash/redeploy/previous leader.
     gameScheduler.triggerReviewQueue();
     logger.log('🔔 Notification workers started');
@@ -68,7 +107,9 @@ function createJobsRuntime({
   async function stopNow() {
     active = false;
     if (seriesTimer) { clearInterval(seriesTimer); seriesTimer = null; }
-    if (reminderTimer) { clearInterval(reminderTimer); reminderTimer = null; }
+    if (stopDirtyWatch) { stopDirtyWatch(); stopDirtyWatch = null; }
+    if (reminderScheduler) { reminderScheduler.stop(); reminderScheduler = null; }
+    if (typeof gameScheduler.setReminderNudge === 'function') gameScheduler.setReminderNudge(null);
     if (typeof stopCleanupWorker === 'function') stopCleanupWorker();
     gameScheduler.stop();
     logger.log('⏹️  Background jobs stopped');

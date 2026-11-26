@@ -3,6 +3,7 @@
 // timer instead of the whole table being scanned every 30-60s — that polling never let Neon's
 // compute suspend, since the DB was touched every tick regardless of whether anything was due.
 const { lockGameRow } = require('../utils/gameRowLock');
+const { markReminderDirty, clearReminderDirty } = require('./reminderDirty');
 
 const MAX_TIMEOUT = 2_147_000_000; // ~24.8 days, safely under Node's 2^31-1 ms setTimeout cap
 // A timer may fire a hair before its due time; anything further out is a STALE timer (the row was
@@ -37,6 +38,7 @@ class GameScheduler {
     // Optional extra permission check (leader lock): consulted right before any job runs, so a
     // process that was frozen past its lease cannot fire timers before its demotion is processed.
     this.runGuard = null;
+    this.reminderNudge = null;
   }
 
   setRunGuard(fn) {
@@ -71,7 +73,51 @@ class GameScheduler {
     if (!this.enabled || !msg) return Promise.resolve();
     if (msg.type === 'resync') return this.resyncGameById(msg.gameId);
     if (msg.type === 'reviewQueue') { this.triggerReviewQueue(); return Promise.resolve(); }
+    if (msg.type === 'remindersReplan') { this.nudgeReminders(); return Promise.resolve(); }
     return Promise.resolve();
+  }
+
+  // The reminder driver (jobsRuntime) registers itself here while this process is the job runner.
+  setReminderNudge(fn) {
+    this.reminderNudge = fn;
+  }
+
+  // Something that can create or move a reminder moment changed (tournament match, reminder lead).
+  // The leader re-plans its next sweep; any other process forwards the signal to it.
+  nudgeReminders() {
+    if (!this.enabled) {
+      this._publishReminderWake();
+      return;
+    }
+    this._applyLocalNudge();
+  }
+
+  // The wake is being planned here. Drop the backup key so the 60s watch does not plan again.
+  _applyLocalNudge() {
+    if (!this.reminderNudge) return;
+    this.reminderNudge();
+    clearReminderDirty();
+  }
+
+  // A failed publish used to vanish until the next 6h re-plan. Log it, and also SET a Redis
+  // dirty key (no DB) so the leader can notice within a minute even when the publish never
+  // arrives. The SET is best-effort and still runs when publish throws or rejects.
+  _publishReminderWake() {
+    if (this.publish) {
+      let published;
+      try {
+        published = this.publish({ type: 'remindersReplan' });
+      } catch (err) {
+        console.error('[SCHEDULER] reminder wake publish failed:', err);
+        published = undefined;
+      }
+      if (published && typeof published.then === 'function') {
+        published.catch((err) => {
+          console.error('[SCHEDULER] reminder wake publish failed:', err);
+        });
+      }
+    }
+    markReminderDirty();
   }
 
   // Lets a process that doesn't run the scheduler itself (e.g. the web API when split from
@@ -120,7 +166,13 @@ class GameScheduler {
     if (!game || !game.id) return;
 
     if (!this.enabled) {
-      if (this.publish) this.publish({ type: 'resync', gameId: game.id });
+      // The leader's resync is what nudges reminders. A lost resync is a lost reminder wake,
+      // so the same Redis dirty key covers it. SET even when publish throws.
+      try {
+        if (this.publish) this.publish({ type: 'resync', gameId: game.id });
+      } finally {
+        markReminderDirty();
+      }
       return;
     }
 
@@ -150,6 +202,8 @@ class GameScheduler {
       this._disarm(`completion:${game.id}`);
     }
 
+    // A new/moved/cancelled game can change when the next reminder window opens (debounced).
+    this._applyLocalNudge();
   }
 
   // Re-fetches and resyncs a single game by id — used when this process's scheduler is
@@ -262,6 +316,8 @@ class GameScheduler {
     }, { timeout: 20000, maxWait: 10000 });
 
     if (drew) {
+      // Winners just became CONFIRMED: new reminder moments (may run on a non-leader: forwards).
+      this.nudgeReminders();
       console.log(`🎲 [SCHEDULER] Lottery executed for game ${gameId} at ${now.toISOString()}`);
     }
   }
@@ -311,7 +367,9 @@ class GameScheduler {
     console.log(`🏁 [SCHEDULER] Auto-completed game ${game.id}.`);
   }
 
-  // Game reminders are a per-user sweep now (services/gameReminders.js), not a per-game timer.
+  // Game reminders are a per-user sweep (services/gameReminders.js), driven by
+  // services/reminderScheduler.js: it sleeps until the next reminder window and is nudged by
+  // resyncGame / nudgeReminders — not a per-game timer, and not a fixed-interval poll.
 
   // --- review queue (FlaggedMessage backlog table - not timestamp-driven like the above,
   // so it's triggered on insert instead of armed against a due column). ----------------------

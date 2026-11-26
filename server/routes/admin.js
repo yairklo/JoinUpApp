@@ -3,6 +3,7 @@ const { prisma } = require('../lib/prisma');
 const { authenticateToken, clerkClient, invalidateClerkUser } = require('../utils/auth');
 const { disconnectUserSockets } = require('../utils/socketChatRooms');
 const { requireAdmin } = require('../utils/admin');
+const gameScheduler = require('../services/gameScheduler');
 const { getSetting, setSetting } = require('../utils/appSettings');
 const { evictUnauthorizedTournamentSockets } = require('../utils/tournamentGate');
 const { deleteMessageFromChat } = require('../workers/reviewWorker');
@@ -526,6 +527,8 @@ router.put('/settings', authenticateToken, requireAdmin, async (req, res) => {
     for (const key of Object.keys(SETTING_DEFAULTS)) {
       if (Object.prototype.hasOwnProperty.call(body, key)) await setSetting(key, body[key]);
     }
+    // The gate decides who tournament reminders go to; wake the reminder planner on any change.
+    if (Object.prototype.hasOwnProperty.call(body, 'tournamentsPublic')) gameScheduler.nudgeReminders();
     if (body.tournamentsPublic === false) {
       // Sockets that joined while tournaments were public must not keep receiving live updates.
       evictUnauthorizedTournamentSockets(req.app.get('io')).catch((e) => console.error('[admin] socket eviction failed:', e && e.message));

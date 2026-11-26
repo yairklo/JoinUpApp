@@ -8,6 +8,8 @@ const results = require('../services/tournamentResultService');
 const notify = require('../services/tournamentNotifications');
 const { tournamentsGate, isTournamentsPublic, canViewTournaments } = require('../utils/tournamentGate');
 
+const gameScheduler = require('../services/gameScheduler');
+
 const router = express.Router();
 
 /** Wraps an async handler: TournamentError -> {error, code, ...extra}, anything else -> 500. */
@@ -37,6 +39,16 @@ router.get('/capabilities', attachOptionalUser, handle(async (req) => {
 }));
 
 router.use(tournamentsGate);
+
+// Any successful tournament mutation (schedule, team assignment, results, status change) can create
+// or move a "match starting soon" moment; the reminder driver sleeps between windows, so wake its
+// planner. Debounced and forwarded to the job leader if this process isn't it.
+router.use((req, res, next) => {
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    res.once('close', () => { if (res.statusCode < 400) gameScheduler.nudgeReminders(); });
+  }
+  next();
+});
 
 // Pending team invitations of the caller; also before `/:id`.
 router.get('/my-invites', authenticateToken, handle((req) => teams.myInvites(req.user)));
