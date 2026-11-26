@@ -9,7 +9,8 @@
  *
  * start()/stop() of the jobs themselves are the only places jobs begin/end in either mode.
  */
-const { createReminderScheduler, LEADER_LOCK_IDLE_REPLAN_MS } = require('./reminderScheduler');
+const { createReminderScheduler } = require('./reminderScheduler');
+const { clearReminderDirty, startReminderDirtyWatch } = require('./reminderDirty');
 
 function createJobsRuntime({
   enabled,                 // RUN_BACKGROUND_JOBS gate (and not Jest)
@@ -35,6 +36,7 @@ function createJobsRuntime({
   let active = false;
   let seriesTimer = null;
   let reminderScheduler = null;
+  let stopDirtyWatch = null;
   let lock = null;
 
   const mayContinue = () => active && (!lock || lock.isLeader());
@@ -74,15 +76,28 @@ function createJobsRuntime({
     };
     reminderScheduler = createReminderScheduler({
       sweep, planNextWake: planReminderWake, shouldContinue: mayContinue, logger,
-      // A lost non-leader publish is otherwise invisible until the 6h cap. Re-plan sooner when
-      // nothing is scheduled; a concrete future moment still sleeps until that moment.
-      ...(useLeaderLock ? { idleReplanMs: LEADER_LOCK_IDLE_REPLAN_MS } : {}),
     });
     // Game writes (gameScheduler.resyncGame) and tournament/settings routes nudge through here.
     if (typeof gameScheduler.setReminderNudge === 'function') {
       gameScheduler.setReminderNudge(() => reminderScheduler && reminderScheduler.nudge());
     }
+    // A stale dirty flag from before this process became leader is covered by the sweep below.
+    // Drop it first so the 60s watch does not immediately plan again. Redis only — no Prisma.
+    if (useLeaderLock) {
+      await clearReminderDirty({ getClient: getRedis, logger });
+    }
     reminderScheduler.start();
+    // Lost cross-process wakes (publish failed) set a Redis key. While we lead, GETDEL it every
+    // 60s and nudge only if it was set. An empty key does not touch the planner or the DB.
+    // Direct mode has no leader and does not run this watch.
+    if (useLeaderLock) {
+      stopDirtyWatch = startReminderDirtyWatch({
+        getClient: getRedis,
+        logger,
+        shouldRun: mayContinue,
+        onDirty: () => { if (reminderScheduler) reminderScheduler.nudge(); },
+      });
+    }
     // Drain any review backlog left by a crash/redeploy/previous leader.
     gameScheduler.triggerReviewQueue();
     logger.log('🔔 Notification workers started');
@@ -91,6 +106,7 @@ function createJobsRuntime({
   async function stopNow() {
     active = false;
     if (seriesTimer) { clearInterval(seriesTimer); seriesTimer = null; }
+    if (stopDirtyWatch) { stopDirtyWatch(); stopDirtyWatch = null; }
     if (reminderScheduler) { reminderScheduler.stop(); reminderScheduler = null; }
     if (typeof gameScheduler.setReminderNudge === 'function') gameScheduler.setReminderNudge(null);
     if (typeof stopCleanupWorker === 'function') stopCleanupWorker();

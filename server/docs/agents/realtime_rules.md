@@ -100,6 +100,12 @@ not under Jest).
 - **Signals**: `gameScheduler.resyncGame()` / `triggerReviewQueue()` on a non-leader publish on
   `joinup:scheduler_events`; every job-capable instance subscribes and `gameScheduler.handleSignal`
   acts only on the leader (a standby must never re-publish: that would loop).
+- **Reminder idle**: nothing upcoming sleeps 6h in both modes. Do not add a shorter idle DB
+  re-plan — that keeps Neon from suspending. A non-leader reminder wake (and a non-leader game
+  resync) also `SET joinup:reminders:dirty PX 6h`. The leader clears that key once before its
+  first sweep, then every 60s `GETDEL`s it with a 2s timeout and nudges only if it was set.
+  That check uses Redis only (`services/reminderDirty.js`); it must not call Prisma. Direct mode
+  without Redis is unchanged. Redis down still self-heals at the 6h cap.
 - **Lease enforcement**: the lease is measured from the moment a renew/acquire was *sent* (minus TTL/6
   margin) and a dedicated timer demotes the leader exactly at the deadline, independent of the renew
   tick. Scheduler timers, the review queue and series generation also consult `lock.isLeader()` right

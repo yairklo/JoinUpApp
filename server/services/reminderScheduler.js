@@ -8,9 +8,9 @@
 //
 // Invariants (each has a test):
 //  - While started there is ALWAYS a timer armed (or a sweep/plan in flight that will arm one):
-//    "nothing upcoming" sleeps the idle re-plan (MAX_SLEEP_MS, or idleReplanMs when set), not
-//    forever, and a leadership blip (shouldContinue false) re-arms without DB work. Only stop()
-//    ends scheduling.
+//    "nothing upcoming" sleeps MAX_SLEEP_MS, not forever, and a leadership blip (shouldContinue
+//    false) re-arms without DB work. Only stop() ends scheduling. Both modes use that same idle
+//    sleep — a shorter idle re-plan would query the DB all day and keep Neon awake.
 //  - A stale plan can never push out an earlier wake armed by a nudge in the meantime.
 //  - Sweeps are never closer than MIN_GAP_MS, whatever the planner answers (no hot loop).
 //  - A hung sweep or plan is abandoned after STEP_TIMEOUT_MS, so scheduling can't stall behind it.
@@ -22,13 +22,12 @@
 //    inherit the previous item's rung: if that sweep throws or sends nothing, it retries once
 //    at the minimum gap and the ladder starts over at 5 min. A sweep that sends, a normal
 //    (not overdue-and-empty) plan, or a write-triggered nudge/re-plan resets the streak.
-//  - Any single sleep is capped at MAX_SLEEP_MS and then re-planned, so a missed nudge (a write
-//    on a non-leader without Redis) self-heals within that bound. In leader-lock mode a planner
-//    that finds nothing uses a shorter idle re-plan (LEADER_LOCK_IDLE_REPLAN_MS): long enough
-//    for Neon to suspend, short enough that a lost Redis wake is not stuck for 6h. A known
-//    future moment is not pulled in — chopping every sleep would poll the DB.
+//  - Any single sleep is capped at MAX_SLEEP_MS and then re-planned, so a missed nudge (Redis
+//    down, or direct mode with no Redis) self-heals within that bound. A known future moment is
+//    not pulled in. Leader-lock does not poll sooner: a lost cross-process wake is a Redis dirty
+//    flag (services/reminderDirty.js), checked with no DB access. A nudge that lands while a
+//    sweep is in flight is covered by that sweep's own plan (no second query).
 const MAX_SLEEP_MS = 6 * 60 * 60 * 1000;
-const LEADER_LOCK_IDLE_REPLAN_MS = 15 * 60 * 1000;
 const MIN_GAP_MS = 60 * 1000;
 const STEP_TIMEOUT_MS = 3 * 60 * 1000;              // a hung sweep/plan must not stall scheduling
 const BACKOFF_MS = [5 * 60 * 1000, 15 * 60 * 1000, 60 * 60 * 1000];
@@ -40,7 +39,6 @@ function createReminderScheduler({
   shouldContinue = () => true,            // leader-lock guard, re-checked right before sweeping
   activeMs = 5 * 60 * 1000,               // fallback cadence when there is no planner / it fails
   maxSleepMs = MAX_SLEEP_MS,
-  idleReplanMs = null,                    // null → maxSleepMs; leader-lock passes a shorter idle gap
   minGapMs = MIN_GAP_MS,
   debounceMs = 1000,
   logger = console,
@@ -54,17 +52,16 @@ function createReminderScheduler({
   let idleStreak = 0; // consecutive overdue-but-nothing-sent (or failed) sweeps
   // The armed timer was shortened to a later reminder, not left on the streak's own rung.
   let armedForFuture = false;
-  const nothingUpcomingMs = idleReplanMs == null ? maxSleepMs : idleReplanMs;
 
   // A number is the earliest moment only (tests, and any caller that has not grown a future).
   // An object also carries the earliest moment still ahead, which caps an overdue back-off.
   function normalizePlan(raw, t) {
-    if (raw == null) return { at: t + nothingUpcomingMs, nextFuture: null };
+    if (raw == null) return { at: t + maxSleepMs, nextFuture: null };
     if (typeof raw === 'number') return { at: raw, nextFuture: null };
     if (typeof raw === 'object') {
       let at;
       if (typeof raw.at === 'number') at = raw.at;
-      else if (raw.at == null) at = t + nothingUpcomingMs;
+      else if (raw.at == null) at = t + maxSleepMs;
       else at = t + activeMs;
       const nextFuture = typeof raw.nextFuture === 'number' ? raw.nextFuture : null;
       return { at, nextFuture };
@@ -222,5 +219,5 @@ function createReminderScheduler({
 }
 
 module.exports = {
-  createReminderScheduler, MAX_SLEEP_MS, LEADER_LOCK_IDLE_REPLAN_MS, MIN_GAP_MS, BACKOFF_MS, STEP_TIMEOUT_MS,
+  createReminderScheduler, MAX_SLEEP_MS, MIN_GAP_MS, BACKOFF_MS, STEP_TIMEOUT_MS,
 };

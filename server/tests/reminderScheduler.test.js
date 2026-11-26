@@ -1,5 +1,5 @@
 const {
-  createReminderScheduler, MAX_SLEEP_MS, LEADER_LOCK_IDLE_REPLAN_MS, MIN_GAP_MS, BACKOFF_MS, STEP_TIMEOUT_MS,
+  createReminderScheduler, MAX_SLEEP_MS, MIN_GAP_MS, BACKOFF_MS, STEP_TIMEOUT_MS,
 } = require('../services/reminderScheduler');
 const { SLACK_MS } = require('../services/reminderWake');
 const { planNextReminderWake } = require('../services/reminderWake');
@@ -338,31 +338,6 @@ describe('createReminderScheduler - review hardening', () => {
     await jest.advanceTimersByTimeAsync(MIN_GAP_MS + 10);          // fresh streak: back off 5, not 60
     expect(s.state().nextWakeAt - Date.now()).toBeLessThanOrEqual(BACKOFF_MS[0] + 50);
     s.stop();
-  });
-
-  test('idleReplanMs shortens the nothing-upcoming sleep without chopping a known future wake', async () => {
-    const idle = createReminderScheduler({
-      sweep: jest.fn().mockResolvedValue(undefined),
-      planNextWake: jest.fn().mockResolvedValue(null),
-      idleReplanMs: LEADER_LOCK_IDLE_REPLAN_MS,
-      logger: quiet,
-    });
-    idle.start();
-    await jest.advanceTimersByTimeAsync(0);
-    expect(idle.state().nextWakeAt - Date.now()).toBe(LEADER_LOCK_IDLE_REPLAN_MS);
-    idle.stop();
-
-    const later = Date.now() + 3 * HOUR;
-    const planned = createReminderScheduler({
-      sweep: jest.fn().mockResolvedValue(undefined),
-      planNextWake: jest.fn().mockResolvedValue(later),
-      idleReplanMs: LEADER_LOCK_IDLE_REPLAN_MS,
-      logger: quiet,
-    });
-    planned.start();
-    await jest.advanceTimersByTimeAsync(0);
-    expect(planned.state().nextWakeAt).toBe(later);
-    planned.stop();
   });
 
   test('a hung sweep is abandoned after the step timeout and scheduling continues', async () => {

@@ -3,6 +3,7 @@
 // timer instead of the whole table being scanned every 30-60s — that polling never let Neon's
 // compute suspend, since the DB was touched every tick regardless of whether anything was due.
 const { lockGameRow } = require('../utils/gameRowLock');
+const { markReminderDirty } = require('./reminderDirty');
 
 const MAX_TIMEOUT = 2_147_000_000; // ~24.8 days, safely under Node's 2^31-1 ms setTimeout cap
 // A timer may fire a hair before its due time; anything further out is a STALE timer (the row was
@@ -91,22 +92,25 @@ class GameScheduler {
     if (this.reminderNudge) this.reminderNudge();
   }
 
-  // A failed publish used to vanish: the leader only noticed at its next re-plan (up to 6h when
-  // nothing is scheduled). Log it here so the loss is visible even when the publisher doesn't.
+  // A failed publish used to vanish until the next 6h re-plan. Log it, and also SET a Redis
+  // dirty key (no DB) so the leader can notice within a minute even when the publish never
+  // arrives. The SET is best-effort and still runs when publish throws or rejects.
   _publishReminderWake() {
-    if (!this.publish) return;
-    let published;
-    try {
-      published = this.publish({ type: 'remindersReplan' });
-    } catch (err) {
-      console.error('[SCHEDULER] reminder wake publish failed:', err);
-      return;
-    }
-    if (published && typeof published.then === 'function') {
-      published.catch((err) => {
+    if (this.publish) {
+      let published;
+      try {
+        published = this.publish({ type: 'remindersReplan' });
+      } catch (err) {
         console.error('[SCHEDULER] reminder wake publish failed:', err);
-      });
+        published = undefined;
+      }
+      if (published && typeof published.then === 'function') {
+        published.catch((err) => {
+          console.error('[SCHEDULER] reminder wake publish failed:', err);
+        });
+      }
     }
+    markReminderDirty();
   }
 
   // Lets a process that doesn't run the scheduler itself (e.g. the web API when split from
@@ -155,7 +159,13 @@ class GameScheduler {
     if (!game || !game.id) return;
 
     if (!this.enabled) {
-      if (this.publish) this.publish({ type: 'resync', gameId: game.id });
+      // The leader's resync is what nudges reminders. A lost resync is a lost reminder wake,
+      // so the same Redis dirty key covers it. SET even when publish throws.
+      try {
+        if (this.publish) this.publish({ type: 'resync', gameId: game.id });
+      } finally {
+        markReminderDirty();
+      }
       return;
     }
 
